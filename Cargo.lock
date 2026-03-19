@@ -1304,6 +1304,7 @@ dependencies = [
 name = "nucleus-db"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "async-trait",
  "chrono",
  "nucleus-core",
