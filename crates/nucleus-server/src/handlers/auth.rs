@@ -1,4 +1,4 @@
-use axum::{extract::State, http::StatusCode, Json};
+use axum::{extract::Query, extract::State, http::StatusCode, Json};
 use std::sync::Arc;
 
 use nucleus_auth::handlers::sign_in::{SignInRequest, SignInResponse};
@@ -65,4 +65,110 @@ pub async fn handle_sign_out_all(
         session_service: state.session_service.clone(),
     });
     nucleus_auth::handlers::token::handle_sign_out_all(State(token_state), Json(req)).await
+}
+
+// ---------------------------------------------------------------------------
+// Phase 3: OAuth (thin wrappers — need OAuthHandlerState not yet in AppState)
+// ---------------------------------------------------------------------------
+
+pub async fn handle_oauth_start(
+    State(_state): State<Arc<AppState>>,
+    Json(_req): Json<nucleus_auth::handlers::oauth::OAuthStartRequest>,
+) -> Result<(StatusCode, Json<nucleus_auth::handlers::oauth::OAuthStartResponse>), AppError> {
+    // TODO: construct OAuthHandlerState from AppState once providers/state_store are wired
+    todo!()
+}
+
+pub async fn handle_oauth_callback(
+    State(_state): State<Arc<AppState>>,
+    Query(_params): Query<nucleus_auth::handlers::oauth::OAuthCallbackParams>,
+) -> Result<(StatusCode, Json<nucleus_auth::handlers::oauth::OAuthCallbackResponse>), AppError> {
+    // TODO: construct OAuthHandlerState from AppState once providers/state_store are wired
+    todo!()
+}
+
+// ---------------------------------------------------------------------------
+// Phase 3: Magic Link (direct delegation — no state needed)
+// ---------------------------------------------------------------------------
+
+pub async fn handle_send_magic_link(
+    Json(req): Json<nucleus_auth::handlers::magic_link::SendMagicLinkRequest>,
+) -> Result<Json<nucleus_auth::handlers::magic_link::SendMagicLinkResponse>, AppError> {
+    nucleus_auth::handlers::magic_link::handle_send_magic_link(Json(req)).await
+}
+
+pub async fn handle_verify_magic_link(
+    Query(params): Query<nucleus_auth::handlers::magic_link::VerifyMagicLinkQuery>,
+) -> Result<Json<nucleus_auth::handlers::magic_link::VerifyMagicLinkResponse>, AppError> {
+    nucleus_auth::handlers::magic_link::handle_verify_magic_link(Query(params)).await
+}
+
+// ---------------------------------------------------------------------------
+// Phase 3: OTP (direct delegation — no state needed)
+// ---------------------------------------------------------------------------
+
+pub async fn handle_send_otp(
+    Json(req): Json<nucleus_auth::handlers::otp::SendOtpRequest>,
+) -> Result<Json<nucleus_auth::handlers::otp::SendOtpResponse>, AppError> {
+    nucleus_auth::handlers::otp::handle_send_otp(Json(req)).await
+}
+
+pub async fn handle_verify_otp(
+    Json(req): Json<nucleus_auth::handlers::otp::VerifyOtpRequest>,
+) -> Result<Json<nucleus_auth::handlers::otp::VerifyOtpResponse>, AppError> {
+    nucleus_auth::handlers::otp::handle_verify_otp(Json(req)).await
+}
+
+// ---------------------------------------------------------------------------
+// Phase 3: MFA (direct delegation — no state needed)
+// ---------------------------------------------------------------------------
+
+pub async fn handle_mfa_verify(
+    Json(req): Json<nucleus_auth::handlers::mfa::MfaVerifyRequest>,
+) -> Result<Json<nucleus_auth::handlers::mfa::MfaVerifyResponse>, AppError> {
+    nucleus_auth::handlers::mfa::handle_mfa_verify(Json(req)).await
+}
+
+// ---------------------------------------------------------------------------
+// Phase 3: Passkeys (direct delegation — no state needed)
+// ---------------------------------------------------------------------------
+
+pub async fn handle_passkey_register_begin(
+    Json(req): Json<nucleus_auth::handlers::passkey::PasskeyRegisterBeginRequest>,
+) -> Result<Json<nucleus_auth::handlers::passkey::PasskeyRegisterBeginResponse>, AppError> {
+    nucleus_auth::handlers::passkey::handle_passkey_register_begin(Json(req)).await
+}
+
+pub async fn handle_passkey_register_finish(
+    Json(req): Json<nucleus_auth::handlers::passkey::PasskeyRegisterFinishRequest>,
+) -> Result<Json<nucleus_auth::handlers::passkey::PasskeyRegisterFinishResponse>, AppError> {
+    nucleus_auth::handlers::passkey::handle_passkey_register_finish(Json(req)).await
+}
+
+pub async fn handle_passkey_auth_begin(
+    Json(req): Json<nucleus_auth::handlers::passkey::PasskeyAuthBeginRequest>,
+) -> Result<Json<nucleus_auth::handlers::passkey::PasskeyAuthBeginResponse>, AppError> {
+    nucleus_auth::handlers::passkey::handle_passkey_auth_begin(Json(req)).await
+}
+
+pub async fn handle_passkey_auth_finish(
+    Json(req): Json<nucleus_auth::handlers::passkey::PasskeyAuthFinishRequest>,
+) -> Result<Json<nucleus_auth::handlers::passkey::PasskeyAuthFinishResponse>, AppError> {
+    nucleus_auth::handlers::passkey::handle_passkey_auth_finish(Json(req)).await
+}
+
+// ---------------------------------------------------------------------------
+// Phase 3: Password Reset (direct delegation — no state needed)
+// ---------------------------------------------------------------------------
+
+pub async fn handle_request_reset(
+    Json(req): Json<nucleus_auth::handlers::password_reset::RequestResetRequest>,
+) -> Result<Json<nucleus_auth::handlers::password_reset::RequestResetResponse>, AppError> {
+    nucleus_auth::handlers::password_reset::handle_request_reset(Json(req)).await
+}
+
+pub async fn handle_confirm_reset(
+    Json(req): Json<nucleus_auth::handlers::password_reset::ConfirmResetRequest>,
+) -> Result<Json<nucleus_auth::handlers::password_reset::ConfirmResetResponse>, AppError> {
+    nucleus_auth::handlers::password_reset::handle_confirm_reset(Json(req)).await
 }
