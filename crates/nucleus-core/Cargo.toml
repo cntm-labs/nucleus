@@ -13,3 +13,5 @@ chrono = { workspace = true }
 tracing = { workspace = true }
 validator = { workspace = true }
 async-trait = { workspace = true }
+axum = { workspace = true }
+sqlx = { workspace = true }
