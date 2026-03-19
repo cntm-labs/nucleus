@@ -24,5 +24,8 @@ dotenvy = { workspace = true }
 anyhow = { workspace = true }
 uuid = { workspace = true }
 hex = { workspace = true }
+sha2 = { workspace = true }
+async-trait = { workspace = true }
+chrono = { workspace = true }
 sqlx = { workspace = true }
 redis = { workspace = true }
