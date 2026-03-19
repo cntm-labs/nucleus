@@ -1,0 +1,15 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.backends"
+
+[project]
+name = "nucleus-py"
+version = "0.1.0"
+description = "Nucleus authentication SDK for Python"
+requires-python = ">=3.10"
+dependencies = ["httpx>=0.27", "PyJWT[crypto]>=2.9", "cryptography>=43.0"]
+
+[project.optional-dependencies]
+fastapi = ["fastapi>=0.115"]
+django = ["django>=4.2"]
+flask = ["flask>=3.0"]

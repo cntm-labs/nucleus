@@ -1,0 +1,57 @@
+{
+  "name": "@nucleus/node",
+  "version": "0.1.0",
+  "description": "Nucleus authentication SDK for Node.js backends",
+  "type": "module",
+  "main": "./dist/cjs/index.js",
+  "module": "./dist/esm/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/esm/index.js",
+      "require": "./dist/cjs/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./express": {
+      "import": "./dist/esm/express.js",
+      "require": "./dist/cjs/express.js",
+      "types": "./dist/express.d.ts"
+    },
+    "./fastify": {
+      "import": "./dist/esm/fastify.js",
+      "require": "./dist/cjs/fastify.js",
+      "types": "./dist/fastify.d.ts"
+    },
+    "./hono": {
+      "import": "./dist/esm/hono.js",
+      "require": "./dist/cjs/hono.js",
+      "types": "./dist/hono.d.ts"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "jose": "^5.0.0"
+  },
+  "peerDependencies": {
+    "express": ">=4",
+    "fastify": ">=4",
+    "hono": ">=4"
+  },
+  "peerDependenciesMeta": {
+    "express": { "optional": true },
+    "fastify": { "optional": true },
+    "hono": { "optional": true }
+  },
+  "devDependencies": {
+    "typescript": "~5.7.0",
+    "tsup": "^8.0.0",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.0.0"
+  },
+  "engines": { "node": ">=18" }
+}
