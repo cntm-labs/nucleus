@@ -7,6 +7,7 @@ edition = "2021"
 nucleus-core = { path = "../nucleus-core" }
 nucleus-db = { path = "../nucleus-db" }
 argon2 = { workspace = true }
+axum = { workspace = true }
 jsonwebtoken = { workspace = true }
 ring = { workspace = true }
 tokio = { workspace = true }

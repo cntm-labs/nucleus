@@ -1262,6 +1262,7 @@ dependencies = [
  "anyhow",
  "argon2",
  "async-trait",
+ "axum",
  "base64",
  "chrono",
  "jsonwebtoken",
