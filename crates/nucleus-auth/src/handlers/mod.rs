@@ -1,6 +1,9 @@
 pub mod magic_link;
+pub mod mfa;
 pub mod oauth;
 pub mod otp;
+pub mod passkey;
+pub mod password_reset;
 pub mod sign_in;
 pub mod sign_up;
 pub mod token;
