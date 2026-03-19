@@ -233,6 +233,25 @@ impl AuthService {
         session_service.revoke_all_sessions(user_id).await
     }
 
+    /// Expose user repo for OAuth handler.
+    pub fn user_repo(&self) -> &dyn UserRepository {
+        self.user_repo.as_ref()
+    }
+
+    /// Expose credential repo for OAuth handler.
+    pub fn credential_repo(&self) -> &dyn CredentialRepository {
+        self.credential_repo.as_ref()
+    }
+
+    /// Issue a JWT for a given user (public for OAuth handler use).
+    pub fn issue_jwt_for_user(
+        &self,
+        user: &User,
+        project_id: &ProjectId,
+    ) -> Result<String, AppError> {
+        self.issue_jwt(user, project_id)
+    }
+
     fn issue_jwt(&self, user: &User, project_id: &ProjectId) -> Result<String, AppError> {
         let claims = JwtService::build_claims(
             &user.id,
