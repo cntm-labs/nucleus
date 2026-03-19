@@ -1363,8 +1363,10 @@ dependencies = [
 name = "nucleus-server"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "axum",
  "dotenvy",
+ "hex",
  "nucleus-admin-api",
  "nucleus-auth",
  "nucleus-core",
@@ -1374,12 +1376,15 @@ dependencies = [
  "nucleus-org",
  "nucleus-session",
  "nucleus-webhook",
+ "redis",
  "serde",
  "serde_json",
+ "sqlx",
  "tokio",
  "tower-http",
  "tracing",
  "tracing-subscriber",
+ "uuid",
 ]
 
 [[package]]
