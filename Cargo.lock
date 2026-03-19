@@ -1268,6 +1268,7 @@ dependencies = [
  "jsonwebtoken",
  "nucleus-core",
  "nucleus-db",
+ "nucleus-session",
  "rand",
  "ring",
  "rsa",
@@ -1369,7 +1370,9 @@ name = "nucleus-server"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "axum",
+ "chrono",
  "dotenvy",
  "hex",
  "nucleus-admin-api",
@@ -1384,6 +1387,7 @@ dependencies = [
  "redis",
  "serde",
  "serde_json",
+ "sha2",
  "sqlx",
  "tokio",
  "tower-http",

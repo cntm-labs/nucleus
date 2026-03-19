@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 nucleus-core = { path = "../nucleus-core" }
 nucleus-db = { path = "../nucleus-db" }
+nucleus-session = { path = "../nucleus-session" }
 argon2 = { workspace = true }
 axum = { workspace = true }
 jsonwebtoken = { workspace = true }

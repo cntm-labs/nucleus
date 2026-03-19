@@ -6,6 +6,8 @@ use nucleus_db::repos::audit_repo::{AuditRepository, NewSignInAttempt};
 use nucleus_db::repos::credential_repo::{CredentialRepository, NewCredential};
 use nucleus_db::repos::user_repo::{NewUser, User, UserRepository};
 
+use nucleus_session::session::SessionService;
+
 use crate::jwt::{JwtService, SigningKeyPair};
 use crate::password::PasswordService;
 
@@ -175,6 +177,60 @@ impl AuthService {
         let jwt = self.issue_jwt(&user, project_id)?;
 
         Ok((user, jwt))
+    }
+
+    /// Refresh a JWT using a valid session.
+    /// Called when the short-lived JWT expires.
+    pub async fn refresh_token(
+        &self,
+        session_service: &SessionService,
+        session_id: &SessionId,
+        project_id: &ProjectId,
+    ) -> Result<(String, i64), AppError> {
+        // 1. Validate session exists
+        let session = session_service.validate_session(session_id).await?;
+
+        // 2. Get user (verify still active)
+        let user = self
+            .user_repo
+            .find_by_id(&session.project_id, &session.user_id)
+            .await?
+            .ok_or(AppError::Auth(AuthError::SessionRevoked))?;
+
+        // 3. Check not banned
+        if user.banned_at.is_some() {
+            session_service
+                .revoke_session(session_id, &user.id)
+                .await?;
+            return Err(AppError::Auth(AuthError::AccountBanned));
+        }
+
+        // 4. Touch session (update last_active)
+        session_service.touch_session(session_id).await?;
+
+        // 5. Issue new JWT
+        let jwt = self.issue_jwt(&user, project_id)?;
+
+        Ok((jwt, self.jwt_lifetime_secs))
+    }
+
+    /// Sign out — revoke current session.
+    pub async fn sign_out(
+        &self,
+        session_service: &SessionService,
+        session_id: &SessionId,
+        user_id: &UserId,
+    ) -> Result<(), AppError> {
+        session_service.revoke_session(session_id, user_id).await
+    }
+
+    /// Sign out from all devices — revoke all sessions.
+    pub async fn sign_out_all(
+        &self,
+        session_service: &SessionService,
+        user_id: &UserId,
+    ) -> Result<u64, AppError> {
+        session_service.revoke_all_sessions(user_id).await
     }
 
     fn issue_jwt(&self, user: &User, project_id: &ProjectId) -> Result<String, AppError> {
@@ -568,6 +624,137 @@ mod tests {
         }
     }
 
+    // ── Mock SessionRepository (for refresh / sign-out tests) ────────
+
+    use nucleus_db::repos::session_repo::{NewSession, Session, SessionRepository};
+    use std::collections::HashMap;
+
+    struct MockSessionRepo {
+        sessions: Mutex<HashMap<SessionId, Session>>,
+        user_sessions: Mutex<HashMap<UserId, Vec<SessionId>>>,
+    }
+
+    impl MockSessionRepo {
+        fn new() -> Self {
+            Self {
+                sessions: Mutex::new(HashMap::new()),
+                user_sessions: Mutex::new(HashMap::new()),
+            }
+        }
+    }
+
+    #[async_trait]
+    impl SessionRepository for MockSessionRepo {
+        async fn create(&self, session: &NewSession) -> Result<Session, AppError> {
+            let session_id = SessionId::new();
+            let now = Utc::now().to_rfc3339();
+            let s = Session {
+                id: session_id,
+                user_id: session.user_id,
+                project_id: session.project_id,
+                device_type: session.device_type.clone(),
+                device_name: session.device_name.clone(),
+                browser: session.browser.clone(),
+                ip: session.ip.clone(),
+                country_code: None,
+                created_at: now.clone(),
+                last_active_at: now,
+            };
+            self.sessions.lock().unwrap().insert(session_id, s.clone());
+            self.user_sessions
+                .lock()
+                .unwrap()
+                .entry(session.user_id)
+                .or_default()
+                .push(session_id);
+            Ok(s)
+        }
+
+        async fn find_by_id(&self, session_id: &SessionId) -> Result<Option<Session>, AppError> {
+            Ok(self.sessions.lock().unwrap().get(session_id).cloned())
+        }
+
+        async fn update_last_active(&self, session_id: &SessionId) -> Result<(), AppError> {
+            if let Some(s) = self.sessions.lock().unwrap().get_mut(session_id) {
+                s.last_active_at = Utc::now().to_rfc3339();
+            }
+            Ok(())
+        }
+
+        async fn delete(
+            &self,
+            session_id: &SessionId,
+            user_id: &UserId,
+        ) -> Result<(), AppError> {
+            self.sessions.lock().unwrap().remove(session_id);
+            if let Some(ids) = self.user_sessions.lock().unwrap().get_mut(user_id) {
+                ids.retain(|id| id != session_id);
+            }
+            Ok(())
+        }
+
+        async fn delete_all_for_user(&self, user_id: &UserId) -> Result<u64, AppError> {
+            let mut sessions = self.sessions.lock().unwrap();
+            let mut user_sessions = self.user_sessions.lock().unwrap();
+            let ids = user_sessions.remove(user_id).unwrap_or_default();
+            let count = ids.len() as u64;
+            for id in &ids {
+                sessions.remove(id);
+            }
+            Ok(count)
+        }
+
+        async fn list_for_user(&self, user_id: &UserId) -> Result<Vec<Session>, AppError> {
+            let sessions = self.sessions.lock().unwrap();
+            let user_sessions = self.user_sessions.lock().unwrap();
+            let ids = match user_sessions.get(user_id) {
+                Some(ids) => ids.clone(),
+                None => return Ok(vec![]),
+            };
+            Ok(ids
+                .iter()
+                .filter_map(|id| sessions.get(id).cloned())
+                .collect())
+        }
+
+        async fn add_to_revocation_list(
+            &self,
+            _jti: &str,
+            _ttl_secs: u64,
+        ) -> Result<(), AppError> {
+            Ok(())
+        }
+
+        async fn is_revoked(&self, _jti: &str) -> Result<bool, AppError> {
+            Ok(false)
+        }
+    }
+
+    // ── Session test helpers ────────────────────────────────────────
+
+    use nucleus_core::clock::Clock;
+    use nucleus_session::session::{DeviceInfo, SessionService};
+
+    struct TestClock;
+    impl Clock for TestClock {
+        fn now(&self) -> chrono::DateTime<Utc> {
+            Utc::now()
+        }
+    }
+
+    fn make_session_service_with_repo(
+        repo: Arc<dyn SessionRepository>,
+    ) -> SessionService {
+        let clock = Arc::new(TestClock);
+        SessionService::new(repo, clock)
+    }
+
+    fn make_session_service() -> (SessionService, Arc<MockSessionRepo>) {
+        let repo = Arc::new(MockSessionRepo::new());
+        let svc = make_session_service_with_repo(repo.clone());
+        (svc, repo)
+    }
+
     // ── Sign-up tests ────────────────────────────────────────────────
 
     #[tokio::test]
@@ -829,5 +1016,162 @@ mod tests {
             Some("invalid_password".to_string())
         );
         assert_eq!(attempts[0].ip, Some("5.6.7.8".to_string()));
+    }
+
+    // ── Refresh / sign-out tests ────────────────────────────────────
+
+    #[tokio::test]
+    async fn refresh_token_with_valid_session() {
+        let project_id = ProjectId::new();
+        let user = make_test_user(&project_id);
+
+        let user_repo = Arc::new(MockUserRepo::with_user(user.clone()));
+        let cred_repo = Arc::new(MockCredentialRepo::new());
+        let audit_repo = Arc::new(MockAuditRepo::new());
+        let auth_service = make_service(user_repo, cred_repo, audit_repo);
+
+        let (session_service, _repo) = make_session_service();
+
+        // Create a session for the user
+        let (_token, session) = session_service
+            .create_session(&user.id, &project_id, DeviceInfo::default(), 3600)
+            .await
+            .unwrap();
+
+        // Refresh should succeed and return a new JWT
+        let (jwt, expires_in) = auth_service
+            .refresh_token(&session_service, &session.id, &project_id)
+            .await
+            .unwrap();
+
+        assert!(!jwt.is_empty());
+        assert_eq!(expires_in, 3600);
+    }
+
+    #[tokio::test]
+    async fn refresh_token_with_invalid_session_fails() {
+        let project_id = ProjectId::new();
+        let user_repo = Arc::new(MockUserRepo::new());
+        let cred_repo = Arc::new(MockCredentialRepo::new());
+        let audit_repo = Arc::new(MockAuditRepo::new());
+        let auth_service = make_service(user_repo, cred_repo, audit_repo);
+
+        let (session_service, _repo) = make_session_service();
+
+        // Try to refresh with a non-existent session
+        let result = auth_service
+            .refresh_token(&session_service, &SessionId::new(), &project_id)
+            .await;
+
+        assert!(matches!(
+            result,
+            Err(AppError::Auth(AuthError::SessionExpired))
+        ));
+    }
+
+    #[tokio::test]
+    async fn refresh_banned_user_revokes_session() {
+        let project_id = ProjectId::new();
+        let mut user = make_test_user(&project_id);
+        user.banned_at = Some(Utc::now());
+
+        let user_repo = Arc::new(MockUserRepo::with_user(user.clone()));
+        let cred_repo = Arc::new(MockCredentialRepo::new());
+        let audit_repo = Arc::new(MockAuditRepo::new());
+        let auth_service = make_service(user_repo, cred_repo, audit_repo);
+
+        let (session_service, _repo) = make_session_service();
+
+        // Create a session for the banned user
+        let (_token, session) = session_service
+            .create_session(&user.id, &project_id, DeviceInfo::default(), 3600)
+            .await
+            .unwrap();
+
+        // Refresh should fail with AccountBanned
+        let result = auth_service
+            .refresh_token(&session_service, &session.id, &project_id)
+            .await;
+
+        assert!(matches!(
+            result,
+            Err(AppError::Auth(AuthError::AccountBanned))
+        ));
+
+        // Session should have been revoked
+        let validate_result = session_service.validate_session(&session.id).await;
+        assert!(matches!(
+            validate_result,
+            Err(AppError::Auth(AuthError::SessionExpired))
+        ));
+    }
+
+    #[tokio::test]
+    async fn sign_out_revokes_session() {
+        let project_id = ProjectId::new();
+        let user = make_test_user(&project_id);
+
+        let user_repo = Arc::new(MockUserRepo::with_user(user.clone()));
+        let cred_repo = Arc::new(MockCredentialRepo::new());
+        let audit_repo = Arc::new(MockAuditRepo::new());
+        let auth_service = make_service(user_repo, cred_repo, audit_repo);
+
+        let (session_service, _repo) = make_session_service();
+
+        // Create a session
+        let (_token, session) = session_service
+            .create_session(&user.id, &project_id, DeviceInfo::default(), 3600)
+            .await
+            .unwrap();
+
+        // Sign out
+        auth_service
+            .sign_out(&session_service, &session.id, &user.id)
+            .await
+            .unwrap();
+
+        // Session should now be invalid
+        let result = session_service.validate_session(&session.id).await;
+        assert!(matches!(
+            result,
+            Err(AppError::Auth(AuthError::SessionExpired))
+        ));
+    }
+
+    #[tokio::test]
+    async fn sign_out_all_revokes_all_sessions() {
+        let project_id = ProjectId::new();
+        let user = make_test_user(&project_id);
+
+        let user_repo = Arc::new(MockUserRepo::with_user(user.clone()));
+        let cred_repo = Arc::new(MockCredentialRepo::new());
+        let audit_repo = Arc::new(MockAuditRepo::new());
+        let auth_service = make_service(user_repo, cred_repo, audit_repo);
+
+        let (session_service, _repo) = make_session_service();
+
+        // Create 3 sessions
+        for _ in 0..3 {
+            session_service
+                .create_session(&user.id, &project_id, DeviceInfo::default(), 3600)
+                .await
+                .unwrap();
+        }
+
+        // Verify 3 sessions exist
+        let sessions = session_service.list_user_sessions(&user.id).await.unwrap();
+        assert_eq!(sessions.len(), 3);
+
+        // Sign out all
+        let revoked = auth_service
+            .sign_out_all(&session_service, &user.id)
+            .await
+            .unwrap();
+
+        assert_eq!(revoked, 3);
+
+        // All sessions should now be gone
+        let sessions = session_service.list_user_sessions(&user.id).await.unwrap();
+        assert!(sessions.is_empty());
     }
 }
