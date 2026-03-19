@@ -1,4 +1,5 @@
 mod config;
+mod handlers;
 mod middleware;
 mod router;
 mod state;
@@ -8,9 +9,17 @@ use std::sync::Arc;
 use anyhow::Result;
 use tracing_subscriber::EnvFilter;
 
+use nucleus_auth::jwt::JwtService;
+use nucleus_auth::service::AuthService;
+use nucleus_core::clock::SystemClock;
 use nucleus_db::pool::create_pg_pool;
 use nucleus_db::redis::create_redis_pool;
+use nucleus_db::repos::audit_repo::PgAuditRepository;
+use nucleus_db::repos::credential_repo::PgCredentialRepository;
+use nucleus_db::repos::session_repo::RedisSessionRepository;
+use nucleus_db::repos::user_repo::PgUserRepository;
 use nucleus_migrate::run_migrations;
+use nucleus_session::session::SessionService;
 
 use crate::config::Config;
 use crate::router::create_router;
@@ -43,8 +52,40 @@ async fn main() -> Result<()> {
     let redis = create_redis_pool(&config.redis_url).await?;
     tracing::info!("Connected to Redis");
 
+    // Generate signing key pair for JWT
+    let signing_key = Arc::new(
+        JwtService::generate_key_pair("nucleus-key-1")
+            .expect("Failed to generate signing key"),
+    );
+
+    // Create session repository and service
+    let session_repo = Arc::new(RedisSessionRepository::new(redis.clone()));
+    let clock: Arc<dyn nucleus_core::clock::Clock> = Arc::new(SystemClock);
+    let session_service = Arc::new(SessionService::new(session_repo, clock));
+
+    // Create auth service repositories
+    let user_repo = Arc::new(PgUserRepository::new(db.clone()));
+    let credential_repo = Arc::new(PgCredentialRepository::new(db.clone()));
+    let audit_repo = Arc::new(PgAuditRepository::new(db.clone()));
+
+    let auth_service = Arc::new(AuthService::new(
+        user_repo,
+        credential_repo,
+        audit_repo,
+        signing_key.clone(),
+        "https://nucleus.local".to_string(),
+        300, // 5 min JWT lifetime
+    ));
+
     // Build application state
-    let state = Arc::new(AppState::new(db, redis, config.master_encryption_key));
+    let state = Arc::new(AppState::new(
+        db,
+        redis,
+        config.master_encryption_key,
+        auth_service,
+        session_service,
+        signing_key,
+    ));
 
     // Build router
     let app = create_router(state);
