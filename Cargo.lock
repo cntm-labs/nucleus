@@ -1259,13 +1259,17 @@ dependencies = [
 name = "nucleus-auth"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "argon2",
  "async-trait",
+ "base64",
  "chrono",
  "jsonwebtoken",
  "nucleus-core",
  "nucleus-db",
+ "rand",
  "ring",
+ "rsa",
  "serde",
  "serde_json",
  "thiserror",
