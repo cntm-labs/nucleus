@@ -1,2 +1,3 @@
 /target
 *.pem
+dashboard/node_modules
