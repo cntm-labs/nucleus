@@ -70,6 +70,46 @@ pub struct Jwks {
     pub keys: Vec<JwkEntry>,
 }
 
+impl SigningKeyPair {
+    /// Build a JwkEntry from this key pair's public key.
+    /// Parses the RSA public key PEM to extract the modulus (n) and exponent (e),
+    /// encoding them as base64url as required by the JWK spec (RFC 7517).
+    pub fn to_jwk_entry(&self) -> Result<JwkEntry, AppError> {
+        use base64::Engine;
+        use rsa::pkcs8::DecodePublicKey;
+        use rsa::traits::PublicKeyParts;
+        use rsa::RsaPublicKey;
+
+        let public_key = RsaPublicKey::from_public_key_pem(
+            std::str::from_utf8(&self.public_key_pem)
+                .map_err(|e| AppError::Internal(anyhow::anyhow!("Invalid PEM encoding: {}", e)))?,
+        )
+        .map_err(|e| AppError::Internal(anyhow::anyhow!("Failed to parse public key: {}", e)))?;
+
+        let n_bytes = public_key.n().to_bytes_be();
+        let e_bytes = public_key.e().to_bytes_be();
+
+        let n = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&n_bytes);
+        let e = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&e_bytes);
+
+        Ok(JwkEntry {
+            kty: "RSA".to_string(),
+            kid: self.kid.clone(),
+            alg: "RS256".to_string(),
+            use_: "sig".to_string(),
+            n,
+            e,
+        })
+    }
+
+    /// Build a Jwks containing only this key pair's public key.
+    pub fn to_jwks(&self) -> Result<Jwks, AppError> {
+        Ok(Jwks {
+            keys: vec![self.to_jwk_entry()?],
+        })
+    }
+}
+
 pub struct JwtService;
 
 impl JwtService {

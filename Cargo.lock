@@ -1331,6 +1331,7 @@ name = "nucleus-identity"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "axum",
  "chrono",
  "nucleus-core",
  "nucleus-db",
@@ -1355,7 +1356,9 @@ dependencies = [
 name = "nucleus-org"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "async-trait",
+ "axum",
  "chrono",
  "nucleus-core",
  "nucleus-db",
@@ -1374,6 +1377,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "axum",
+ "base64",
  "chrono",
  "dotenvy",
  "hex",
@@ -1419,6 +1423,7 @@ name = "nucleus-webhook"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "axum",
  "chrono",
  "hmac",
  "nucleus-core",

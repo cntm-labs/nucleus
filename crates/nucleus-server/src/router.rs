@@ -8,6 +8,7 @@ use crate::handlers::admin;
 use crate::handlers::auth;
 use crate::handlers::identity;
 use crate::handlers::org;
+use crate::handlers::well_known;
 use crate::middleware::request_id::request_id_middleware;
 use crate::state::AppState;
 
@@ -64,6 +65,8 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .route("/users/:id/unban", post(admin::handle_admin_unban_user));
 
     Router::new()
+        .route("/.well-known/jwks.json", get(well_known::handle_jwks))
+        .route("/.well-known/openid-configuration", get(well_known::handle_openid_configuration))
         .route("/health", get(health_check))
         .nest("/api/v1/auth", auth_routes)
         .nest("/api/v1/users", user_routes)
