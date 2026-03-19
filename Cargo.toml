@@ -1,0 +1,71 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/nucleus-server",
+    "crates/nucleus-core",
+    "crates/nucleus-db",
+    "crates/nucleus-auth",
+    "crates/nucleus-identity",
+    "crates/nucleus-org",
+    "crates/nucleus-session",
+    "crates/nucleus-webhook",
+    "crates/nucleus-admin-api",
+    "crates/nucleus-migrate",
+]
+
+[workspace.dependencies]
+# Web
+axum = "0.8"
+axum-extra = { version = "0.10", features = ["typed-header"] }
+tower = "0.5"
+tower-http = { version = "0.6", features = ["cors", "compression-gzip", "trace", "request-id", "util"] }
+
+# Async
+tokio = { version = "1", features = ["full"] }
+
+# Database
+sqlx = { version = "0.8", features = ["runtime-tokio", "postgres", "uuid", "chrono", "json", "migrate"] }
+redis = { version = "0.27", features = ["tokio-comp", "connection-manager"] }
+
+# Crypto
+argon2 = "0.5"
+aes-gcm = "0.10"
+hmac = "0.12"
+sha2 = "0.10"
+ring = "0.17"
+jsonwebtoken = "9"
+webauthn-rs = { version = "0.5", features = ["danger-allow-state-serialisation"] }
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Validation
+validator = { version = "0.18", features = ["derive"] }
+
+# Observability
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+metrics = "0.24"
+metrics-exporter-prometheus = "0.16"
+
+# Config
+dotenvy = "0.15"
+
+# Time
+chrono = { version = "0.4", features = ["serde"] }
+
+# Utilities
+uuid = { version = "1", features = ["v4", "serde"] }
+thiserror = "2"
+anyhow = "1"
+url = "2"
+base64 = "0.22"
+rand = "0.8"
+hex = "0.4"
+async-trait = "0.1"
+
+[profile.release]
+strip = true
+lto = true
+codegen-units = 1

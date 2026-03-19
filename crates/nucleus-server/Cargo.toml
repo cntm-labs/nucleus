@@ -1,0 +1,23 @@
+[package]
+name = "nucleus-server"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+nucleus-core = { path = "../nucleus-core" }
+nucleus-db = { path = "../nucleus-db" }
+nucleus-auth = { path = "../nucleus-auth" }
+nucleus-identity = { path = "../nucleus-identity" }
+nucleus-org = { path = "../nucleus-org" }
+nucleus-session = { path = "../nucleus-session" }
+nucleus-webhook = { path = "../nucleus-webhook" }
+nucleus-admin-api = { path = "../nucleus-admin-api" }
+nucleus-migrate = { path = "../nucleus-migrate" }
+axum = { workspace = true }
+tower-http = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+dotenvy = { workspace = true }
