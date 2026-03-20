@@ -22,7 +22,7 @@ on:
         description: 'Version to publish (e.g. 0.1.0-dev.2)'
         required: true
         default: '0.1.0-dev.1'
-      dry-run:
+      dry_run:
         description: 'Dry run (do not actually publish)'
         required: false
         type: boolean
@@ -35,7 +35,7 @@ on:
       version:
         required: true
         type: string
-      dry-run:
+      dry_run:
         required: false
         type: boolean
         default: false
@@ -61,13 +61,13 @@ jobs:
       - name: Build
         run: cd sdks/${{ matrix.package }} && npm install && npm run build --if-present
       - name: Publish
-        if: inputs.dry-run == false
+        if: inputs.dry_run == false
         run: cd sdks/${{ matrix.package }} && npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - name: Dry run
-        if: inputs.dry-run == true
-        run: cd sdks/${{ matrix.package }} && npm publish --access public --dry-run
+        if: inputs.dry_run == true
+        run: cd sdks/${{ matrix.package }} && npm publish --access public --dry_run
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -85,13 +85,13 @@ jobs:
       - name: Build
         run: cd sdks/python && python -m build
       - name: Publish
-        if: inputs.dry-run == false
+        if: inputs.dry_run == false
         run: cd sdks/python && twine upload dist/*
         env:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
       - name: Dry run
-        if: inputs.dry-run == true
+        if: inputs.dry_run == true
         run: cd sdks/python && twine check dist/*
 
   # --- Rust ---
@@ -102,13 +102,13 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - name: Publish
-        if: inputs.dry-run == false
+        if: inputs.dry_run == false
         env:
           CRATES_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
         run: cd sdks/rust && cargo publish --token "$CRATES_TOKEN"
       - name: Dry run
-        if: inputs.dry-run == true
-        run: cd sdks/rust && cargo publish --dry-run
+        if: inputs.dry_run == true
+        run: cd sdks/rust && cargo publish --dry_run
 
   # --- Flutter ---
   flutter:
@@ -126,11 +126,11 @@ jobs:
           mkdir -p "$HOME/.config/dart"
           echo "$PUB_CREDENTIALS" > "$HOME/.config/dart/pub-credentials.json"
       - name: Publish
-        if: inputs.dry-run == false
+        if: inputs.dry_run == false
         run: cd sdks/flutter && dart pub publish --force
       - name: Dry run
-        if: inputs.dry-run == true
-        run: cd sdks/flutter && dart pub publish --dry-run
+        if: inputs.dry_run == true
+        run: cd sdks/flutter && dart pub publish --dry_run
 
   # --- NuGet (.NET) ---
   nuget:
@@ -146,12 +146,12 @@ jobs:
           cd sdks/dotnet/src/Nucleus && dotnet pack -c Release -o ../../../../nupkgs
           cd ../../Nucleus.AspNetCore && dotnet pack -c Release -o ../../../../nupkgs
       - name: Publish
-        if: inputs.dry-run == false
+        if: inputs.dry_run == false
         env:
           NUGET_KEY: ${{ secrets.NUGET_API_KEY }}
         run: dotnet nuget push "nupkgs/*.nupkg" --api-key "$NUGET_KEY" --source https://api.nuget.org/v3/index.json
       - name: Dry run
-        if: inputs.dry-run == true
+        if: inputs.dry_run == true
         run: ls -la nupkgs/
 
   # --- Maven Central (Java + Android) ---
@@ -169,7 +169,7 @@ jobs:
           GPG_KEY: ${{ secrets.MAVEN_GPG_KEY }}
         run: echo "$GPG_KEY" | base64 -d | gpg --batch --import
       - name: Deploy Java SDK
-        if: inputs.dry-run == false
+        if: inputs.dry_run == false
         env:
           MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
           MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
@@ -178,7 +178,7 @@ jobs:
           cd sdks/java && mvn deploy -P release \
             -Dgpg.passphrase="$GPG_PASSPHRASE"
       - name: Dry run
-        if: inputs.dry-run == true
+        if: inputs.dry_run == true
         run: cd sdks/java && mvn package -P release -DskipTests
 
   # --- Swift (CocoaPods) ---
@@ -190,12 +190,12 @@ jobs:
       - name: Validate podspec
         run: cd sdks/swift && pod lib lint NucleusSwift.podspec --allow-warnings
       - name: Publish
-        if: inputs.dry-run == false
+        if: inputs.dry_run == false
         run: cd sdks/swift && pod trunk push NucleusSwift.podspec --allow-warnings
         env:
           COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_TOKEN }}
       - name: Dry run
-        if: inputs.dry-run == true
+        if: inputs.dry_run == true
         run: echo "Dry run — podspec validated"
 
   # --- Go ---
@@ -210,21 +210,21 @@ jobs:
       - name: Verify module
         run: cd sdks/go && go vet ./...
       - name: Create tag
-        if: inputs.dry-run == false
+        if: inputs.dry_run == false
         env:
           SDK_VERSION: ${{ inputs.version }}
         run: |
           git tag "sdks/go/v${SDK_VERSION}"
           git push origin "sdks/go/v${SDK_VERSION}"
       - name: Dry run
-        if: inputs.dry-run == true
+        if: inputs.dry_run == true
         env:
           SDK_VERSION: ${{ inputs.version }}
         run: echo "Would create tag sdks/go/v${SDK_VERSION}"
 
   # --- Verify all published packages ---
   verify:
-    if: inputs.dry-run == false && (inputs.sdk == 'all' || inputs.sdk == 'npm' || inputs.sdk == 'python' || inputs.sdk == 'rust')
+    if: inputs.dry_run == false && (inputs.sdk == 'all' || inputs.sdk == 'npm' || inputs.sdk == 'python' || inputs.sdk == 'rust')
     needs: [npm, python, rust, flutter, nuget, maven, swift, go]
     runs-on: ubuntu-latest
     steps:
