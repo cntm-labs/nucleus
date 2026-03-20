@@ -16,8 +16,8 @@ use nucleus_db::pool::create_pg_pool;
 use nucleus_db::redis::create_redis_pool;
 use nucleus_db::repos::audit_repo::PgAuditRepository;
 use nucleus_db::repos::credential_repo::PgCredentialRepository;
-use nucleus_db::repos::session_repo::RedisSessionRepository;
 use nucleus_db::repos::org_repo::PgOrgRepository;
+use nucleus_db::repos::session_repo::RedisSessionRepository;
 use nucleus_db::repos::user_repo::PgUserRepository;
 use nucleus_identity::user::UserService;
 use nucleus_migrate::run_migrations;
@@ -35,8 +35,7 @@ async fn main() -> Result<()> {
     // Initialize tracing
     tracing_subscriber::fmt()
         .with_env_filter(
-            EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| EnvFilter::new(&config.rust_log)),
+            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(&config.rust_log)),
         )
         .json()
         .init();
@@ -57,8 +56,7 @@ async fn main() -> Result<()> {
 
     // Generate signing key pair for JWT
     let signing_key = Arc::new(
-        JwtService::generate_key_pair("nucleus-key-1")
-            .expect("Failed to generate signing key"),
+        JwtService::generate_key_pair("nucleus-key-1").expect("Failed to generate signing key"),
     );
 
     // Create session repository and service

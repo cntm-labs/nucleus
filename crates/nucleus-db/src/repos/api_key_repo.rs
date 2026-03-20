@@ -76,10 +76,7 @@ impl PgApiKeyRepository {
 #[async_trait]
 impl ApiKeyRepository for PgApiKeyRepository {
     async fn create(&self, api_key: &NewApiKey) -> Result<ApiKey, AppError> {
-        let environment = api_key
-            .environment
-            .as_deref()
-            .unwrap_or("development");
+        let environment = api_key.environment.as_deref().unwrap_or("development");
 
         let row = sqlx::query(
             r#"
@@ -105,13 +102,12 @@ impl ApiKeyRepository for PgApiKeyRepository {
     }
 
     async fn find_by_prefix(&self, prefix: &str) -> Result<Option<ApiKey>, AppError> {
-        let row = sqlx::query(
-            "SELECT * FROM api_keys WHERE key_prefix = $1 AND revoked_at IS NULL",
-        )
-        .bind(prefix)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(|e| AppError::Internal(e.into()))?;
+        let row =
+            sqlx::query("SELECT * FROM api_keys WHERE key_prefix = $1 AND revoked_at IS NULL")
+                .bind(prefix)
+                .fetch_optional(&self.pool)
+                .await
+                .map_err(|e| AppError::Internal(e.into()))?;
 
         match row {
             Some(ref r) => Ok(Some(
@@ -122,11 +118,12 @@ impl ApiKeyRepository for PgApiKeyRepository {
     }
 
     async fn find_by_project(&self, project_id: &ProjectId) -> Result<Vec<ApiKey>, AppError> {
-        let rows = sqlx::query("SELECT * FROM api_keys WHERE project_id = $1 ORDER BY created_at DESC")
-            .bind(project_id.0)
-            .fetch_all(&self.pool)
-            .await
-            .map_err(|e| AppError::Internal(e.into()))?;
+        let rows =
+            sqlx::query("SELECT * FROM api_keys WHERE project_id = $1 ORDER BY created_at DESC")
+                .bind(project_id.0)
+                .fetch_all(&self.pool)
+                .await
+                .map_err(|e| AppError::Internal(e.into()))?;
 
         rows.iter()
             .map(|r| api_key_from_row(r))

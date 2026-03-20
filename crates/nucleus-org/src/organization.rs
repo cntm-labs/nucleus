@@ -4,7 +4,9 @@ use nucleus_core::error::{AppError, OrgError};
 use nucleus_core::pagination::{PaginatedResponse, PaginationParams};
 use nucleus_core::types::{OrgId, ProjectId, RoleId, UserId};
 use nucleus_core::validation;
-use nucleus_db::repos::org_repo::{NewOrgMember, NewOrganization, OrgMember, OrgRepository, Organization};
+use nucleus_db::repos::org_repo::{
+    NewOrgMember, NewOrganization, OrgMember, OrgRepository, Organization,
+};
 
 pub struct OrgService {
     org_repo: Arc<dyn OrgRepository>,
@@ -25,7 +27,12 @@ impl OrgService {
     ) -> Result<Organization, AppError> {
         validation::validate_slug(slug)?;
 
-        if self.org_repo.find_by_slug(project_id, slug).await?.is_some() {
+        if self
+            .org_repo
+            .find_by_slug(project_id, slug)
+            .await?
+            .is_some()
+        {
             return Err(AppError::Org(OrgError::SlugTaken));
         }
 
@@ -192,9 +199,7 @@ mod tests {
             let orgs = self.orgs.lock().unwrap();
             Ok(orgs
                 .iter()
-                .find(|o| {
-                    o.project_id == *project_id && o.slug == slug && o.deleted_at.is_none()
-                })
+                .find(|o| o.project_id == *project_id && o.slug == slug && o.deleted_at.is_none())
                 .cloned())
         }
 
@@ -317,7 +322,10 @@ mod tests {
         let pid = ProjectId::new();
         let uid = UserId::new();
 
-        let org = svc.create_org(&pid, "Acme Corp", "acme-corp", &uid).await.unwrap();
+        let org = svc
+            .create_org(&pid, "Acme Corp", "acme-corp", &uid)
+            .await
+            .unwrap();
         assert_eq!(org.name, "Acme Corp");
         assert_eq!(org.slug, "acme-corp");
         assert_eq!(org.project_id, pid);
@@ -330,7 +338,9 @@ mod tests {
         let pid = ProjectId::new();
         let uid = UserId::new();
 
-        svc.create_org(&pid, "Acme Corp", "acme-corp", &uid).await.unwrap();
+        svc.create_org(&pid, "Acme Corp", "acme-corp", &uid)
+            .await
+            .unwrap();
         let result = svc.create_org(&pid, "Other Corp", "acme-corp", &uid).await;
 
         assert!(result.is_err());
@@ -361,7 +371,10 @@ mod tests {
 
         let result = svc.get_org(&pid, &oid).await;
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), AppError::Org(OrgError::NotFound)));
+        assert!(matches!(
+            result.unwrap_err(),
+            AppError::Org(OrgError::NotFound)
+        ));
     }
 
     #[tokio::test]
@@ -370,14 +383,21 @@ mod tests {
         let pid = ProjectId::new();
         let uid = UserId::new();
 
-        let org = svc.create_org(&pid, "Acme", "acme-org", &uid).await.unwrap();
+        let org = svc
+            .create_org(&pid, "Acme", "acme-org", &uid)
+            .await
+            .unwrap();
 
         let user1 = UserId::new();
         let user2 = UserId::new();
         let role = RoleId::new();
 
-        svc.add_member(&org.id, &user1, &role, Some(&uid)).await.unwrap();
-        svc.add_member(&org.id, &user2, &role, Some(&uid)).await.unwrap();
+        svc.add_member(&org.id, &user1, &role, Some(&uid))
+            .await
+            .unwrap();
+        svc.add_member(&org.id, &user2, &role, Some(&uid))
+            .await
+            .unwrap();
 
         let members = svc.list_members(&org.id, &default_params()).await.unwrap();
         assert_eq!(members.data.len(), 2);
@@ -389,11 +409,16 @@ mod tests {
         let pid = ProjectId::new();
         let uid = UserId::new();
 
-        let org = svc.create_org(&pid, "Acme", "acme-rem", &uid).await.unwrap();
+        let org = svc
+            .create_org(&pid, "Acme", "acme-rem", &uid)
+            .await
+            .unwrap();
 
         let member_uid = UserId::new();
         let role = RoleId::new();
-        svc.add_member(&org.id, &member_uid, &role, None).await.unwrap();
+        svc.add_member(&org.id, &member_uid, &role, None)
+            .await
+            .unwrap();
 
         let members = svc.list_members(&org.id, &default_params()).await.unwrap();
         assert_eq!(members.data.len(), 1);
@@ -418,15 +443,19 @@ mod tests {
 
         // Org in project A should not be visible from project B
         let result = svc.get_org(&project_b, &org_a.id).await;
-        assert!(matches!(result.unwrap_err(), AppError::Org(OrgError::NotFound)));
+        assert!(matches!(
+            result.unwrap_err(),
+            AppError::Org(OrgError::NotFound)
+        ));
 
         let result = svc.get_org_by_slug(&project_b, "org-aaa").await;
-        assert!(matches!(result.unwrap_err(), AppError::Org(OrgError::NotFound)));
+        assert!(matches!(
+            result.unwrap_err(),
+            AppError::Org(OrgError::NotFound)
+        ));
 
         // Same slug can be used in a different project
-        let org_b = svc
-            .create_org(&project_b, "Org B", "org-aaa", &uid)
-            .await;
+        let org_b = svc.create_org(&project_b, "Org B", "org-aaa", &uid).await;
         assert!(org_b.is_ok());
     }
 }

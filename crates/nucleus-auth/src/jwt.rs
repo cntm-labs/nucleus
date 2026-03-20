@@ -12,12 +12,12 @@ use nucleus_core::types::*;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NucleusClaims {
     // Standard JWT claims
-    pub sub: String,          // user_id
-    pub iss: String,          // issuer URL
-    pub aud: String,          // project_id
-    pub exp: i64,             // expiry timestamp
-    pub iat: i64,             // issued at
-    pub jti: String,          // unique token ID
+    pub sub: String, // user_id
+    pub iss: String, // issuer URL
+    pub aud: String, // project_id
+    pub exp: i64,    // expiry timestamp
+    pub iat: i64,    // issued at
+    pub jti: String, // unique token ID
 
     // Nucleus-specific claims
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -121,17 +121,22 @@ impl JwtService {
         use rsa::RsaPrivateKey;
 
         let mut rng = OsRng;
-        let private_key = RsaPrivateKey::new(&mut rng, 2048)
-            .map_err(|e| AppError::Internal(anyhow::anyhow!("Failed to generate RSA key: {}", e)))?;
+        let private_key = RsaPrivateKey::new(&mut rng, 2048).map_err(|e| {
+            AppError::Internal(anyhow::anyhow!("Failed to generate RSA key: {}", e))
+        })?;
 
         let private_key_pem = private_key
             .to_pkcs8_pem(rsa::pkcs8::LineEnding::LF)
-            .map_err(|e| AppError::Internal(anyhow::anyhow!("Failed to encode private key: {}", e)))?;
+            .map_err(|e| {
+                AppError::Internal(anyhow::anyhow!("Failed to encode private key: {}", e))
+            })?;
 
         let public_key_pem = private_key
             .to_public_key()
             .to_public_key_pem(rsa::pkcs8::LineEnding::LF)
-            .map_err(|e| AppError::Internal(anyhow::anyhow!("Failed to encode public key: {}", e)))?;
+            .map_err(|e| {
+                AppError::Internal(anyhow::anyhow!("Failed to encode public key: {}", e))
+            })?;
 
         Ok(SigningKeyPair {
             kid: kid.to_string(),
@@ -163,8 +168,8 @@ impl JwtService {
         validation.validate_exp = true;
         validation.validate_aud = false; // we validate audience manually
         validation.leeway = 0; // strict expiry checking, no grace period
-        // SECURITY: algorithms list only contains RS256
-        // This prevents algorithm confusion attacks
+                               // SECURITY: algorithms list only contains RS256
+                               // This prevents algorithm confusion attacks
         validation.algorithms = vec![Algorithm::RS256];
 
         let token_data: TokenData<NucleusClaims> = decode(token, &decoding_key, &validation)

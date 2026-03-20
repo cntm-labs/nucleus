@@ -199,9 +199,7 @@ impl AuthService {
 
         // 3. Check not banned
         if user.banned_at.is_some() {
-            session_service
-                .revoke_session(session_id, &user.id)
-                .await?;
+            session_service.revoke_session(session_id, &user.id).await?;
             return Err(AppError::Auth(AuthError::AccountBanned));
         }
 
@@ -414,19 +412,11 @@ mod tests {
             unimplemented!()
         }
 
-        async fn ban(
-            &self,
-            _project_id: &ProjectId,
-            _user_id: &UserId,
-        ) -> Result<(), AppError> {
+        async fn ban(&self, _project_id: &ProjectId, _user_id: &UserId) -> Result<(), AppError> {
             unimplemented!()
         }
 
-        async fn unban(
-            &self,
-            _project_id: &ProjectId,
-            _user_id: &UserId,
-        ) -> Result<(), AppError> {
+        async fn unban(&self, _project_id: &ProjectId, _user_id: &UserId) -> Result<(), AppError> {
             unimplemented!()
         }
     }
@@ -700,11 +690,7 @@ mod tests {
             Ok(())
         }
 
-        async fn delete(
-            &self,
-            session_id: &SessionId,
-            user_id: &UserId,
-        ) -> Result<(), AppError> {
+        async fn delete(&self, session_id: &SessionId, user_id: &UserId) -> Result<(), AppError> {
             self.sessions.lock().unwrap().remove(session_id);
             if let Some(ids) = self.user_sessions.lock().unwrap().get_mut(user_id) {
                 ids.retain(|id| id != session_id);
@@ -736,11 +722,7 @@ mod tests {
                 .collect())
         }
 
-        async fn add_to_revocation_list(
-            &self,
-            _jti: &str,
-            _ttl_secs: u64,
-        ) -> Result<(), AppError> {
+        async fn add_to_revocation_list(&self, _jti: &str, _ttl_secs: u64) -> Result<(), AppError> {
             Ok(())
         }
 
@@ -761,9 +743,7 @@ mod tests {
         }
     }
 
-    fn make_session_service_with_repo(
-        repo: Arc<dyn SessionRepository>,
-    ) -> SessionService {
+    fn make_session_service_with_repo(repo: Arc<dyn SessionRepository>) -> SessionService {
         let clock = Arc::new(TestClock);
         SessionService::new(repo, clock)
     }

@@ -53,7 +53,7 @@ pub struct PublicKeyUser {
 pub struct PubKeyCredParam {
     #[serde(rename = "type")]
     pub type_: String, // "public-key"
-    pub alg: i32,      // -7 (ES256) or -257 (RS256)
+    pub alg: i32, // -7 (ES256) or -257 (RS256)
 }
 
 #[derive(Debug, Serialize)]
@@ -101,7 +101,8 @@ impl PasskeyService {
         user_display_name: &str,
     ) -> Result<(RegistrationOptions, PasskeyChallenge), AppError> {
         let challenge_bytes: Vec<u8> = (0..32).map(|_| rand::random::<u8>()).collect();
-        let challenge_b64 = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&challenge_bytes);
+        let challenge_b64 =
+            base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&challenge_bytes);
 
         let now = chrono::Utc::now().timestamp();
         let challenge = PasskeyChallenge {
@@ -119,8 +120,7 @@ impl PasskeyService {
                 id: self.rp_id.clone(),
             },
             user: PublicKeyUser {
-                id: base64::engine::general_purpose::URL_SAFE_NO_PAD
-                    .encode(user_id.0.as_bytes()),
+                id: base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(user_id.0.as_bytes()),
                 name: user_email.to_string(),
                 display_name: user_display_name.to_string(),
             },
@@ -152,7 +152,8 @@ impl PasskeyService {
         credentials: &[PasskeyCredential],
     ) -> Result<(AuthenticationOptions, PasskeyChallenge), AppError> {
         let challenge_bytes: Vec<u8> = (0..32).map(|_| rand::random::<u8>()).collect();
-        let challenge_b64 = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&challenge_bytes);
+        let challenge_b64 =
+            base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&challenge_bytes);
 
         let now = chrono::Utc::now().timestamp();
         let challenge = PasskeyChallenge {

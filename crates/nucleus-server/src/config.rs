@@ -13,20 +13,18 @@ impl Config {
     pub fn from_env() -> Result<Self> {
         dotenvy::dotenv().ok(); // optional .env file
 
-        let database_url =
-            std::env::var("DATABASE_URL").context("DATABASE_URL must be set")?;
-        let redis_url = std::env::var("REDIS_URL")
-            .unwrap_or_else(|_| "redis://localhost:6379".to_string());
-        let master_key_hex = std::env::var("MASTER_ENCRYPTION_KEY")
-            .context("MASTER_ENCRYPTION_KEY must be set")?;
+        let database_url = std::env::var("DATABASE_URL").context("DATABASE_URL must be set")?;
+        let redis_url =
+            std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://localhost:6379".to_string());
+        let master_key_hex =
+            std::env::var("MASTER_ENCRYPTION_KEY").context("MASTER_ENCRYPTION_KEY must be set")?;
         let master_encryption_key = hex::decode(&master_key_hex)
             .context("MASTER_ENCRYPTION_KEY must be valid hex")?
             .try_into()
             .map_err(|_| {
                 anyhow::anyhow!("MASTER_ENCRYPTION_KEY must be 32 bytes (64 hex chars)")
             })?;
-        let host =
-            std::env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
+        let host = std::env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
         let port = std::env::var("PORT")
             .unwrap_or_else(|_| "3000".to_string())
             .parse()

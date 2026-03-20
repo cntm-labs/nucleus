@@ -97,8 +97,13 @@ mod tests {
     fn verify_correct_code() {
         let config = OtpConfig::default();
         let otp = OtpService::generate(&config);
-        let result =
-            OtpService::verify(&otp.code, &otp.code_hash, &otp.expires_at, 0, otp.max_attempts);
+        let result = OtpService::verify(
+            &otp.code,
+            &otp.code_hash,
+            &otp.expires_at,
+            0,
+            otp.max_attempts,
+        );
         assert!(result.is_ok());
     }
 
@@ -124,12 +129,8 @@ mod tests {
         let config = OtpConfig::default();
         let otp = OtpService::generate(&config);
         let expired = Utc::now() - Duration::minutes(1);
-        let result =
-            OtpService::verify(&otp.code, &otp.code_hash, &expired, 0, otp.max_attempts);
-        assert!(matches!(
-            result,
-            Err(AppError::Auth(AuthError::OtpExpired))
-        ));
+        let result = OtpService::verify(&otp.code, &otp.code_hash, &expired, 0, otp.max_attempts);
+        assert!(matches!(result, Err(AppError::Auth(AuthError::OtpExpired))));
     }
 
     #[test]

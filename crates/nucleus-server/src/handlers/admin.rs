@@ -5,35 +5,38 @@ use axum::http::StatusCode;
 use axum::Json;
 use nucleus_core::error::AppError;
 use nucleus_core::pagination::PaginationParams;
-use nucleus_core::types::{ProjectId, UserId};
+use nucleus_core::types::UserId;
 use nucleus_identity::handlers::admin::{AdminUpdateUserRequest, CreateUserRequest};
 
+use crate::middleware::auth::ApiKeyAuth;
 use crate::state::AppState;
 
 // ---------------------------------------------------------------------------
-// Helpers: extract admin context
-// ---------------------------------------------------------------------------
-
-// TODO: Once admin API key middleware is fully wired, extract project_id from
-// the validated API key. For now we use a placeholder so that handlers compile
-// and the wiring is complete end-to-end.
-fn placeholder_admin_project() -> ProjectId {
-    ProjectId::new()
-}
-
-// ---------------------------------------------------------------------------
 // Phase 4: Admin routes (thin wrappers that delegate to nucleus-identity)
+// Require a valid API key (sk_ prefix) via the ApiKeyAuth extractor.
 // ---------------------------------------------------------------------------
+
+/// Verify the API key is a secret key with admin scope.
+fn require_admin(api_key: &ApiKeyAuth) -> Result<(), AppError> {
+    if api_key.key_type != "secret" {
+        return Err(AppError::Auth(nucleus_core::error::AuthError::TokenInvalid));
+    }
+    if !api_key.scopes.is_empty() && !api_key.scopes.iter().any(|s| s == "admin" || s == "*") {
+        return Err(AppError::Auth(nucleus_core::error::AuthError::TokenInvalid));
+    }
+    Ok(())
+}
 
 /// GET /api/v1/admin/users
 pub async fn handle_admin_list_users(
     State(state): State<Arc<AppState>>,
+    api_key: ApiKeyAuth,
     Query(params): Query<PaginationParams>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let project_id = placeholder_admin_project();
+    require_admin(&api_key)?;
     let result = nucleus_identity::handlers::admin::list_users(
         &state.user_service,
-        &project_id,
+        &api_key.project_id,
         &params,
     )
     .await?;
@@ -43,12 +46,12 @@ pub async fn handle_admin_list_users(
 /// POST /api/v1/admin/users
 pub async fn handle_admin_create_user(
     State(state): State<Arc<AppState>>,
+    api_key: ApiKeyAuth,
     Json(req): Json<CreateUserRequest>,
 ) -> Result<(StatusCode, Json<serde_json::Value>), AppError> {
-    let project_id = placeholder_admin_project();
     let user = nucleus_identity::handlers::admin::create_user(
         &state.user_service,
-        &project_id,
+        &api_key.project_id,
         req,
     )
     .await?;
@@ -61,12 +64,12 @@ pub async fn handle_admin_create_user(
 /// GET /api/v1/admin/users/:id
 pub async fn handle_admin_get_user(
     State(state): State<Arc<AppState>>,
+    api_key: ApiKeyAuth,
     Path(user_id): Path<UserId>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let project_id = placeholder_admin_project();
     let user = nucleus_identity::handlers::admin::get_user(
         &state.user_service,
-        &project_id,
+        &api_key.project_id,
         &user_id,
     )
     .await?;
@@ -76,13 +79,13 @@ pub async fn handle_admin_get_user(
 /// PATCH /api/v1/admin/users/:id
 pub async fn handle_admin_update_user(
     State(state): State<Arc<AppState>>,
+    api_key: ApiKeyAuth,
     Path(user_id): Path<UserId>,
     Json(req): Json<AdminUpdateUserRequest>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let project_id = placeholder_admin_project();
     let user = nucleus_identity::handlers::admin::update_user(
         &state.user_service,
-        &project_id,
+        &api_key.project_id,
         &user_id,
         req,
     )
@@ -93,12 +96,12 @@ pub async fn handle_admin_update_user(
 /// DELETE /api/v1/admin/users/:id
 pub async fn handle_admin_delete_user(
     State(state): State<Arc<AppState>>,
+    api_key: ApiKeyAuth,
     Path(user_id): Path<UserId>,
 ) -> Result<StatusCode, AppError> {
-    let project_id = placeholder_admin_project();
     nucleus_identity::handlers::admin::delete_user(
         &state.user_service,
-        &project_id,
+        &api_key.project_id,
         &user_id,
     )
     .await?;
@@ -108,27 +111,23 @@ pub async fn handle_admin_delete_user(
 /// POST /api/v1/admin/users/:id/ban
 pub async fn handle_admin_ban_user(
     State(state): State<Arc<AppState>>,
+    api_key: ApiKeyAuth,
     Path(user_id): Path<UserId>,
 ) -> Result<StatusCode, AppError> {
-    let project_id = placeholder_admin_project();
-    nucleus_identity::handlers::admin::ban_user(
-        &state.user_service,
-        &project_id,
-        &user_id,
-    )
-    .await?;
+    nucleus_identity::handlers::admin::ban_user(&state.user_service, &api_key.project_id, &user_id)
+        .await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
 /// POST /api/v1/admin/users/:id/unban
 pub async fn handle_admin_unban_user(
     State(state): State<Arc<AppState>>,
+    api_key: ApiKeyAuth,
     Path(user_id): Path<UserId>,
 ) -> Result<StatusCode, AppError> {
-    let project_id = placeholder_admin_project();
     nucleus_identity::handlers::admin::unban_user(
         &state.user_service,
-        &project_id,
+        &api_key.project_id,
         &user_id,
     )
     .await?;

@@ -8,11 +8,10 @@ use crate::state::AppState;
 /// Returns the public signing keys in JWKS format.
 /// Cache: 24 hours (keys don't change often, except during rotation).
 pub async fn handle_jwks(State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    let jwks = state.signing_key.to_jwks().unwrap_or_else(|_| {
-        nucleus_auth::jwt::Jwks {
-            keys: vec![],
-        }
-    });
+    let jwks = state
+        .signing_key
+        .to_jwks()
+        .unwrap_or_else(|_| nucleus_auth::jwt::Jwks { keys: vec![] });
 
     (
         [
@@ -25,9 +24,7 @@ pub async fn handle_jwks(State(state): State<Arc<AppState>>) -> impl IntoRespons
 
 /// GET /.well-known/openid-configuration
 /// OpenID Connect Discovery document.
-pub async fn handle_openid_configuration(
-    State(_state): State<Arc<AppState>>,
-) -> impl IntoResponse {
+pub async fn handle_openid_configuration(State(_state): State<Arc<AppState>>) -> impl IntoResponse {
     let issuer = "https://nucleus.local"; // TODO: from config
 
     let config = json!({
@@ -60,7 +57,7 @@ pub async fn handle_openid_configuration(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nucleus_auth::jwt::{JwtService, Jwks};
+    use nucleus_auth::jwt::{Jwks, JwtService};
 
     #[test]
     fn jwks_response_has_correct_structure() {
@@ -133,7 +130,9 @@ mod tests {
         assert!(config.get("jwks_uri").is_some());
         assert!(config.get("response_types_supported").is_some());
         assert!(config.get("subject_types_supported").is_some());
-        assert!(config.get("id_token_signing_alg_values_supported").is_some());
+        assert!(config
+            .get("id_token_signing_alg_values_supported")
+            .is_some());
 
         // Verify jwks_uri points to the right path
         assert_eq!(

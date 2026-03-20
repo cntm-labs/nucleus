@@ -89,10 +89,7 @@ impl PgProjectRepository {
 #[async_trait]
 impl ProjectRepository for PgProjectRepository {
     async fn create(&self, project: &NewProject) -> Result<Project, AppError> {
-        let data_mode = project
-            .data_mode
-            .as_deref()
-            .unwrap_or("centralized");
+        let data_mode = project.data_mode.as_deref().unwrap_or("centralized");
 
         let row = sqlx::query(
             r#"

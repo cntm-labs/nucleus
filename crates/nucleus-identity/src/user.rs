@@ -73,11 +73,7 @@ impl UserService {
     }
 
     /// Ban user (admin)
-    pub async fn ban_user(
-        &self,
-        project_id: &ProjectId,
-        user_id: &UserId,
-    ) -> Result<(), AppError> {
+    pub async fn ban_user(&self, project_id: &ProjectId, user_id: &UserId) -> Result<(), AppError> {
         self.user_repo.ban(project_id, user_id).await
     }
 
@@ -161,11 +157,7 @@ mod tests {
             let users = self.users.lock().unwrap();
             Ok(users
                 .iter()
-                .find(|u| {
-                    u.id == *user_id
-                        && u.project_id == *project_id
-                        && u.deleted_at.is_none()
-                })
+                .find(|u| u.id == *user_id && u.project_id == *project_id && u.deleted_at.is_none())
                 .cloned())
         }
 
@@ -268,11 +260,7 @@ mod tests {
             })
         }
 
-        async fn ban(
-            &self,
-            project_id: &ProjectId,
-            user_id: &UserId,
-        ) -> Result<(), AppError> {
+        async fn ban(&self, project_id: &ProjectId, user_id: &UserId) -> Result<(), AppError> {
             let mut users = self.users.lock().unwrap();
             if let Some(user) = users
                 .iter_mut()
@@ -283,11 +271,7 @@ mod tests {
             Ok(())
         }
 
-        async fn unban(
-            &self,
-            project_id: &ProjectId,
-            user_id: &UserId,
-        ) -> Result<(), AppError> {
+        async fn unban(&self, project_id: &ProjectId, user_id: &UserId) -> Result<(), AppError> {
             let mut users = self.users.lock().unwrap();
             if let Some(user) = users
                 .iter_mut()

@@ -1,5 +1,5 @@
-pub mod provider;
-pub mod google;
-pub mod github;
 pub mod apple;
+pub mod github;
+pub mod google;
 pub mod microsoft;
+pub mod provider;

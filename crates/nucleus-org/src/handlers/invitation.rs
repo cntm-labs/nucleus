@@ -66,8 +66,7 @@ pub async fn handle_create_invitation(
     let base_url = ctx
         .base_url
         .unwrap_or_else(|| "https://nucleus.dev".to_string());
-    let invite_url =
-        InvitationService::build_url(&base_url, &slug, &generated.invitation_token);
+    let invite_url = InvitationService::build_url(&base_url, &slug, &generated.invitation_token);
 
     let response = InvitationResponse {
         id: InvitationId::new().to_string(),

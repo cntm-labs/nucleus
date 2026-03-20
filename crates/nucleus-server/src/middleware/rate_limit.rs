@@ -169,6 +169,39 @@ async fn check_rate_limit(
 }
 
 // ---------------------------------------------------------------------------
+// Axum-compatible middleware layer
+// ---------------------------------------------------------------------------
+
+/// Create a rate-limiting middleware closure for use with [`axum::middleware::from_fn`].
+///
+/// The returned closure captures the Redis connection and config, and applies
+/// the sliding-window rate limiter to every request passing through the layer.
+pub fn make_rate_limit_layer(
+    redis: Arc<ConnectionManager>,
+    config: RateLimitConfig,
+    endpoint_group: String,
+) -> impl Fn(Request, Next) -> std::pin::Pin<Box<dyn std::future::Future<Output = Response> + Send>>
+       + Clone
+       + Send {
+    move |req: Request, next: Next| {
+        let redis = redis.clone();
+        let config = config.clone();
+        let endpoint_group = endpoint_group.clone();
+        Box::pin(async move {
+            rate_limit_middleware(
+                redis,
+                config,
+                "default".to_string(),
+                endpoint_group,
+                req,
+                next,
+            )
+            .await
+        })
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 

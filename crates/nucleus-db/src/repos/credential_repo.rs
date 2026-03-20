@@ -56,11 +56,8 @@ pub trait CredentialRepository: Send + Sync {
         provider: &str,
         identifier: &str,
     ) -> Result<Option<Credential>, AppError>;
-    async fn update_secret(
-        &self,
-        id: &CredentialId,
-        new_secret_hash: &str,
-    ) -> Result<(), AppError>;
+    async fn update_secret(&self, id: &CredentialId, new_secret_hash: &str)
+        -> Result<(), AppError>;
     async fn delete(&self, id: &CredentialId) -> Result<(), AppError>;
 }
 
@@ -149,14 +146,12 @@ impl CredentialRepository for PgCredentialRepository {
         id: &CredentialId,
         new_secret_hash: &str,
     ) -> Result<(), AppError> {
-        sqlx::query(
-            "UPDATE credentials SET secret_hash = $1, updated_at = now() WHERE id = $2",
-        )
-        .bind(new_secret_hash)
-        .bind(id.0)
-        .execute(&self.pool)
-        .await
-        .map_err(|e| AppError::Internal(e.into()))?;
+        sqlx::query("UPDATE credentials SET secret_hash = $1, updated_at = now() WHERE id = $2")
+            .bind(new_secret_hash)
+            .bind(id.0)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| AppError::Internal(e.into()))?;
 
         Ok(())
     }

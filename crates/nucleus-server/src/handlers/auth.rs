@@ -16,22 +16,16 @@ pub async fn handle_sign_up(
     State(state): State<Arc<AppState>>,
     Json(req): Json<SignUpRequest>,
 ) -> Result<(StatusCode, Json<SignUpResponse>), AppError> {
-    nucleus_auth::handlers::sign_up::handle_sign_up(
-        State(state.auth_service.clone()),
-        Json(req),
-    )
-    .await
+    nucleus_auth::handlers::sign_up::handle_sign_up(State(state.auth_service.clone()), Json(req))
+        .await
 }
 
 pub async fn handle_sign_in(
     State(state): State<Arc<AppState>>,
     Json(req): Json<SignInRequest>,
 ) -> Result<(StatusCode, Json<SignInResponse>), AppError> {
-    nucleus_auth::handlers::sign_in::handle_sign_in(
-        State(state.auth_service.clone()),
-        Json(req),
-    )
-    .await
+    nucleus_auth::handlers::sign_in::handle_sign_in(State(state.auth_service.clone()), Json(req))
+        .await
 }
 
 pub async fn handle_refresh(
@@ -74,7 +68,13 @@ pub async fn handle_sign_out_all(
 pub async fn handle_oauth_start(
     State(_state): State<Arc<AppState>>,
     Json(_req): Json<nucleus_auth::handlers::oauth::OAuthStartRequest>,
-) -> Result<(StatusCode, Json<nucleus_auth::handlers::oauth::OAuthStartResponse>), AppError> {
+) -> Result<
+    (
+        StatusCode,
+        Json<nucleus_auth::handlers::oauth::OAuthStartResponse>,
+    ),
+    AppError,
+> {
     // OAuth start requires OAuthHandlerState which needs:
     // - HashMap<String, Arc<dyn OAuthProvider>> (configured providers)
     // - Arc<dyn OAuthStateStore> (Redis-backed state store)
@@ -91,7 +91,13 @@ pub async fn handle_oauth_start(
 pub async fn handle_oauth_callback(
     State(_state): State<Arc<AppState>>,
     Query(_params): Query<nucleus_auth::handlers::oauth::OAuthCallbackParams>,
-) -> Result<(StatusCode, Json<nucleus_auth::handlers::oauth::OAuthCallbackResponse>), AppError> {
+) -> Result<
+    (
+        StatusCode,
+        Json<nucleus_auth::handlers::oauth::OAuthCallbackResponse>,
+    ),
+    AppError,
+> {
     // OAuth callback requires OAuthHandlerState (same as handle_oauth_start).
     // Once providers and state_store are wired into AppState, this handler
     // will delegate to nucleus_auth::handlers::oauth::handle_oauth_callback().

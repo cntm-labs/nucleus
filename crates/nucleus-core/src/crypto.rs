@@ -28,8 +28,8 @@ pub fn hash_password(password: &str) -> Result<String, AppError> {
 
 /// Verify a password against an Argon2id hash
 pub fn verify_password(password: &str, hash: &str) -> Result<bool, AppError> {
-    let parsed_hash = PasswordHash::new(hash)
-        .map_err(|e| anyhow::anyhow!("password hash parse error: {}", e))?;
+    let parsed_hash =
+        PasswordHash::new(hash).map_err(|e| anyhow::anyhow!("password hash parse error: {}", e))?;
     let argon2 = Argon2::default();
     Ok(argon2
         .verify_password(password.as_bytes(), &parsed_hash)
@@ -50,8 +50,8 @@ pub fn generate_encryption_key() -> [u8; 32] {
 
 /// Encrypt plaintext with AES-256-GCM. Returns nonce || ciphertext.
 pub fn encrypt(plaintext: &[u8], key: &[u8; 32]) -> Result<Vec<u8>, AppError> {
-    let cipher = Aes256Gcm::new_from_slice(key)
-        .map_err(|e| anyhow::anyhow!("aes key error: {}", e))?;
+    let cipher =
+        Aes256Gcm::new_from_slice(key).map_err(|e| anyhow::anyhow!("aes key error: {}", e))?;
 
     let rng = SystemRandom::new();
     let mut nonce_bytes = [0u8; 12];
@@ -76,8 +76,8 @@ pub fn decrypt(ciphertext: &[u8], key: &[u8; 32]) -> Result<Vec<u8>, AppError> {
     }
 
     let (nonce_bytes, encrypted) = ciphertext.split_at(12);
-    let cipher = Aes256Gcm::new_from_slice(key)
-        .map_err(|e| anyhow::anyhow!("aes key error: {}", e))?;
+    let cipher =
+        Aes256Gcm::new_from_slice(key).map_err(|e| anyhow::anyhow!("aes key error: {}", e))?;
     let nonce = Nonce::from_slice(nonce_bytes);
 
     cipher

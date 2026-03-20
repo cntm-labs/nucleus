@@ -103,11 +103,7 @@ pub mod tests {
 
     #[async_trait]
     impl HttpClient for MockHttpClient {
-        async fn post_form(
-            &self,
-            url: &str,
-            _params: &[(&str, &str)],
-        ) -> Result<String, AppError> {
+        async fn post_form(&self, url: &str, _params: &[(&str, &str)]) -> Result<String, AppError> {
             self.post_responses
                 .lock()
                 .unwrap()
@@ -121,11 +117,7 @@ pub mod tests {
                 })
         }
 
-        async fn get_with_bearer(
-            &self,
-            url: &str,
-            _token: &str,
-        ) -> Result<String, AppError> {
+        async fn get_with_bearer(&self, url: &str, _token: &str) -> Result<String, AppError> {
             self.get_responses
                 .lock()
                 .unwrap()

@@ -35,5 +35,12 @@ fn bench_aes_encrypt(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, bench_password_hash, bench_password_verify, bench_token_generation, bench_hmac_sign, bench_aes_encrypt);
+criterion_group!(
+    benches,
+    bench_password_hash,
+    bench_password_verify,
+    bench_token_generation,
+    bench_hmac_sign,
+    bench_aes_encrypt
+);
 criterion_main!(benches);

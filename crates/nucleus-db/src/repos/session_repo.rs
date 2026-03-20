@@ -1,10 +1,10 @@
+use anyhow::anyhow;
 use async_trait::async_trait;
 use nucleus_core::error::AppError;
 use nucleus_core::types::{ProjectId, SessionId, UserId};
 use redis::aio::ConnectionManager;
 use redis::AsyncCommands;
 use serde::Serialize;
-use anyhow::anyhow;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Session {
@@ -139,7 +139,10 @@ impl SessionRepository for RedisSessionRepository {
         redis::pipe()
             .hset_multiple(&key, &fields)
             .expire(&key, session.ttl_secs as i64)
-            .sadd(user_sessions_key(&session.user_id), session_id.0.to_string())
+            .sadd(
+                user_sessions_key(&session.user_id),
+                session_id.0.to_string(),
+            )
             .exec_async(&mut conn)
             .await
             .map_err(|e| AppError::Internal(e.into()))?;

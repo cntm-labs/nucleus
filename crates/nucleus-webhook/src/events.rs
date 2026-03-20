@@ -115,8 +115,14 @@ mod tests {
         assert_eq!(WebhookEventType::OrgCreated.as_str(), "org.created");
         assert_eq!(WebhookEventType::OrgUpdated.as_str(), "org.updated");
         assert_eq!(WebhookEventType::OrgDeleted.as_str(), "org.deleted");
-        assert_eq!(WebhookEventType::OrgMemberAdded.as_str(), "org.member.added");
-        assert_eq!(WebhookEventType::OrgMemberRemoved.as_str(), "org.member.removed");
+        assert_eq!(
+            WebhookEventType::OrgMemberAdded.as_str(),
+            "org.member.added"
+        );
+        assert_eq!(
+            WebhookEventType::OrgMemberRemoved.as_str(),
+            "org.member.removed"
+        );
         assert_eq!(
             WebhookEventType::OrgMemberRoleChanged.as_str(),
             "org.member.role_changed"

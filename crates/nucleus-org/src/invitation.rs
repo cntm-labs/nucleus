@@ -178,10 +178,7 @@ mod tests {
     #[test]
     fn build_url_correct_format() {
         let url = InvitationService::build_url("https://nucleus.dev", "acme", "tok_123");
-        assert_eq!(
-            url,
-            "https://nucleus.dev/orgs/acme/invite?token=tok_123"
-        );
+        assert_eq!(url, "https://nucleus.dev/orgs/acme/invite?token=tok_123");
     }
 
     #[test]

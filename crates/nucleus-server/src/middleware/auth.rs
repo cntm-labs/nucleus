@@ -79,10 +79,70 @@ pub trait ApiKeyLookup: Send + Sync {
         prefix: &str,
     ) -> Result<Option<nucleus_db::repos::api_key_repo::ApiKey>, AppError>;
 
-    async fn update_last_used(
-        &self,
-        id: &nucleus_core::types::ApiKeyId,
-    ) -> Result<(), AppError>;
+    async fn update_last_used(&self, id: &nucleus_core::types::ApiKeyId) -> Result<(), AppError>;
+}
+
+/// Authenticate an API key against a [`ApiKeyLookup`] backend.
+///
+/// Extracts the bearer token, validates it as an API key, looks it up by
+/// prefix, verifies the hash, and returns an [`ApiKeyAuth`] on success.
+pub async fn authenticate_api_key(
+    auth_header: &str,
+    lookup: &dyn ApiKeyLookup,
+) -> Result<ApiKeyAuth, AppError> {
+    let raw_token =
+        extract_bearer_token(auth_header).ok_or(AppError::Auth(AuthError::TokenInvalid))?;
+
+    if !is_api_key_format(raw_token) {
+        return Err(AppError::Auth(AuthError::TokenInvalid));
+    }
+
+    let prefix =
+        extract_api_key_prefix(raw_token).ok_or(AppError::Auth(AuthError::TokenInvalid))?;
+
+    let key_record = lookup
+        .find_by_prefix(prefix)
+        .await?
+        .ok_or(AppError::Auth(AuthError::TokenInvalid))?;
+
+    validate_api_key(&key_record)?;
+
+    let provided_hash = hash_api_key(raw_token);
+    if !verify_key_hash(&provided_hash, &key_record.key_hash) {
+        return Err(AppError::Auth(AuthError::TokenInvalid));
+    }
+
+    let key_type = detect_key_type(raw_token).unwrap_or("unknown").to_string();
+
+    lookup.update_last_used(&key_record.id).await?;
+
+    Ok(ApiKeyAuth {
+        project_id: key_record.project_id,
+        key_type,
+        scopes: key_record.scopes,
+    })
+}
+
+impl<S> FromRequestParts<S> for ApiKeyAuth
+where
+    S: Send + Sync,
+{
+    type Rejection = AppError;
+
+    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
+        let auth_header = parts
+            .headers
+            .get("authorization")
+            .and_then(|v| v.to_str().ok())
+            .ok_or(AppError::Auth(AuthError::TokenInvalid))?;
+
+        let lookup = parts
+            .extensions
+            .get::<std::sync::Arc<dyn ApiKeyLookup>>()
+            .ok_or(AppError::Auth(AuthError::TokenInvalid))?;
+
+        authenticate_api_key(auth_header, lookup.as_ref()).await
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -135,9 +195,7 @@ pub fn verify_key_hash(provided_hash: &str, stored_hash: &str) -> bool {
 }
 
 /// Validate an [`ApiKey`] record: not revoked, not expired.
-pub fn validate_api_key(
-    key: &nucleus_db::repos::api_key_repo::ApiKey,
-) -> Result<(), AppError> {
+pub fn validate_api_key(key: &nucleus_db::repos::api_key_repo::ApiKey) -> Result<(), AppError> {
     if key.revoked_at.is_some() {
         return Err(AppError::Api(ApiError::KeyRevoked));
     }
@@ -163,10 +221,7 @@ mod tests {
     fn extract_bearer_token_from_header() {
         let header = "Bearer eyJhbGciOiJSUzI1NiJ9.payload.signature";
         let token = extract_bearer_token(header);
-        assert_eq!(
-            token,
-            Some("eyJhbGciOiJSUzI1NiJ9.payload.signature")
-        );
+        assert_eq!(token, Some("eyJhbGciOiJSUzI1NiJ9.payload.signature"));
     }
 
     #[test]

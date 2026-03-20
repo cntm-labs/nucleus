@@ -177,11 +177,7 @@ mod tests {
             Ok(())
         }
 
-        async fn delete(
-            &self,
-            session_id: &SessionId,
-            user_id: &UserId,
-        ) -> Result<(), AppError> {
+        async fn delete(&self, session_id: &SessionId, user_id: &UserId) -> Result<(), AppError> {
             self.sessions.lock().unwrap().remove(session_id);
             if let Some(ids) = self.user_sessions.lock().unwrap().get_mut(user_id) {
                 ids.retain(|id| id != session_id);
@@ -228,11 +224,7 @@ mod tests {
         }
 
         async fn is_revoked(&self, jti: &str) -> Result<bool, AppError> {
-            Ok(self
-                .revoked_jwts
-                .lock()
-                .unwrap()
-                .contains_key(jti))
+            Ok(self.revoked_jwts.lock().unwrap().contains_key(jti))
         }
     }
 

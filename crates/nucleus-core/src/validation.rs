@@ -53,8 +53,7 @@ fn is_private_ip(ip: &IpAddr) -> bool {
 
 /// Validate a URL and reject private/internal IP addresses (SSRF protection)
 pub fn validate_webhook_url(url_str: &str) -> Result<Url, AppError> {
-    let parsed = Url::parse(url_str)
-        .map_err(|e| anyhow::anyhow!("invalid URL: {}", e))?;
+    let parsed = Url::parse(url_str).map_err(|e| anyhow::anyhow!("invalid URL: {}", e))?;
 
     // Only allow http and https
     match parsed.scheme() {
@@ -86,9 +85,7 @@ pub fn validate_webhook_url(url_str: &str) -> Result<Url, AppError> {
         if let Ok(addrs) = (host, port).to_socket_addrs() {
             for addr in addrs {
                 if is_private_ip(&addr.ip()) {
-                    return Err(
-                        anyhow::anyhow!("private/internal URLs are not allowed").into(),
-                    );
+                    return Err(anyhow::anyhow!("private/internal URLs are not allowed").into());
                 }
             }
         }
@@ -100,10 +97,7 @@ pub fn validate_webhook_url(url_str: &str) -> Result<Url, AppError> {
 /// Validate a slug (lowercase alphanumeric + hyphens, 3-100 chars)
 pub fn validate_slug(slug: &str) -> Result<(), AppError> {
     if slug.len() < 3 || slug.len() > 100 {
-        return Err(anyhow::anyhow!(
-            "slug must be between 3 and 100 characters"
-        )
-        .into());
+        return Err(anyhow::anyhow!("slug must be between 3 and 100 characters").into());
     }
     if !slug
         .chars()

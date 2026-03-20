@@ -100,15 +100,12 @@ pub async fn handle_oauth_start(
     Json(req): Json<OAuthStartRequest>,
 ) -> Result<(StatusCode, Json<OAuthStartResponse>), AppError> {
     // 1. Find the provider
-    let provider = oauth_state
-        .providers
-        .get(&req.provider)
-        .ok_or_else(|| {
-            AppError::Auth(AuthError::OAuthProviderError(format!(
-                "unsupported provider: {}",
-                req.provider
-            )))
-        })?;
+    let provider = oauth_state.providers.get(&req.provider).ok_or_else(|| {
+        AppError::Auth(AuthError::OAuthProviderError(format!(
+            "unsupported provider: {}",
+            req.provider
+        )))
+    })?;
 
     // 2. Generate PKCE verifier + challenge
     let verifier = pkce::generate_verifier();
@@ -179,12 +176,8 @@ pub async fn handle_oauth_callback(
         .parse()
         .map_err(|_| AppError::Internal(anyhow::anyhow!("invalid project_id in state")))?;
 
-    let (user, jwt, is_new_user) = create_or_link_user(
-        &oauth_state.auth_service,
-        &project_id,
-        &user_info,
-    )
-    .await?;
+    let (user, jwt, is_new_user) =
+        create_or_link_user(&oauth_state.auth_service, &project_id, &user_info).await?;
 
     Ok((
         StatusCode::OK,
@@ -263,7 +256,10 @@ async fn create_or_link_user(
         avatar_url: user_info.avatar_url.clone(),
         metadata: None,
     };
-    let user = auth_service.user_repo().create(project_id, &new_user).await?;
+    let user = auth_service
+        .user_repo()
+        .create(project_id, &new_user)
+        .await?;
 
     // Create OAuth credential
     let new_cred = NewCredential {
@@ -324,10 +320,7 @@ mod tests {
             Ok(())
         }
 
-        async fn consume_state(
-            &self,
-            state: &str,
-        ) -> Result<Option<OAuthStateData>, AppError> {
+        async fn consume_state(&self, state: &str) -> Result<Option<OAuthStateData>, AppError> {
             Ok(self.states.lock().unwrap().remove(state))
         }
     }
@@ -482,19 +475,11 @@ mod tests {
             unimplemented!()
         }
 
-        async fn ban(
-            &self,
-            _project_id: &ProjectId,
-            _user_id: &UserId,
-        ) -> Result<(), AppError> {
+        async fn ban(&self, _project_id: &ProjectId, _user_id: &UserId) -> Result<(), AppError> {
             unimplemented!()
         }
 
-        async fn unban(
-            &self,
-            _project_id: &ProjectId,
-            _user_id: &UserId,
-        ) -> Result<(), AppError> {
+        async fn unban(&self, _project_id: &ProjectId, _user_id: &UserId) -> Result<(), AppError> {
             unimplemented!()
         }
     }
@@ -712,8 +697,7 @@ mod tests {
             state: "test-state-123".to_string(),
         };
 
-        let result =
-            handle_oauth_callback(State(handler_state.clone()), Query(params)).await;
+        let result = handle_oauth_callback(State(handler_state.clone()), Query(params)).await;
         assert!(result.is_ok());
         let (status, Json(resp)) = result.unwrap();
         assert_eq!(status, StatusCode::OK);
@@ -770,8 +754,7 @@ mod tests {
             state: "link-state".to_string(),
         };
 
-        let result =
-            handle_oauth_callback(State(handler_state.clone()), Query(params)).await;
+        let result = handle_oauth_callback(State(handler_state.clone()), Query(params)).await;
         assert!(result.is_ok());
         let (status, Json(resp)) = result.unwrap();
         assert_eq!(status, StatusCode::OK);
@@ -790,8 +773,7 @@ mod tests {
             state: "nonexistent-state".to_string(),
         };
 
-        let result =
-            handle_oauth_callback(State(handler_state), Query(params)).await;
+        let result = handle_oauth_callback(State(handler_state), Query(params)).await;
         assert!(matches!(
             result,
             Err(AppError::Auth(AuthError::OAuthStateMismatch))

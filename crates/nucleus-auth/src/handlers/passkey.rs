@@ -38,11 +38,8 @@ pub async fn handle_passkey_register_begin(
     let service = PasskeyService::new("Nucleus", "localhost");
 
     // 3. Call begin_registration to generate challenge + options
-    let (options, _challenge) = service.begin_registration(
-        &user_id,
-        &req.email,
-        &req.display_name,
-    )?;
+    let (options, _challenge) =
+        service.begin_registration(&user_id, &req.email, &req.display_name)?;
 
     // 4. In production: store challenge in Redis with TTL (5 min)
     //    keyed by challenge.challenge_id for retrieval in register_finish

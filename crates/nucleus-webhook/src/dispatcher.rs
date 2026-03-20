@@ -43,18 +43,9 @@ impl WebhookSigner {
     pub fn build_headers(signature: &str, timestamp: i64, event_id: &str) -> Vec<(String, String)> {
         vec![
             ("Content-Type".to_string(), "application/json".to_string()),
-            (
-                "X-Nucleus-Signature".to_string(),
-                signature.to_string(),
-            ),
-            (
-                "X-Nucleus-Timestamp".to_string(),
-                timestamp.to_string(),
-            ),
-            (
-                "X-Nucleus-Event-Id".to_string(),
-                event_id.to_string(),
-            ),
+            ("X-Nucleus-Signature".to_string(), signature.to_string()),
+            ("X-Nucleus-Timestamp".to_string(), timestamp.to_string()),
+            ("X-Nucleus-Event-Id".to_string(), event_id.to_string()),
         ]
     }
 }
@@ -122,10 +113,7 @@ mod tests {
 
         assert_eq!(header_map.get("Content-Type"), Some(&"application/json"));
         assert_eq!(header_map.get("X-Nucleus-Signature"), Some(&"v1=abc123"));
-        assert_eq!(
-            header_map.get("X-Nucleus-Timestamp"),
-            Some(&"1700000000")
-        );
+        assert_eq!(header_map.get("X-Nucleus-Timestamp"), Some(&"1700000000"));
         assert_eq!(header_map.get("X-Nucleus-Event-Id"), Some(&"evt_123"));
         assert_eq!(headers.len(), 4);
     }

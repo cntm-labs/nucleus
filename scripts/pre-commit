@@ -1,0 +1,47 @@
+#!/bin/sh
+# Nucleus pre-commit hook
+# Install: cp scripts/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+# Or: ./scripts/setup-hooks.sh
+
+set -e
+
+echo "🔍 Running pre-commit checks..."
+
+# 1. Rust formatting
+echo "  [1/4] cargo fmt..."
+cargo fmt --all -- --check 2>/dev/null
+if [ $? -ne 0 ]; then
+    echo "❌ Formatting check failed. Run: cargo fmt --all"
+    exit 1
+fi
+
+# 2. Clippy lints
+echo "  [2/4] cargo clippy..."
+cargo clippy --workspace -- -D warnings 2>/dev/null
+if [ $? -ne 0 ]; then
+    echo "❌ Clippy found warnings. Fix them before committing."
+    exit 1
+fi
+
+# 3. Rust tests
+echo "  [3/4] cargo test..."
+cargo test --workspace --quiet 2>/dev/null
+if [ $? -ne 0 ]; then
+    echo "❌ Tests failed. Fix before committing."
+    exit 1
+fi
+
+# 4. Dashboard TypeScript check (if dashboard files changed)
+DASHBOARD_CHANGED=$(git diff --cached --name-only | grep "^dashboard/" || true)
+if [ -n "$DASHBOARD_CHANGED" ]; then
+    echo "  [4/4] TypeScript check..."
+    (cd dashboard && npx tsc --noEmit 2>/dev/null)
+    if [ $? -ne 0 ]; then
+        echo "❌ TypeScript check failed."
+        exit 1
+    fi
+else
+    echo "  [4/4] TypeScript check... (skipped, no dashboard changes)"
+fi
+
+echo "✅ All pre-commit checks passed!"

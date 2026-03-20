@@ -15,11 +15,7 @@ pub async fn handle_list_orgs(
     State(state): State<Arc<AppState>>,
     query: Query<nucleus_org::handlers::org::ListOrgsParams>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    nucleus_org::handlers::org::handle_list_orgs(
-        State(state.org_service.clone()),
-        query,
-    )
-    .await
+    nucleus_org::handlers::org::handle_list_orgs(State(state.org_service.clone()), query).await
 }
 
 /// POST /api/v1/orgs
@@ -42,12 +38,7 @@ pub async fn handle_get_org(
     path: Path<String>,
     query: Query<nucleus_org::handlers::org::ProjectContext>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    nucleus_org::handlers::org::handle_get_org(
-        State(state.org_service.clone()),
-        path,
-        query,
-    )
-    .await
+    nucleus_org::handlers::org::handle_get_org(State(state.org_service.clone()), path, query).await
 }
 
 /// PATCH /api/v1/orgs/:slug

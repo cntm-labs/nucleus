@@ -32,7 +32,9 @@ impl PermissionChecker {
             }
             _ => {
                 // Custom roles: check explicit permissions
-                role_permissions.iter().any(|p| p.key == required_permission)
+                role_permissions
+                    .iter()
+                    .any(|p| p.key == required_permission)
             }
         }
     }
@@ -117,39 +119,82 @@ mod tests {
 
     #[test]
     fn owner_has_all_permissions() {
-        assert!(PermissionChecker::has_permission(&owner_role(), &[], "anything"));
-        assert!(PermissionChecker::has_permission(&owner_role(), &[], "org:delete"));
-        assert!(PermissionChecker::has_permission(&owner_role(), &[], "org:transfer"));
+        assert!(PermissionChecker::has_permission(
+            &owner_role(),
+            &[],
+            "anything"
+        ));
+        assert!(PermissionChecker::has_permission(
+            &owner_role(),
+            &[],
+            "org:delete"
+        ));
+        assert!(PermissionChecker::has_permission(
+            &owner_role(),
+            &[],
+            "org:transfer"
+        ));
     }
 
     #[test]
     fn admin_has_most_permissions() {
-        assert!(PermissionChecker::has_permission(&admin_role(), &[], "members:invite"));
-        assert!(PermissionChecker::has_permission(&admin_role(), &[], "billing:manage"));
+        assert!(PermissionChecker::has_permission(
+            &admin_role(),
+            &[],
+            "members:invite"
+        ));
+        assert!(PermissionChecker::has_permission(
+            &admin_role(),
+            &[],
+            "billing:manage"
+        ));
     }
 
     #[test]
     fn admin_cannot_delete_or_transfer_org() {
-        assert!(!PermissionChecker::has_permission(&admin_role(), &[], "org:delete"));
-        assert!(!PermissionChecker::has_permission(&admin_role(), &[], "org:transfer"));
+        assert!(!PermissionChecker::has_permission(
+            &admin_role(),
+            &[],
+            "org:delete"
+        ));
+        assert!(!PermissionChecker::has_permission(
+            &admin_role(),
+            &[],
+            "org:transfer"
+        ));
     }
 
     #[test]
     fn member_has_no_implicit_permissions() {
-        assert!(!PermissionChecker::has_permission(&member_role(), &[], "members:invite"));
+        assert!(!PermissionChecker::has_permission(
+            &member_role(),
+            &[],
+            "members:invite"
+        ));
     }
 
     #[test]
     fn custom_role_uses_explicit_permissions() {
         let perms = vec![billing_read_perm()];
-        assert!(PermissionChecker::has_permission(&custom_role(), &perms, "billing:read"));
-        assert!(!PermissionChecker::has_permission(&custom_role(), &perms, "members:invite"));
+        assert!(PermissionChecker::has_permission(
+            &custom_role(),
+            &perms,
+            "billing:read"
+        ));
+        assert!(!PermissionChecker::has_permission(
+            &custom_role(),
+            &perms,
+            "members:invite"
+        ));
     }
 
     #[test]
     fn require_permission_returns_error_on_denied() {
         let result = PermissionChecker::require_permission(&member_role(), &[], "members:invite");
-        assert!(matches!(result, Err(AppError::Org(OrgError::InsufficientPermissions))));
+        assert!(matches!(
+            result,
+            Err(AppError::Org(OrgError::InsufficientPermissions))
+        ));
     }
 
     #[test]

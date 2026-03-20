@@ -49,5 +49,11 @@ fn bench_jwt_key_generation(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, bench_jwt_sign, bench_jwt_verify, bench_jwt_sign_and_verify, bench_jwt_key_generation);
+criterion_group!(
+    benches,
+    bench_jwt_sign,
+    bench_jwt_verify,
+    bench_jwt_sign_and_verify,
+    bench_jwt_key_generation
+);
 criterion_main!(benches);
