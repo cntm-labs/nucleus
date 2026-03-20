@@ -1,4 +1,5 @@
 name: Publish SDKs
+# Publishes SDK packages to their respective registries
 
 on:
   workflow_dispatch:
