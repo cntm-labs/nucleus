@@ -239,10 +239,14 @@ jobs:
           done
       - name: Verify PyPI package
         if: always() && (inputs.sdk == 'all' || inputs.sdk == 'python')
-        run: pip index versions cntm-labs-nucleus 2>/dev/null && echo "OK" || echo "WARN: not yet indexed"
+        run: |
+          pip index versions cntm-labs-nucleus 2>/dev/null && echo "OK" || echo "WARN: not yet indexed"
       - name: Verify crates.io package
         if: always() && (inputs.sdk == 'all' || inputs.sdk == 'rust')
-        run: curl -sf https://crates.io/api/v1/crates/nucleus-rs | python3 -c "import sys,json; print('OK:', json.load(sys.stdin)['crate']['newest_version'])" || echo "WARN: not yet indexed"
+        run: |
+          curl -sf https://crates.io/api/v1/crates/nucleus-rs \
+            | python3 -c "import sys,json; print('OK:', json.load(sys.stdin)['crate']['newest_version'])" \
+            || echo "WARN: not yet indexed"
       - name: Summary
         if: always()
         run: echo "Verification complete. Check logs above for any WARN messages — packages may take a few minutes to propagate."
