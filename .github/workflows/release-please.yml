@@ -58,7 +58,7 @@ jobs:
   publish:
     needs: [release-please, ci-gate]
     if: needs.release-please.outputs.releases_created == 'true'
-    uses: ./.github/workflows/publish-sdks.yml
+    uses: ./.github/workflows/sdk-publish.yml
     with:
       sdk: all
       version: ''
