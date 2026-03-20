@@ -1,7 +1,16 @@
 {
-  "name": "@nucleus/node",
-  "version": "0.1.0",
-  "description": "Nucleus authentication SDK for Node.js backends",
+  "name": "@cntm-labs/node",
+  "version": "0.1.0-dev.1",
+  "description": "DEV PREVIEW — Not ready for production. Nucleus authentication SDK for Node.js backends.",
+  "license": "MIT",
+  "author": "cntm-labs",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cntm-labs/nucleus.git",
+    "directory": "sdks/node"
+  },
+  "homepage": "https://github.com/cntm-labs/nucleus",
+  "publishConfig": { "access": "public" },
   "type": "module",
   "main": "./dist/cjs/index.js",
   "module": "./dist/esm/index.js",
