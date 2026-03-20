@@ -41,7 +41,16 @@ pub struct VerifyOtpResponse {
 pub async fn handle_verify_otp(
     Json(_req): Json<VerifyOtpRequest>,
 ) -> Result<Json<VerifyOtpResponse>, AppError> {
-    // Lookup OTP in Redis, verify code, increment attempts
-    // If valid: find/create user, create session, issue JWT
-    todo!()
+    // Flow:
+    // 1. Look up OTP record in Redis by key otp:{project}:{email_or_phone}:{purpose}
+    // 2. Deserialize stored record: { code_hash, expires_at, attempts, max_attempts }
+    // 3. Increment attempts counter in Redis
+    // 4. Call OtpService::verify(code, stored_hash, expires_at, attempts, max_attempts)
+    // 5. If valid: find/create user by email_or_phone, create session, issue JWT
+    // 6. Delete OTP record from Redis
+    //
+    // Requires: Redis connection + UserRepository (not yet wired into handler)
+    Err(AppError::Internal(anyhow::anyhow!(
+        "OTP verification requires Redis and database integration"
+    )))
 }

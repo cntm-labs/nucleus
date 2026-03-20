@@ -1,6 +1,9 @@
-use axum::Json;
 use nucleus_core::error::AppError;
+use nucleus_core::types::{ProjectId, UserId};
+use nucleus_db::repos::user_repo::{UpdateUser, User};
 use serde::{Deserialize, Serialize};
+
+use crate::user::UserService;
 
 #[derive(Debug, Serialize)]
 pub struct UserProfileResponse {
@@ -16,10 +19,21 @@ pub struct UserProfileResponse {
     pub updated_at: String,
 }
 
-/// GET /api/v1/users/me
-pub async fn handle_get_me() -> Result<Json<UserProfileResponse>, AppError> {
-    // Extract user from JWT claims, call user_service.get_me()
-    todo!()
+impl From<User> for UserProfileResponse {
+    fn from(u: User) -> Self {
+        Self {
+            id: u.id.to_string(),
+            email: u.email,
+            email_verified: u.email_verified,
+            username: u.username,
+            first_name: u.first_name,
+            last_name: u.last_name,
+            avatar_url: u.avatar_url,
+            metadata: u.metadata,
+            created_at: u.created_at.to_rfc3339(),
+            updated_at: u.updated_at.to_rfc3339(),
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -31,24 +45,41 @@ pub struct UpdateProfileRequest {
     pub metadata: Option<serde_json::Value>,
 }
 
-/// PATCH /api/v1/users/me
-pub async fn handle_update_me(
-    Json(_req): Json<UpdateProfileRequest>,
-) -> Result<Json<UserProfileResponse>, AppError> {
-    todo!()
+/// Get the current user's profile.
+pub async fn get_me(
+    user_service: &UserService,
+    project_id: &ProjectId,
+    user_id: &UserId,
+) -> Result<UserProfileResponse, AppError> {
+    let user = user_service.get_me(project_id, user_id).await?;
+    Ok(UserProfileResponse::from(user))
 }
 
-/// DELETE /api/v1/users/me
-pub async fn handle_delete_me() -> Result<axum::http::StatusCode, AppError> {
-    todo!()
+/// Update the current user's profile.
+pub async fn update_me(
+    user_service: &UserService,
+    project_id: &ProjectId,
+    user_id: &UserId,
+    req: UpdateProfileRequest,
+) -> Result<UserProfileResponse, AppError> {
+    let update = UpdateUser {
+        email: None,
+        username: req.username,
+        first_name: req.first_name,
+        last_name: req.last_name,
+        avatar_url: req.avatar_url,
+        metadata: req.metadata,
+        private_metadata: None,
+    };
+    let user = user_service.update_me(project_id, user_id, &update).await?;
+    Ok(UserProfileResponse::from(user))
 }
 
-/// GET /api/v1/users/me/sessions
-pub async fn handle_list_my_sessions() -> Result<Json<serde_json::Value>, AppError> {
-    todo!()
-}
-
-/// DELETE /api/v1/users/me/sessions/:id
-pub async fn handle_revoke_my_session() -> Result<axum::http::StatusCode, AppError> {
-    todo!()
+/// Delete (soft) the current user's account.
+pub async fn delete_me(
+    user_service: &UserService,
+    project_id: &ProjectId,
+    user_id: &UserId,
+) -> Result<(), AppError> {
+    user_service.delete_me(project_id, user_id).await
 }

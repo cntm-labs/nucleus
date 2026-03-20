@@ -75,16 +75,31 @@ pub async fn handle_oauth_start(
     State(_state): State<Arc<AppState>>,
     Json(_req): Json<nucleus_auth::handlers::oauth::OAuthStartRequest>,
 ) -> Result<(StatusCode, Json<nucleus_auth::handlers::oauth::OAuthStartResponse>), AppError> {
-    // TODO: construct OAuthHandlerState from AppState once providers/state_store are wired
-    todo!()
+    // OAuth start requires OAuthHandlerState which needs:
+    // - HashMap<String, Arc<dyn OAuthProvider>> (configured providers)
+    // - Arc<dyn OAuthStateStore> (Redis-backed state store)
+    // These are not yet part of AppState. Once added, this handler will
+    // construct OAuthHandlerState and delegate to
+    // nucleus_auth::handlers::oauth::handle_oauth_start().
+    Err(AppError::Auth(
+        nucleus_core::error::AuthError::OAuthProviderError(
+            "OAuth providers not yet configured in AppState".to_string(),
+        ),
+    ))
 }
 
 pub async fn handle_oauth_callback(
     State(_state): State<Arc<AppState>>,
     Query(_params): Query<nucleus_auth::handlers::oauth::OAuthCallbackParams>,
 ) -> Result<(StatusCode, Json<nucleus_auth::handlers::oauth::OAuthCallbackResponse>), AppError> {
-    // TODO: construct OAuthHandlerState from AppState once providers/state_store are wired
-    todo!()
+    // OAuth callback requires OAuthHandlerState (same as handle_oauth_start).
+    // Once providers and state_store are wired into AppState, this handler
+    // will delegate to nucleus_auth::handlers::oauth::handle_oauth_callback().
+    Err(AppError::Auth(
+        nucleus_core::error::AuthError::OAuthProviderError(
+            "OAuth providers not yet configured in AppState".to_string(),
+        ),
+    ))
 }
 
 // ---------------------------------------------------------------------------

@@ -45,6 +45,15 @@ impl UserService {
 
     // ── Admin methods ──
 
+    /// Create a new user (admin)
+    pub async fn create_user(
+        &self,
+        project_id: &ProjectId,
+        new_user: &nucleus_db::repos::user_repo::NewUser,
+    ) -> Result<User, AppError> {
+        self.user_repo.create(project_id, new_user).await
+    }
+
     /// List users (admin)
     pub async fn list_users(
         &self,

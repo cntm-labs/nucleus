@@ -3,6 +3,9 @@ use axum::Json;
 use nucleus_core::error::AppError;
 use serde::{Deserialize, Serialize};
 
+// Service used by this module (called once DB integration is wired):
+// use crate::magic_link::MagicLinkService;
+
 #[derive(Debug, Deserialize)]
 pub struct SendMagicLinkRequest {
     pub email: String,
@@ -47,7 +50,15 @@ pub struct VerifyMagicLinkResponse {
 pub async fn handle_verify_magic_link(
     Query(_params): Query<VerifyMagicLinkQuery>,
 ) -> Result<Json<VerifyMagicLinkResponse>, AppError> {
-    // TODO: Look up token hash in DB, verify with MagicLinkService::verify_token,
-    // mark as used, create session + JWT, return user info.
-    todo!()
+    // Flow:
+    // 1. Hash the provided token to look up in verification_tokens table
+    // 2. Retrieve the stored record (token_hash, expires_at, used_at, user_id)
+    // 3. Call MagicLinkService::verify_token(token, stored_hash, expires_at, used_at)
+    // 4. Mark token as used in DB
+    // 5. Create session + issue JWT for the user
+    //
+    // Requires: VerificationTokenRepository (not yet implemented)
+    Err(AppError::Internal(anyhow::anyhow!(
+        "Magic link verification requires database integration (VerificationTokenRepository)"
+    )))
 }

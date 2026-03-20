@@ -1,6 +1,9 @@
 use axum::Json;
 use nucleus_core::error::AppError;
+use nucleus_core::types::UserId;
 use serde::{Deserialize, Serialize};
+
+use crate::passkey::PasskeyService;
 
 // ── Registration Begin ──────────────────────────────────────────────────────
 
@@ -22,13 +25,36 @@ pub struct PasskeyRegisterBeginResponse {
 /// `PublicKeyCredentialCreationOptions` for the client to pass to
 /// `navigator.credentials.create()`.
 pub async fn handle_passkey_register_begin(
-    Json(_req): Json<PasskeyRegisterBeginRequest>,
+    Json(req): Json<PasskeyRegisterBeginRequest>,
 ) -> Result<Json<PasskeyRegisterBeginResponse>, AppError> {
-    // 1. Validate user exists and is authenticated
+    // 1. Parse and validate user_id
+    let user_id: UserId = req
+        .user_id
+        .parse()
+        .map_err(|_| AppError::Internal(anyhow::anyhow!("Invalid user_id format")))?;
+
     // 2. Create PasskeyService with project RP config
-    // 3. Call begin_registration, store challenge in Redis
-    // 4. Return registration options to client
-    todo!()
+    // TODO: RP name and ID should come from project configuration in AppState
+    let service = PasskeyService::new("Nucleus", "localhost");
+
+    // 3. Call begin_registration to generate challenge + options
+    let (options, _challenge) = service.begin_registration(
+        &user_id,
+        &req.email,
+        &req.display_name,
+    )?;
+
+    // 4. In production: store challenge in Redis with TTL (5 min)
+    //    keyed by challenge.challenge_id for retrieval in register_finish
+    //    redis.set_ex(challenge.challenge_id, serialize(challenge), 300)
+
+    // 5. Serialize registration options for the client
+    let options_json = serde_json::to_value(&options)
+        .map_err(|e| AppError::Internal(anyhow::anyhow!("Failed to serialize options: {}", e)))?;
+
+    Ok(Json(PasskeyRegisterBeginResponse {
+        options: options_json,
+    }))
 }
 
 // ── Registration Finish ─────────────────────────────────────────────────────
@@ -53,12 +79,20 @@ pub struct PasskeyRegisterFinishResponse {
 pub async fn handle_passkey_register_finish(
     Json(_req): Json<PasskeyRegisterFinishRequest>,
 ) -> Result<Json<PasskeyRegisterFinishResponse>, AppError> {
+    // Flow:
     // 1. Retrieve challenge from Redis by challenge_id
-    // 2. Verify challenge not expired
-    // 3. Verify attestation response (webauthn-rs integration point)
-    // 4. Store PasskeyCredential in database
+    // 2. Call PasskeyService::verify_challenge_not_expired(&challenge)
+    // 3. Verify attestation response against challenge (webauthn-rs integration point):
+    //    - Parse clientDataJSON, verify type/origin/challenge
+    //    - Parse attestationObject, extract public key
+    // 4. Store PasskeyCredential in passkey_credentials table
     // 5. Delete challenge from Redis
-    todo!()
+    //
+    // Requires: Redis + PasskeyCredentialRepository + WebAuthn attestation
+    //           verification (not yet wired)
+    Err(AppError::Internal(anyhow::anyhow!(
+        "Passkey registration finish requires Redis and database integration"
+    )))
 }
 
 // ── Authentication Begin ────────────────────────────────────────────────────
@@ -81,11 +115,20 @@ pub struct PasskeyAuthBeginResponse {
 pub async fn handle_passkey_auth_begin(
     Json(_req): Json<PasskeyAuthBeginRequest>,
 ) -> Result<Json<PasskeyAuthBeginResponse>, AppError> {
-    // 1. If email provided, look up user's passkey credentials
+    // Flow:
+    // 1. If email provided, look up user and their passkey credentials from DB
     // 2. Create PasskeyService with project RP config
-    // 3. Call begin_authentication, store challenge in Redis
-    // 4. Return authentication options to client
-    todo!()
+    // 3. Call service.begin_authentication(&credentials) to generate challenge
+    // 4. Store challenge in Redis with TTL (5 min)
+    // 5. Return authentication options to client
+    //
+    // For discoverable credentials (no email), return challenge with empty
+    // allow_credentials list so the authenticator can offer all available keys.
+    //
+    // Requires: Redis + PasskeyCredentialRepository (not yet wired)
+    Err(AppError::Internal(anyhow::anyhow!(
+        "Passkey authentication begin requires Redis and database integration"
+    )))
 }
 
 // ── Authentication Finish ───────────────────────────────────────────────────
@@ -111,11 +154,21 @@ pub struct PasskeyAuthFinishResponse {
 pub async fn handle_passkey_auth_finish(
     Json(_req): Json<PasskeyAuthFinishRequest>,
 ) -> Result<Json<PasskeyAuthFinishResponse>, AppError> {
+    // Flow:
     // 1. Retrieve challenge from Redis by challenge_id
-    // 2. Verify challenge not expired
-    // 3. Verify assertion response (webauthn-rs integration point)
-    // 4. Update sign_count on the credential
-    // 5. Create session, issue JWT
+    // 2. Call PasskeyService::verify_challenge_not_expired(&challenge)
+    // 3. Verify assertion response (webauthn-rs integration point):
+    //    - Parse clientDataJSON, verify type/origin/challenge
+    //    - Look up credential by credential ID in DB
+    //    - Verify signature against stored public key
+    //    - Check sign_count is greater than stored value (clone detection)
+    // 4. Update sign_count on the credential in DB
+    // 5. Create session via SessionService, issue JWT via AuthService
     // 6. Delete challenge from Redis
-    todo!()
+    //
+    // Requires: Redis + PasskeyCredentialRepository + SessionService +
+    //           AuthService + WebAuthn assertion verification (not yet wired)
+    Err(AppError::Internal(anyhow::anyhow!(
+        "Passkey authentication finish requires Redis and database integration"
+    )))
 }

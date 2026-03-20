@@ -3,6 +3,8 @@ use std::sync::Arc;
 use nucleus_auth::jwt::SigningKeyPair;
 use nucleus_auth::service::AuthService;
 use nucleus_core::clock::{Clock, SystemClock};
+use nucleus_identity::user::UserService;
+use nucleus_org::organization::OrgService;
 use nucleus_session::session::SessionService;
 use redis::aio::ConnectionManager;
 use sqlx::PgPool;
@@ -15,6 +17,8 @@ pub struct AppState {
     pub auth_service: Arc<AuthService>,
     pub session_service: Arc<SessionService>,
     pub signing_key: Arc<SigningKeyPair>,
+    pub user_service: Arc<UserService>,
+    pub org_service: Arc<OrgService>,
 }
 
 impl AppState {
@@ -25,6 +29,8 @@ impl AppState {
         auth_service: Arc<AuthService>,
         session_service: Arc<SessionService>,
         signing_key: Arc<SigningKeyPair>,
+        user_service: Arc<UserService>,
+        org_service: Arc<OrgService>,
     ) -> Self {
         Self {
             db,
@@ -34,6 +40,8 @@ impl AppState {
             auth_service,
             session_service,
             signing_key,
+            user_service,
+            org_service,
         }
     }
 }

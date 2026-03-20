@@ -17,8 +17,11 @@ use nucleus_db::redis::create_redis_pool;
 use nucleus_db::repos::audit_repo::PgAuditRepository;
 use nucleus_db::repos::credential_repo::PgCredentialRepository;
 use nucleus_db::repos::session_repo::RedisSessionRepository;
+use nucleus_db::repos::org_repo::PgOrgRepository;
 use nucleus_db::repos::user_repo::PgUserRepository;
+use nucleus_identity::user::UserService;
 use nucleus_migrate::run_migrations;
+use nucleus_org::organization::OrgService;
 use nucleus_session::session::SessionService;
 
 use crate::config::Config;
@@ -69,13 +72,20 @@ async fn main() -> Result<()> {
     let audit_repo = Arc::new(PgAuditRepository::new(db.clone()));
 
     let auth_service = Arc::new(AuthService::new(
-        user_repo,
+        user_repo.clone(),
         credential_repo,
         audit_repo,
         signing_key.clone(),
         "https://nucleus.local".to_string(),
         300, // 5 min JWT lifetime
     ));
+
+    // Create identity user service
+    let user_service = Arc::new(UserService::new(user_repo));
+
+    // Create organization service
+    let org_repo = Arc::new(PgOrgRepository::new(db.clone()));
+    let org_service = Arc::new(OrgService::new(org_repo));
 
     // Build application state
     let state = Arc::new(AppState::new(
@@ -85,6 +95,8 @@ async fn main() -> Result<()> {
         auth_service,
         session_service,
         signing_key,
+        user_service,
+        org_service,
     ));
 
     // Build router
