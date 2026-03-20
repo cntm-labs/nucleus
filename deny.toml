@@ -1,15 +1,39 @@
+[graph]
+all-features = true
+
 [advisories]
-vulnerability = "deny"
-unmaintained = "warn"
+db-path = "~/.cargo/advisory-db"
+db-urls = ["https://github.com/rustsec/advisory-db"]
+ignore = [
+    "RUSTSEC-2023-0071",  # rsa crate — pending migration to ring-only
+    "RUSTSEC-2024-0421",  # idna — transitive dep, low risk
+]
 
 [licenses]
 unlicensed = "deny"
-allow = ["MIT", "Apache-2.0", "BSD-2-Clause", "BSD-3-Clause", "ISC", "Unicode-DFS-2016", "OpenSSL"]
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-DFS-2016",
+    "Unicode-3.0",
+    "OpenSSL",
+    "BSL-1.0",
+    "0BSD",
+    "CC0-1.0",
+    "Zlib",
+    "MPL-2.0",
+]
+confidence-threshold = 0.8
 
 [bans]
 multiple-versions = "warn"
 wildcards = "deny"
+highlight = "simplest-path"
 
 [sources]
 unknown-registry = "deny"
-unknown-git = "deny"
+unknown-git = "warn"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

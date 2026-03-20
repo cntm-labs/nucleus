@@ -76,6 +76,12 @@ pub mod tests {
         get_responses: Mutex<HashMap<String, String>>,
     }
 
+    impl Default for MockHttpClient {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+
     impl MockHttpClient {
         pub fn new() -> Self {
             Self {

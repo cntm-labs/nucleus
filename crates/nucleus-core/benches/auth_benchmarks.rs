@@ -15,7 +15,7 @@ fn bench_password_verify(c: &mut Criterion) {
 
 fn bench_token_generation(c: &mut Criterion) {
     c.bench_function("generate_token_256bit", |b| {
-        b.iter(|| nucleus_core::crypto::generate_token())
+        b.iter(nucleus_core::crypto::generate_token)
     });
 }
 

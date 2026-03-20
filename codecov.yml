@@ -1,0 +1,35 @@
+codecov:
+  require_ci_to_pass: true
+
+coverage:
+  status:
+    project:
+      default:
+        target: auto
+        threshold: 5%
+      core:
+        target: auto
+        threshold: 5%
+        flags: [core]
+      auth:
+        target: auto
+        threshold: 5%
+        flags: [auth]
+    patch:
+      default:
+        target: 70%
+
+flags:
+  core:
+    paths: [crates/nucleus-core/]
+    carryforward: true
+  auth:
+    paths: [crates/nucleus-auth/]
+    carryforward: true
+
+ignore:
+  - "crates/*/benches/"
+  - "sdks/"
+  - "dashboard/"
+  - "load-tests/"
+  - "deploy/"

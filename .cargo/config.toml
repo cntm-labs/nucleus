@@ -1,0 +1,8 @@
+[alias]
+check-all = "check --workspace --all-targets"
+test-all = "test --workspace"
+lint = "clippy --workspace --all-targets -- -D warnings"
+
+[build]
+# Uncomment if sccache is installed:
+# rustc-wrapper = "sccache"

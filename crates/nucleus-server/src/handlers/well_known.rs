@@ -57,7 +57,7 @@ pub async fn handle_openid_configuration(State(_state): State<Arc<AppState>>) ->
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nucleus_auth::jwt::{Jwks, JwtService};
+    use nucleus_auth::jwt::JwtService;
 
     #[test]
     fn jwks_response_has_correct_structure() {

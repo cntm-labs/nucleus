@@ -6,3 +6,6 @@ edition = "2021"
 [dependencies]
 sqlx = { workspace = true }
 tokio = { workspace = true }
+
+[lints]
+workspace = true

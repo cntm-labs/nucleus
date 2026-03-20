@@ -1,0 +1,27 @@
+default_job = "check"
+
+[jobs.check]
+command = ["cargo", "check", "--workspace", "--color", "always"]
+watch = ["crates"]
+
+[jobs.clippy]
+command = ["cargo", "clippy", "--workspace", "--all-targets", "--color", "always", "--", "-D", "warnings"]
+watch = ["crates"]
+
+[jobs.test]
+command = ["cargo", "test", "--workspace", "--color", "always"]
+watch = ["crates"]
+
+[jobs.nextest]
+command = ["cargo", "nextest", "run", "--workspace", "--color", "always"]
+watch = ["crates"]
+
+[jobs.fmt]
+command = ["cargo", "fmt", "--all"]
+watch = ["crates"]
+
+[keybindings]
+c = "job:clippy"
+t = "job:test"
+n = "job:nextest"
+f = "job:fmt"
