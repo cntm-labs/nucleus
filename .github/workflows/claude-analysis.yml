@@ -1,20 +1,63 @@
 name: Claude Analysis
-on: [pull_request]
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  issue_comment:
+    types: [created]
+
 jobs:
   analyze:
+    # Run on PR events, or when someone comments "@claude" on a PR
+    if: |
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.pull_request &&
+       contains(github.event.comment.body, '@claude'))
     runs-on: ubuntu-latest
-    permissions: { pull-requests: write, contents: read }
+    permissions:
+      pull-requests: write
+      contents: read
+      issues: read
     steps:
       - uses: actions/checkout@v4
-        with: { fetch-depth: 0 }
+        with:
+          fetch-depth: 0
+
       - uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           model: claude-sonnet-4-6-20250514
           prompt: |
-            Analyze this PR for the Nucleus auth platform. Focus on:
-            1. Security issues (this is an auth service)
-            2. Performance regressions
-            3. Test coverage gaps in auth/security code
-            4. API contract changes
-            Provide structured feedback as a PR comment.
+            You are reviewing a PR for Nucleus — a production-grade authentication
+            SaaS platform built in Rust (Axum). Security and performance are critical.
+
+            Analyze this PR and provide a structured review as a PR comment:
+
+            ## 🔍 Nucleus PR Analysis
+
+            ### 🔴 Critical (must fix before merge)
+            - Security issues (auth bypass, injection, token handling)
+            - Breaking API contract changes
+            - Data leaks (PII in logs, sensitive data in responses)
+
+            ### 🟡 Warnings (should fix)
+            - Performance regressions
+            - Missing tests for security-critical code
+            - Error handling gaps
+
+            ### 🟢 Positive
+            - Good patterns worth noting
+
+            ### 📊 Summary
+            | Check | Status |
+            |-------|--------|
+            | Security | ✅/⚠/🔴 |
+            | Tests | ✅/⚠/🔴 |
+            | Performance | ✅/⚠/🔴 |
+            | API Contract | ✅/⚠/🔴 |
+
+            ### 💡 Suggestions
+            - Actionable improvements
+
+            Be concise. Only flag real issues, not style preferences.

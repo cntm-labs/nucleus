@@ -1,28 +1,21 @@
 name: Load Test
 
 on:
-  # Smoke: on every push to main (fast, < 2 min total)
   push:
     branches: [main]
     paths: ['crates/**']
-
-  # Full: manual trigger or weekly
   workflow_dispatch:
     inputs:
       profile:
-        description: 'Test profile (ci = short smoke, full = complete load test)'
+        description: 'Test profile'
         required: false
         default: 'full'
         type: choice
         options: [ci, full]
-
   schedule:
-    - cron: '0 6 * * 1'  # Monday 6am UTC — weekly full load test
+    - cron: '0 6 * * 1'
 
 jobs:
-  # ──────────────────────────────────────────
-  # Build binary once, share across jobs
-  # ──────────────────────────────────────────
   build:
     runs-on: ubuntu-latest
     steps:
@@ -37,9 +30,6 @@ jobs:
           path: target/release/nucleus-server
           retention-days: 1
 
-  # ──────────────────────────────────────────
-  # Smoke test (every push) — 15 seconds
-  # ──────────────────────────────────────────
   smoke:
     needs: build
     runs-on: ubuntu-latest
@@ -63,14 +53,37 @@ jobs:
         with: { name: nucleus-server }
       - run: chmod +x nucleus-server && ./nucleus-server &
       - run: sleep 3 && curl -sf http://localhost:3000/health
-      - uses: grafana/k6-action@v0.3.1
-        with:
-          filename: load-tests/smoke.k6.js
-          flags: --env BASE_URL=http://localhost:3000
 
-  # ──────────────────────────────────────────
-  # Full load tests (weekly/manual) — parallel jobs
-  # ──────────────────────────────────────────
+      - name: Install k6
+        run: |
+          sudo gpg -k
+          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update && sudo apt-get install -y k6
+
+      - name: Run smoke test
+        run: |
+          k6 run load-tests/smoke.k6.js \
+            --env BASE_URL=http://localhost:3000 \
+            --summary-export=smoke-results.json \
+            2>&1 | tee smoke-output.txt
+
+      - name: Post smoke summary
+        if: always()
+        run: |
+          echo "## 🔥 k6 Smoke Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f smoke-results.json ]; then
+            echo '```json' >> $GITHUB_STEP_SUMMARY
+            cat smoke-results.json | python3 -m json.tool >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Raw Output (last 30 lines)" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          tail -30 smoke-output.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
   load-auth:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     needs: build
@@ -95,10 +108,47 @@ jobs:
         with: { name: nucleus-server }
       - run: chmod +x nucleus-server && ./nucleus-server &
       - run: sleep 3
-      - uses: grafana/k6-action@v0.3.1
+
+      - name: Install k6
+        run: |
+          sudo gpg -k
+          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update && sudo apt-get install -y k6
+
+      - name: Run auth flow load test
+        run: |
+          k6 run load-tests/auth-flow.k6.js \
+            --env BASE_URL=http://localhost:3000 \
+            --env K6_PROFILE=${{ inputs.profile || 'full' }} \
+            --summary-export=auth-results.json \
+            2>&1 | tee auth-output.txt
+
+      - name: Post auth load test summary
+        if: always()
+        run: |
+          echo "## 🔐 Auth Flow Load Test" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Profile:** ${{ inputs.profile || 'full' }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f auth-results.json ]; then
+            echo '```json' >> $GITHUB_STEP_SUMMARY
+            cat auth-results.json | python3 -m json.tool >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Output" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          tail -40 auth-output.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          filename: load-tests/auth-flow.k6.js
-          flags: --env BASE_URL=http://localhost:3000 --env K6_PROFILE=${{ inputs.profile || 'full' }}
+          name: k6-auth-results
+          path: auth-*.json
+          retention-days: 30
 
   load-refresh:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
@@ -124,10 +174,44 @@ jobs:
         with: { name: nucleus-server }
       - run: chmod +x nucleus-server && ./nucleus-server &
       - run: sleep 3
-      - uses: grafana/k6-action@v0.3.1
+
+      - name: Install k6
+        run: |
+          sudo gpg -k
+          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update && sudo apt-get install -y k6
+
+      - name: Run token refresh load test
+        run: |
+          k6 run load-tests/token-refresh.k6.js \
+            --env BASE_URL=http://localhost:3000 \
+            --env K6_PROFILE=${{ inputs.profile || 'full' }} \
+            --summary-export=refresh-results.json \
+            2>&1 | tee refresh-output.txt
+
+      - name: Post refresh load test summary
+        if: always()
+        run: |
+          echo "## 🔄 Token Refresh Load Test" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f refresh-results.json ]; then
+            echo '```json' >> $GITHUB_STEP_SUMMARY
+            cat refresh-results.json | python3 -m json.tool >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          tail -40 refresh-output.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          filename: load-tests/token-refresh.k6.js
-          flags: --env BASE_URL=http://localhost:3000 --env K6_PROFILE=${{ inputs.profile || 'full' }}
+          name: k6-refresh-results
+          path: refresh-*.json
+          retention-days: 30
 
   load-admin:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
@@ -153,7 +237,41 @@ jobs:
         with: { name: nucleus-server }
       - run: chmod +x nucleus-server && ./nucleus-server &
       - run: sleep 3
-      - uses: grafana/k6-action@v0.3.1
+
+      - name: Install k6
+        run: |
+          sudo gpg -k
+          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update && sudo apt-get install -y k6
+
+      - name: Run admin API load test
+        run: |
+          k6 run load-tests/admin-api.k6.js \
+            --env BASE_URL=http://localhost:3000 \
+            --env K6_PROFILE=${{ inputs.profile || 'full' }} \
+            --summary-export=admin-results.json \
+            2>&1 | tee admin-output.txt
+
+      - name: Post admin load test summary
+        if: always()
+        run: |
+          echo "## 🛡️ Admin API Load Test" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f admin-results.json ]; then
+            echo '```json' >> $GITHUB_STEP_SUMMARY
+            cat admin-results.json | python3 -m json.tool >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          tail -40 admin-output.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          filename: load-tests/admin-api.k6.js
-          flags: --env BASE_URL=http://localhost:3000 --env K6_PROFILE=${{ inputs.profile || 'full' }}
+          name: k6-admin-results
+          path: admin-*.json
+          retention-days: 30
