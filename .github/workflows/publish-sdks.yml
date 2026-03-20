@@ -220,3 +220,28 @@ jobs:
         env:
           SDK_VERSION: ${{ inputs.version }}
         run: echo "Would create tag sdks/go/v${SDK_VERSION}"
+
+  # --- Verify all published packages ---
+  verify:
+    if: inputs.dry-run == false && (inputs.sdk == 'all' || inputs.sdk == 'npm' || inputs.sdk == 'python' || inputs.sdk == 'rust')
+    needs: [npm, python, rust, flutter, nuget, maven, swift, go]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for registry propagation
+        run: sleep 30
+      - name: Verify npm packages
+        if: always() && (inputs.sdk == 'all' || inputs.sdk == 'npm')
+        run: |
+          for pkg in js node react nextjs; do
+            echo "Checking @cntm-labs/$pkg..."
+            npm view "@cntm-labs/$pkg" version && echo "  OK" || echo "  WARN: not yet available"
+          done
+      - name: Verify PyPI package
+        if: always() && (inputs.sdk == 'all' || inputs.sdk == 'python')
+        run: pip index versions cntm-labs-nucleus 2>/dev/null && echo "OK" || echo "WARN: not yet indexed"
+      - name: Verify crates.io package
+        if: always() && (inputs.sdk == 'all' || inputs.sdk == 'rust')
+        run: curl -sf https://crates.io/api/v1/crates/nucleus-rs | python3 -c "import sys,json; print('OK:', json.load(sys.stdin)['crate']['newest_version'])" || echo "WARN: not yet indexed"
+      - name: Summary
+        if: always()
+        run: echo "Verification complete. Check logs above for any WARN messages — packages may take a few minutes to propagate."

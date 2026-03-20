@@ -22,9 +22,41 @@ jobs:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
-  # Auto-publish when a release is created
-  publish:
+  # Gate: CI must pass before any publishing
+  ci-gate:
     needs: release-please
+    if: needs.release-please.outputs.releases_created == 'true'
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env: { POSTGRES_DB: nucleus_test, POSTGRES_USER: test, POSTGRES_PASSWORD: test }
+        ports: [5432:5432]
+        options: --health-cmd "pg_isready -U test" --health-interval 5s --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports: [6379:6379]
+        options: --health-cmd "redis-cli ping" --health-interval 5s --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with: { components: 'clippy, rustfmt' }
+      - uses: Swatinem/rust-cache@v2
+      - name: Format check
+        run: cargo fmt --all -- --check
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Tests
+        run: cargo test --workspace
+        env:
+          DATABASE_URL: postgres://test:test@localhost:5432/nucleus_test
+          REDIS_URL: redis://localhost:6379
+      - name: Dashboard typecheck
+        run: cd dashboard && npm ci && npx tsc --noEmit
+
+  # Auto-publish only after CI passes
+  publish:
+    needs: [release-please, ci-gate]
     if: needs.release-please.outputs.releases_created == 'true'
     uses: ./.github/workflows/publish-sdks.yml
     with:
