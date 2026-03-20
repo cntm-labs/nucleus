@@ -10,7 +10,8 @@ ignore = [
 ]
 
 [licenses]
-unlicensed = "deny"
+private = { ignore = true }
+
 allow = [
     "MIT",
     "Apache-2.0",
