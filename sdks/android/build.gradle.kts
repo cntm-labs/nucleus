@@ -2,7 +2,11 @@ plugins {
     id("com.android.library")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.serialization")
+    id("maven-publish")
 }
+
+group = "io.github.cntm-labs"
+version = "0.1.0-dev.1"
 
 android {
     namespace = "dev.nucleus"

@@ -3,11 +3,24 @@ requires = ["hatchling"]
 build-backend = "hatchling.backends"
 
 [project]
-name = "nucleus-py"
-version = "0.1.0"
-description = "Nucleus authentication SDK for Python"
+name = "cntm-labs-nucleus"
+version = "0.1.0.dev1"
+description = "DEV PREVIEW — Not ready for production. Nucleus authentication SDK for Python."
+license = {text = "MIT"}
+authors = [{name = "cntm-labs", email = "dev@cntm-labs.dev"}]
+readme = "README.md"
 requires-python = ">=3.10"
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+]
 dependencies = ["httpx>=0.27", "PyJWT[crypto]>=2.9", "cryptography>=43.0"]
+
+[project.urls]
+Homepage = "https://github.com/cntm-labs/nucleus"
+Repository = "https://github.com/cntm-labs/nucleus"
+Issues = "https://github.com/cntm-labs/nucleus/issues"
 
 [project.optional-dependencies]
 fastapi = ["fastapi>=0.115"]

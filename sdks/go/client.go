@@ -1,10 +1,27 @@
 package nucleus
 
 import (
-	"github.com/nucleus-auth/nucleus-go/admin"
+	"fmt"
+	"os"
+	"strings"
+	"sync"
+
+	"github.com/cntm-labs/nucleus/sdks/go/admin"
 )
 
 const defaultBaseURL = "https://api.nucleus.dev"
+
+const Version = "0.1.0-dev.1"
+
+var devWarningOnce sync.Once
+
+func init() {
+	if strings.Contains(Version, "dev") {
+		devWarningOnce.Do(func() {
+			fmt.Fprintf(os.Stderr, "[Nucleus] WARNING: You are using a dev preview (%s). Do not use in production.\n", Version)
+		})
+	}
+}
 
 // Config holds the configuration for a NucleusClient.
 type Config struct {

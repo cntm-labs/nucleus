@@ -30,6 +30,14 @@
 //! | `axum`  | Adds [`axum::NucleusLayer`] and [`axum::NucleusClaims`] extractor |
 //! | `actix` | Adds [`actix::NucleusClaims`] extractor for Actix-web |
 
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+
+pub fn init() {
+    if VERSION.contains("dev") {
+        eprintln!("[Nucleus] WARNING: You are using a dev preview ({VERSION}). Do not use in production.");
+    }
+}
+
 pub mod admin;
 pub mod claims;
 pub mod client;

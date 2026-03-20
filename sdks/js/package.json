@@ -1,7 +1,16 @@
 {
-  "name": "@nucleus/js",
-  "version": "0.1.0",
-  "description": "Nucleus authentication SDK for vanilla JavaScript",
+  "name": "@cntm-labs/js",
+  "version": "0.1.0-dev.1",
+  "description": "DEV PREVIEW — Not ready for production. Nucleus vanilla JS authentication SDK.",
+  "license": "MIT",
+  "author": "cntm-labs",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cntm-labs/nucleus.git",
+    "directory": "sdks/js"
+  },
+  "homepage": "https://github.com/cntm-labs/nucleus",
+  "publishConfig": { "access": "public" },
   "type": "module",
   "main": "./dist/cjs/index.js",
   "module": "./dist/esm/index.js",

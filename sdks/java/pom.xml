@@ -2,11 +2,33 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
-  <groupId>dev.nucleus</groupId>
+  <groupId>io.github.cntm-labs</groupId>
   <artifactId>nucleus-java</artifactId>
-  <version>0.1.0</version>
-  <name>Nucleus Java SDK</name>
-  <description>Nucleus authentication SDK for Java and Spring Boot</description>
+  <version>0.1.0-dev.1</version>
+  <name>nucleus-java</name>
+  <description>DEV PREVIEW — Not ready for production. Nucleus authentication SDK for Java/Spring Boot.</description>
+  <url>https://github.com/cntm-labs/nucleus</url>
+
+  <licenses>
+    <license>
+      <name>MIT</name>
+      <url>https://opensource.org/licenses/MIT</url>
+    </license>
+  </licenses>
+
+  <developers>
+    <developer>
+      <id>cntm-labs</id>
+      <name>cntm-labs</name>
+      <url>https://github.com/cntm-labs</url>
+    </developer>
+  </developers>
+
+  <scm>
+    <connection>scm:git:git://github.com/cntm-labs/nucleus.git</connection>
+    <developerConnection>scm:git:ssh://github.com/cntm-labs/nucleus.git</developerConnection>
+    <url>https://github.com/cntm-labs/nucleus</url>
+  </scm>
   <properties>
     <java.version>17</java.version>
     <maven.compiler.source>17</maven.compiler.source>

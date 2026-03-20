@@ -5,9 +5,15 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <RootNamespace>Nucleus</RootNamespace>
-    <PackageId>Nucleus</PackageId>
-    <Description>Nucleus authentication SDK for .NET</Description>
-    <Authors>Nucleus</Authors>
+    <PackageId>CntmLabs.Nucleus</PackageId>
+    <Version>0.1.0-dev.1</Version>
+    <Authors>cntm-labs</Authors>
+    <Description>DEV PREVIEW — Not ready for production. Nucleus authentication SDK for .NET.</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/cntm-labs/nucleus</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/cntm-labs/nucleus</RepositoryUrl>
+    <PackageTags>authentication;auth;nucleus;sdk</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
   <ItemGroup>

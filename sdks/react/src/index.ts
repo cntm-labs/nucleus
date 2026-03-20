@@ -1,3 +1,8 @@
+const VERSION = '0.1.0-dev.1';
+if (VERSION.includes('-dev')) {
+  console.warn(`[Nucleus] WARNING: You are using a dev preview (${VERSION}). Do not use in production.`);
+}
+
 // Provider
 export { NucleusProvider, useNucleus } from './provider'
 export type { NucleusProviderProps } from './provider'

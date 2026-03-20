@@ -5,9 +5,15 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <RootNamespace>Nucleus.AspNetCore</RootNamespace>
-    <PackageId>Nucleus.AspNetCore</PackageId>
-    <Description>Nucleus authentication middleware for ASP.NET Core</Description>
-    <Authors>Nucleus</Authors>
+    <PackageId>CntmLabs.Nucleus.AspNetCore</PackageId>
+    <Version>0.1.0-dev.1</Version>
+    <Authors>cntm-labs</Authors>
+    <Description>DEV PREVIEW — Not ready for production. Nucleus authentication middleware for ASP.NET Core.</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/cntm-labs/nucleus</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/cntm-labs/nucleus</RepositoryUrl>
+    <PackageTags>authentication;auth;nucleus;sdk;aspnetcore</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
   <ItemGroup>

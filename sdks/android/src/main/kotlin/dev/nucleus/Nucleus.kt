@@ -1,6 +1,7 @@
 package dev.nucleus
 
 import android.content.Context
+import android.util.Log
 import dev.nucleus.auth.NucleusAuth
 import dev.nucleus.network.ApiClient
 import dev.nucleus.session.SessionManager
@@ -61,6 +62,11 @@ object Nucleus {
         publishableKey: String,
         baseUrl: String = "https://api.nucleus.dev",
     ) {
+        val version = "0.1.0-dev.1"
+        if ("dev" in version) {
+            Log.w("Nucleus", "WARNING: You are using a dev preview ($version). Do not use in production.")
+        }
+
         require(publishableKey.startsWith("pk_")) {
             "publishableKey must start with \"pk_\". Received: ${publishableKey.take(6)}..."
         }
