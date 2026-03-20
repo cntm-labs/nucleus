@@ -1,20 +1,159 @@
 name: Load Test
+
 on:
-  workflow_dispatch:
+  # Smoke: on every push to main (fast, < 2 min total)
   push:
     branches: [main]
     paths: ['crates/**']
+
+  # Full: manual trigger or weekly
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: 'Test profile (ci = short smoke, full = complete load test)'
+        required: false
+        default: 'full'
+        type: choice
+        options: [ci, full]
+
+  schedule:
+    - cron: '0 6 * * 1'  # Monday 6am UTC — weekly full load test
+
 jobs:
-  k6:
+  # ──────────────────────────────────────────
+  # Build binary once, share across jobs
+  # ──────────────────────────────────────────
+  build:
     runs-on: ubuntu-latest
-    services:
-      postgres: { image: postgres:16-alpine, env: { POSTGRES_DB: nucleus, POSTGRES_USER: nucleus, POSTGRES_PASSWORD: nucleus }, ports: [5432:5432] }
-      redis: { image: redis:7-alpine, ports: [6379:6379] }
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - run: cargo build --release
-      - run: ./target/release/nucleus-server &
-        env: { DATABASE_URL: "postgres://nucleus:nucleus@localhost:5432/nucleus", REDIS_URL: "redis://localhost:6379", MASTER_ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef" }
+      - uses: Swatinem/rust-cache@v2
+        with: { shared-key: load-test }
+      - run: cargo build --release --bin nucleus-server
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nucleus-server
+          path: target/release/nucleus-server
+          retention-days: 1
+
+  # ──────────────────────────────────────────
+  # Smoke test (every push) — 15 seconds
+  # ──────────────────────────────────────────
+  smoke:
+    needs: build
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env: { POSTGRES_DB: nucleus, POSTGRES_USER: nucleus, POSTGRES_PASSWORD: nucleus }
+        ports: [5432:5432]
+        options: --health-cmd "pg_isready -U nucleus" --health-interval 3s --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports: [6379:6379]
+        options: --health-cmd "redis-cli ping" --health-interval 3s --health-retries 5
+    env:
+      DATABASE_URL: postgres://nucleus:nucleus@localhost:5432/nucleus
+      REDIS_URL: redis://localhost:6379
+      MASTER_ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { name: nucleus-server }
+      - run: chmod +x nucleus-server && ./nucleus-server &
+      - run: sleep 3 && curl -sf http://localhost:3000/health
       - uses: grafana/k6-action@v0.3.1
-        with: { filename: load-tests/auth-flow.k6.js }
+        with:
+          filename: load-tests/smoke.k6.js
+          flags: --env BASE_URL=http://localhost:3000
+
+  # ──────────────────────────────────────────
+  # Full load tests (weekly/manual) — parallel jobs
+  # ──────────────────────────────────────────
+  load-auth:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    needs: build
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env: { POSTGRES_DB: nucleus, POSTGRES_USER: nucleus, POSTGRES_PASSWORD: nucleus }
+        ports: [5432:5432]
+        options: --health-cmd "pg_isready -U nucleus" --health-interval 3s --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports: [6379:6379]
+        options: --health-cmd "redis-cli ping" --health-interval 3s --health-retries 5
+    env:
+      DATABASE_URL: postgres://nucleus:nucleus@localhost:5432/nucleus
+      REDIS_URL: redis://localhost:6379
+      MASTER_ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { name: nucleus-server }
+      - run: chmod +x nucleus-server && ./nucleus-server &
+      - run: sleep 3
+      - uses: grafana/k6-action@v0.3.1
+        with:
+          filename: load-tests/auth-flow.k6.js
+          flags: --env BASE_URL=http://localhost:3000 --env K6_PROFILE=${{ inputs.profile || 'full' }}
+
+  load-refresh:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    needs: build
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env: { POSTGRES_DB: nucleus, POSTGRES_USER: nucleus, POSTGRES_PASSWORD: nucleus }
+        ports: [5432:5432]
+        options: --health-cmd "pg_isready -U nucleus" --health-interval 3s --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports: [6379:6379]
+        options: --health-cmd "redis-cli ping" --health-interval 3s --health-retries 5
+    env:
+      DATABASE_URL: postgres://nucleus:nucleus@localhost:5432/nucleus
+      REDIS_URL: redis://localhost:6379
+      MASTER_ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { name: nucleus-server }
+      - run: chmod +x nucleus-server && ./nucleus-server &
+      - run: sleep 3
+      - uses: grafana/k6-action@v0.3.1
+        with:
+          filename: load-tests/token-refresh.k6.js
+          flags: --env BASE_URL=http://localhost:3000 --env K6_PROFILE=${{ inputs.profile || 'full' }}
+
+  load-admin:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    needs: build
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env: { POSTGRES_DB: nucleus, POSTGRES_USER: nucleus, POSTGRES_PASSWORD: nucleus }
+        ports: [5432:5432]
+        options: --health-cmd "pg_isready -U nucleus" --health-interval 3s --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports: [6379:6379]
+        options: --health-cmd "redis-cli ping" --health-interval 3s --health-retries 5
+    env:
+      DATABASE_URL: postgres://nucleus:nucleus@localhost:5432/nucleus
+      REDIS_URL: redis://localhost:6379
+      MASTER_ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { name: nucleus-server }
+      - run: chmod +x nucleus-server && ./nucleus-server &
+      - run: sleep 3
+      - uses: grafana/k6-action@v0.3.1
+        with:
+          filename: load-tests/admin-api.k6.js
+          flags: --env BASE_URL=http://localhost:3000 --env K6_PROFILE=${{ inputs.profile || 'full' }}
