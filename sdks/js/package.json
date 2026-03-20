@@ -1,0 +1,16 @@
+{
+  "name": "@nucleus/js",
+  "version": "0.1.0",
+  "description": "Nucleus authentication SDK for vanilla JavaScript",
+  "type": "module",
+  "main": "./dist/cjs/index.js",
+  "module": "./dist/esm/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": { "import": "./dist/esm/index.js", "require": "./dist/cjs/index.js", "types": "./dist/index.d.ts" }
+  },
+  "files": ["dist"],
+  "scripts": { "build": "tsup", "typecheck": "tsc --noEmit" },
+  "dependencies": { "jose": "^5.0.0" },
+  "devDependencies": { "typescript": "~5.7.0", "tsup": "^8.0.0" }
+}
