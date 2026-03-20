@@ -5,9 +5,14 @@ if (VERSION.includes('-dev')) {
 
 // Provider
 export { NucleusProvider, useNucleus } from './provider'
+export type { NucleusProviderProps } from './provider'
 
 // Types
-export type { NucleusUser, NucleusSession, NucleusOrganization, NucleusMember, NucleusInvitation, NucleusMfaSetup, NucleusAuthResponse, NucleusClaims, OAuthProvider } from './client/types'
+export type {
+  NucleusUser, NucleusSession, NucleusOrganization,
+  NucleusMember, NucleusInvitation, NucleusMfaSetup,
+  NucleusAuthResponse, NucleusClaims, OAuthProvider,
+} from './client/types'
 
 // Hooks
 export { useUser } from './hooks/use-user'
@@ -17,6 +22,12 @@ export { useSignIn } from './hooks/use-sign-in'
 export { useSignUp } from './hooks/use-sign-up'
 export { useOrganization } from './hooks/use-organization'
 export { useOrganizationList } from './hooks/use-organization-list'
+export { useOAuth } from './hooks/use-oauth'
+export { usePasskey } from './hooks/use-passkey'
+export { useMfa } from './hooks/use-mfa'
+export { useVerification } from './hooks/use-verification'
+export { useProfile } from './hooks/use-profile'
+export { useSessionList } from './hooks/use-session-list'
 
 // Components
 export { SignIn } from './components/sign-in'

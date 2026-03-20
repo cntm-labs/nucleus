@@ -1,40 +1,65 @@
 'use client'
-import React from 'react'
+import React, { useState } from 'react'
 import { useNucleus } from '../provider'
+import { useProfile } from '../hooks/use-profile'
+import { useStyles } from './appearance'
 
 export interface UserProfileProps {
-  appearance?: Record<string, unknown>
+  onUpdate?: () => void
 }
 
-export function UserProfile(_props: UserProfileProps) {
-  const { user, isLoaded, isSignedIn } = useNucleus()
+export function UserProfile({ onUpdate }: UserProfileProps) {
+  const { user } = useNucleus()
+  const { updateProfile, updatePassword, isLoading, error } = useProfile()
+  const [firstName, setFirstName] = useState(user?.first_name ?? '')
+  const [lastName, setLastName] = useState(user?.last_name ?? '')
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [section, setSection] = useState<'profile' | 'password'>('profile')
+  const [success, setSuccess] = useState<string | null>(null)
+  const s = useStyles()
 
-  if (!isLoaded) {
-    return <div style={{ padding: 24 }}>Loading...</div>
+  if (!user) return null
+
+  const handleProfileUpdate = async (e: React.FormEvent) => {
+    e.preventDefault(); setSuccess(null)
+    try { await updateProfile({ first_name: firstName, last_name: lastName }); setSuccess('Profile updated'); onUpdate?.() }
+    catch { /* tracked */ }
   }
 
-  if (!isSignedIn || !user) {
-    return <div style={{ padding: 24 }}>Not signed in</div>
+  const handlePasswordUpdate = async (e: React.FormEvent) => {
+    e.preventDefault(); setSuccess(null)
+    try { await updatePassword(currentPassword, newPassword); setSuccess('Password updated'); setCurrentPassword(''); setNewPassword('') }
+    catch { /* tracked */ }
   }
 
   return (
-    <div style={{ maxWidth: 600, margin: '0 auto', padding: 24 }}>
-      <h2 style={{ fontSize: 24, fontWeight: 'bold', marginBottom: 16 }}>Profile</h2>
-      <div style={{ border: '1px solid #ddd', borderRadius: 8, padding: 16 }}>
-        {user.avatar_url && (
-          <img src={user.avatar_url} alt="" style={{ width: 64, height: 64, borderRadius: '50%', marginBottom: 16 }} />
-        )}
-        <div style={{ marginBottom: 8 }}>
-          <strong>Name:</strong> {user.first_name} {user.last_name}
-        </div>
-        <div style={{ marginBottom: 8 }}>
-          <strong>Email:</strong> {user.email}
-          {user.email_verified && <span style={{ color: 'green', marginLeft: 8 }}>(verified)</span>}
-        </div>
-        <div>
-          <strong>Member since:</strong> {new Date(user.created_at).toLocaleDateString()}
-        </div>
+    <div style={s.card}>
+      <h2 style={s.title}>Profile</h2>
+      {error && <div style={s.error}>{error}</div>}
+      {success && <div style={{ ...s.error, background: '#f0fdf4', color: '#16a34a' }}>{success}</div>}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+        <button onClick={() => setSection('profile')} style={{ ...s.secondaryButton, flex: 1, background: section === 'profile' ? '#e5e7eb' : undefined }}>Profile</button>
+        <button onClick={() => setSection('password')} style={{ ...s.secondaryButton, flex: 1, background: section === 'password' ? '#e5e7eb' : undefined }}>Password</button>
       </div>
+      {section === 'profile' && (
+        <form onSubmit={handleProfileUpdate}>
+          <label style={{ fontSize: 13, color: '#6b7280', marginBottom: 4, display: 'block' }}>Email</label>
+          <input type="email" value={user.email} disabled style={{ ...s.input, opacity: 0.6 }} />
+          <label style={{ fontSize: 13, color: '#6b7280', marginBottom: 4, display: 'block' }}>First Name</label>
+          <input type="text" value={firstName} onChange={e => setFirstName(e.target.value)} style={s.input} />
+          <label style={{ fontSize: 13, color: '#6b7280', marginBottom: 4, display: 'block' }}>Last Name</label>
+          <input type="text" value={lastName} onChange={e => setLastName(e.target.value)} style={{ ...s.input, marginBottom: 16 }} />
+          <button type="submit" disabled={isLoading} style={{ ...s.button, opacity: isLoading ? 0.7 : 1 }}>{isLoading ? 'Saving...' : 'Save Changes'}</button>
+        </form>
+      )}
+      {section === 'password' && (
+        <form onSubmit={handlePasswordUpdate}>
+          <input type="password" placeholder="Current Password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} style={s.input} required />
+          <input type="password" placeholder="New Password" value={newPassword} onChange={e => setNewPassword(e.target.value)} style={{ ...s.input, marginBottom: 16 }} required />
+          <button type="submit" disabled={isLoading} style={{ ...s.button, opacity: isLoading ? 0.7 : 1 }}>{isLoading ? 'Updating...' : 'Update Password'}</button>
+        </form>
+      )}
     </div>
   )
 }
