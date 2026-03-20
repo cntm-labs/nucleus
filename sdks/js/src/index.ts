@@ -4,8 +4,11 @@ if (VERSION.includes('-dev')) {
 }
 
 export { Nucleus } from './nucleus'
+export { NucleusApi, NucleusApiError } from './api'
 export { verifyToken } from './verify'
-export { NucleusSignIn } from './components/sign-in'
-export { NucleusSignUp } from './components/sign-up'
-export { NucleusUserButton } from './components/user-button'
-export type { NucleusConfig, NucleusClaims, NucleusUser } from './types'
+export { TokenStorage } from './storage'
+export type {
+  NucleusConfig, NucleusUser, NucleusSession, NucleusOrganization,
+  NucleusMember, NucleusInvitation, NucleusClaims, NucleusMfaSetup,
+  NucleusAuthResponse, OAuthProvider,
+} from './types'
