@@ -5,8 +5,8 @@ license = "MIT"
 edition = "2021"
 
 [dependencies]
-nucleus-core = { path = "../nucleus-core" }
-nucleus-db = { path = "../nucleus-db" }
+nucleus-core = { path = "../nucleus-core", version = "0.1.0" }
+nucleus-db = { path = "../nucleus-db", version = "0.1.0" }
 axum = { workspace = true }
 tokio = { workspace = true }
 serde = { workspace = true }

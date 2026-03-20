@@ -5,15 +5,15 @@ license = "MIT"
 edition = "2021"
 
 [dependencies]
-nucleus-core = { path = "../nucleus-core" }
-nucleus-db = { path = "../nucleus-db" }
-nucleus-auth = { path = "../nucleus-auth" }
-nucleus-identity = { path = "../nucleus-identity" }
-nucleus-org = { path = "../nucleus-org" }
-nucleus-session = { path = "../nucleus-session" }
-nucleus-webhook = { path = "../nucleus-webhook" }
-nucleus-admin-api = { path = "../nucleus-admin-api" }
-nucleus-migrate = { path = "../nucleus-migrate" }
+nucleus-core = { path = "../nucleus-core", version = "0.1.0" }
+nucleus-db = { path = "../nucleus-db", version = "0.1.0" }
+nucleus-auth = { path = "../nucleus-auth", version = "0.1.0" }
+nucleus-identity = { path = "../nucleus-identity", version = "0.1.0" }
+nucleus-org = { path = "../nucleus-org", version = "0.1.0" }
+nucleus-session = { path = "../nucleus-session", version = "0.1.0" }
+nucleus-webhook = { path = "../nucleus-webhook", version = "0.1.0" }
+nucleus-admin-api = { path = "../nucleus-admin-api", version = "0.1.0" }
+nucleus-migrate = { path = "../nucleus-migrate", version = "0.1.0" }
 axum = { workspace = true }
 tower-http = { workspace = true }
 tokio = { workspace = true }
