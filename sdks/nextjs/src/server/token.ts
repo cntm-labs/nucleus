@@ -1,13 +1,12 @@
 import * as jose from 'jose'
+import type { NucleusClaims } from '../client/types'
 
-export async function verifyNucleusToken(req: Request) {
-  const auth = req.headers.get('authorization')
-  if (!auth?.startsWith('Bearer ')) throw new Error('No token')
+let jwks: ReturnType<typeof jose.createRemoteJWKSet> | null = null
 
-  const token = auth.slice(7)
-  void jose
-  void token
-
-  // TODO: verify with JWKS
-  return {} as Record<string, unknown>
+export async function verifyNucleusToken(token: string, baseUrl: string): Promise<NucleusClaims> {
+  if (!jwks) {
+    jwks = jose.createRemoteJWKSet(new URL(`${baseUrl}/.well-known/jwks.json`))
+  }
+  const { payload } = await jose.jwtVerify(token, jwks, { algorithms: ['RS256'] })
+  return payload as unknown as NucleusClaims
 }
