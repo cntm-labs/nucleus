@@ -1,0 +1,20 @@
+name: Claude Analysis
+on: [pull_request]
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    permissions: { pull-requests: write, contents: read }
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          model: claude-sonnet-4-6-20250514
+          prompt: |
+            Analyze this PR for the Nucleus auth platform. Focus on:
+            1. Security issues (this is an auth service)
+            2. Performance regressions
+            3. Test coverage gaps in auth/security code
+            4. API contract changes
+            Provide structured feedback as a PR comment.

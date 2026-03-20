@@ -25,3 +25,10 @@ sha2 = { workspace = true }
 url = { workspace = true }
 rsa = { workspace = true }
 rand = { workspace = true }
+
+[dev-dependencies]
+criterion = { workspace = true }
+
+[[bench]]
+name = "jwt_benchmarks"
+harness = false

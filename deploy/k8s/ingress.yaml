@@ -1,0 +1,27 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: nucleus-server
+  namespace: nucleus
+  labels:
+    app.kubernetes.io/name: nucleus
+    app.kubernetes.io/component: server
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - nucleus.example.com
+      secretName: nucleus-tls
+  rules:
+    - host: nucleus.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: nucleus-server
+                port:
+                  number: 80

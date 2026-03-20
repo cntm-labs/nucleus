@@ -1,0 +1,32 @@
+version: "3.9"
+services:
+  nucleus:
+    image: ghcr.io/nucleus/nucleus-server:latest
+    ports: ["3000:3000"]
+    environment:
+      DATABASE_URL: postgres://nucleus:nucleus@postgres:5432/nucleus
+      REDIS_URL: redis://redis:6379
+      MASTER_ENCRYPTION_KEY: ${MASTER_ENCRYPTION_KEY}
+      RUST_LOG: nucleus=info
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+    environment: { POSTGRES_DB: nucleus, POSTGRES_USER: nucleus, POSTGRES_PASSWORD: nucleus }
+    healthcheck: { test: "pg_isready -U nucleus", interval: 5s, retries: 5 }
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    volumes: ["redisdata:/data"]
+    command: redis-server --appendonly yes
+    healthcheck: { test: "redis-cli ping", interval: 5s, retries: 5 }
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  redisdata:

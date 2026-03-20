@@ -1,0 +1,20 @@
+name: Load Test
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['crates/**']
+jobs:
+  k6:
+    runs-on: ubuntu-latest
+    services:
+      postgres: { image: postgres:16-alpine, env: { POSTGRES_DB: nucleus, POSTGRES_USER: nucleus, POSTGRES_PASSWORD: nucleus }, ports: [5432:5432] }
+      redis: { image: redis:7-alpine, ports: [6379:6379] }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo build --release
+      - run: ./target/release/nucleus-server &
+        env: { DATABASE_URL: "postgres://nucleus:nucleus@localhost:5432/nucleus", REDIS_URL: "redis://localhost:6379", MASTER_ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef" }
+      - uses: grafana/k6-action@v0.4.0
+        with: { filename: load-tests/auth-flow.k6.js }

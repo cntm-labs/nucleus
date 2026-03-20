@@ -66,6 +66,9 @@ rsa = { version = "0.9", features = ["pem"] }
 hex = "0.4"
 async-trait = "0.1"
 
+# Benchmarking
+criterion = { version = "0.5", features = ["html_reports"] }
+
 [profile.release]
 strip = true
 lto = true

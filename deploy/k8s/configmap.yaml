@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nucleus-config
+  namespace: nucleus
+  labels:
+    app.kubernetes.io/name: nucleus
+data:
+  DATABASE_URL: "postgres://nucleus:nucleus@postgres:5432/nucleus"
+  REDIS_URL: "redis://redis:6379"
+  RUST_LOG: "nucleus=info"

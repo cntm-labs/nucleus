@@ -1,0 +1,48 @@
+name: CI
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env: { POSTGRES_DB: nucleus_test, POSTGRES_USER: test, POSTGRES_PASSWORD: test }
+        ports: [5432:5432]
+        options: --health-cmd "pg_isready -U test" --health-interval 5s --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports: [6379:6379]
+        options: --health-cmd "redis-cli ping" --health-interval 5s --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo nextest run --workspace --profile ci
+        env: { DATABASE_URL: "postgres://test:test@localhost:5432/nucleus_test", REDIS_URL: "redis://localhost:6379" }
+      - run: cargo llvm-cov nextest --workspace --lcov --output-path lcov.info
+      - uses: codecov/codecov-action@v4
+        with: { files: lcov.info, fail_ci_if_error: false }
+
+  clippy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with: { components: clippy }
+      - run: cargo clippy --workspace -- -D warnings
+
+  fmt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with: { components: rustfmt }
+      - run: cargo fmt --all -- --check
+
+  dashboard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+      - run: cd dashboard && npm ci && npx tsc --noEmit
