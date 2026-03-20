@@ -1,9 +1,31 @@
 /target
-*.pem
+dashboard/node_modules
+node_modules/
+
+# Secrets & credentials — NEVER commit these
 .env
 .env.*
 !.env.example
-dashboard/node_modules
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.cert
+*.crt
+*.der
+credentials.json
+service-account.json
+*.credential
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
 
 # Flutter
 .dart_tool/
@@ -15,3 +37,22 @@ build/
 # .NET
 **/obj/
 **/bin/
+
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+dist/
+.venv/
+venv/
+
+# Go
+vendor/
+
+# Rust
+*.profraw
+lcov.info
+tarpaulin-report.html
+
+# OS
+Thumbs.db
