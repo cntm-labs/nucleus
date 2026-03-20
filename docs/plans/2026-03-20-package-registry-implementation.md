@@ -6,7 +6,176 @@
 
 **Architecture:** Update each SDK's package config with correct naming (`@cntm-labs/*`), metadata (license, repo URL, description), and version (`0.1.0-dev.1`). Add dev warning banners to READMEs and runtime warnings. Create a single `publish-sdks.yml` GitHub Actions workflow with per-registry jobs triggered by manual dispatch.
 
-**Tech Stack:** npm, PyPI (twine), crates.io (cargo), pub.dev (dart), NuGet (dotnet), Maven Central (mvn), CocoaPods (pod), Go modules (git tag), GitHub Actions
+**Tech Stack:** npm, PyPI (twine), crates.io (cargo), pub.dev (dart), NuGet (dotnet), Maven Central (mvn), CocoaPods (pod), Go modules (git tag), GitHub Actions, Release Please
+
+---
+
+### Task 0: Setup Release Please (version management + CHANGELOG)
+
+**Files:**
+- Create: `release-please-config.json`
+- Create: `.release-please-manifest.json`
+- Create: `.github/workflows/release-please.yml`
+
+**Step 1: Create release-please-config.json**
+
+```json
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "separate-pull-requests": true,
+  "packages": {
+    "crates/nucleus-server": {
+      "release-type": "rust",
+      "component": "nucleus-server",
+      "changelog-path": "CHANGELOG.md"
+    },
+    "sdks/js": {
+      "release-type": "node",
+      "component": "@cntm-labs/js",
+      "changelog-path": "CHANGELOG.md"
+    },
+    "sdks/node": {
+      "release-type": "node",
+      "component": "@cntm-labs/node",
+      "changelog-path": "CHANGELOG.md"
+    },
+    "sdks/react": {
+      "release-type": "node",
+      "component": "@cntm-labs/react",
+      "changelog-path": "CHANGELOG.md"
+    },
+    "sdks/nextjs": {
+      "release-type": "node",
+      "component": "@cntm-labs/nextjs",
+      "changelog-path": "CHANGELOG.md"
+    },
+    "sdks/python": {
+      "release-type": "python",
+      "component": "cntm-labs-nucleus",
+      "changelog-path": "CHANGELOG.md"
+    },
+    "sdks/rust": {
+      "release-type": "rust",
+      "component": "nucleus-rs",
+      "changelog-path": "CHANGELOG.md"
+    },
+    "sdks/flutter": {
+      "release-type": "dart",
+      "component": "nucleus_flutter",
+      "changelog-path": "CHANGELOG.md"
+    },
+    "sdks/dotnet": {
+      "release-type": "simple",
+      "component": "CntmLabs.Nucleus",
+      "changelog-path": "CHANGELOG.md"
+    },
+    "sdks/java": {
+      "release-type": "maven",
+      "component": "nucleus-java",
+      "changelog-path": "CHANGELOG.md"
+    },
+    "sdks/android": {
+      "release-type": "simple",
+      "component": "nucleus-android",
+      "changelog-path": "CHANGELOG.md"
+    },
+    "sdks/android-java": {
+      "release-type": "simple",
+      "component": "nucleus-android-java",
+      "changelog-path": "CHANGELOG.md"
+    },
+    "sdks/swift": {
+      "release-type": "simple",
+      "component": "NucleusSwift",
+      "changelog-path": "CHANGELOG.md"
+    },
+    "sdks/go": {
+      "release-type": "go",
+      "component": "nucleus-go",
+      "changelog-path": "CHANGELOG.md"
+    },
+    "dashboard": {
+      "release-type": "node",
+      "component": "nucleus-dashboard",
+      "changelog-path": "CHANGELOG.md"
+    }
+  }
+}
+```
+
+**Step 2: Create .release-please-manifest.json**
+
+This tracks current versions (all start at 0.1.0):
+```json
+{
+  "crates/nucleus-server": "0.1.0",
+  "sdks/js": "0.1.0",
+  "sdks/node": "0.1.0",
+  "sdks/react": "0.1.0",
+  "sdks/nextjs": "0.1.0",
+  "sdks/python": "0.1.0",
+  "sdks/rust": "0.1.0",
+  "sdks/flutter": "0.1.0",
+  "sdks/dotnet": "0.1.0",
+  "sdks/java": "0.1.0",
+  "sdks/android": "0.1.0",
+  "sdks/android-java": "0.1.0",
+  "sdks/swift": "0.1.0",
+  "sdks/go": "0.1.0",
+  "dashboard": "0.1.0"
+}
+```
+
+**Step 3: Create .github/workflows/release-please.yml**
+
+```yaml
+name: Release Please
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    outputs:
+      releases_created: ${{ steps.release.outputs.releases_created }}
+      paths_released: ${{ steps.release.outputs.paths_released }}
+    steps:
+      - uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  # Auto-publish when a release is created
+  publish:
+    needs: release-please
+    if: needs.release-please.outputs.releases_created == 'true'
+    uses: ./.github/workflows/publish-sdks.yml
+    with:
+      sdk: all
+      version: ''
+      dry-run: false
+    secrets: inherit
+```
+
+**Step 4: Verify JSON is valid**
+
+Run: `python3 -c "import json; json.load(open('release-please-config.json')); json.load(open('.release-please-manifest.json')); print('OK')"`
+Expected: `OK`
+
+**Step 5: Commit**
+
+```bash
+git add release-please-config.json .release-please-manifest.json .github/workflows/release-please.yml
+git commit -m "ci: add Release Please for automated versioning and changelogs"
+```
 
 ---
 

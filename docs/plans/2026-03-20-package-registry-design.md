@@ -99,3 +99,58 @@ npm packages work across all JS package managers:
 - `yarn add @cntm-labs/node@0.1.0-dev.1`
 - `pnpm add @cntm-labs/node@0.1.0-dev.1`
 - `bun add @cntm-labs/node@0.1.0-dev.1`
+
+## Version Management — Release Please
+
+### Strategy: Independent Versions
+Each package has its own version and CHANGELOG. Updating Flutter SDK does not bump Node.js SDK.
+
+### Tool: Release Please (Google)
+GitHub Action that reads conventional commits and creates Release PRs automatically.
+
+**How it works:**
+1. Developer commits with conventional format: `feat(node): add session middleware`
+2. Release Please detects the change belongs to `@cntm-labs/node`
+3. Creates/updates a Release PR with version bump + CHANGELOG
+4. Maintainer reviews and merges the Release PR
+5. Release Please creates a GitHub Release + git tag
+6. `publish-sdks.yml` triggers on the new tag → publishes to registry
+
+### Conventional Commit Scopes
+Each component has a scope that maps to a package:
+
+| Scope | Package | CHANGELOG Location |
+|-------|---------|-------------------|
+| `server` | nucleus-server | `crates/nucleus-server/CHANGELOG.md` |
+| `node` | @cntm-labs/node | `sdks/node/CHANGELOG.md` |
+| `nextjs` | @cntm-labs/nextjs | `sdks/nextjs/CHANGELOG.md` |
+| `react` | @cntm-labs/react | `sdks/react/CHANGELOG.md` |
+| `js` | @cntm-labs/js | `sdks/js/CHANGELOG.md` |
+| `python` | cntm-labs-nucleus | `sdks/python/CHANGELOG.md` |
+| `rust-sdk` | nucleus-rs | `sdks/rust/CHANGELOG.md` |
+| `flutter` | nucleus_flutter | `sdks/flutter/CHANGELOG.md` |
+| `dotnet` | CntmLabs.Nucleus | `sdks/dotnet/CHANGELOG.md` |
+| `java` | nucleus-java | `sdks/java/CHANGELOG.md` |
+| `android` | nucleus-android | `sdks/android/CHANGELOG.md` |
+| `android-java` | nucleus-android-java | `sdks/android-java/CHANGELOG.md` |
+| `swift` | NucleusSwift | `sdks/swift/CHANGELOG.md` |
+| `go` | nucleus/sdks/go | `sdks/go/CHANGELOG.md` |
+| `dashboard` | nucleus-dashboard | `dashboard/CHANGELOG.md` |
+
+### Version Bump Rules (semver)
+- `fix(node): ...` → patch (0.1.0 → 0.1.1)
+- `feat(node): ...` → minor (0.1.0 → 0.2.0)
+- `feat(node)!: ...` or `BREAKING CHANGE:` → major (0.1.0 → 1.0.0)
+- `chore(node): ...` → no bump (internal changes)
+
+### Release Please Config Files
+- `release-please-config.json` — defines all packages, their paths, and release types
+- `.release-please-manifest.json` — tracks current version of each package
+
+### Workflow: release-please.yml
+```yaml
+on:
+  push:
+    branches: [main]
+```
+Runs on every push to main. Creates/updates Release PRs. When merged, creates tags and triggers publish.
