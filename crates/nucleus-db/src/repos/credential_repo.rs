@@ -109,7 +109,7 @@ impl CredentialRepository for PgCredentialRepository {
         .map_err(|e| AppError::Internal(e.into()))?;
 
         rows.iter()
-            .map(|r| credential_from_row(r))
+            .map(credential_from_row)
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| AppError::Internal(e.into()))
     }

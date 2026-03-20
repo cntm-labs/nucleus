@@ -251,7 +251,7 @@ impl OrgRepository for PgOrgRepository {
         let items: Vec<Organization> = rows
             .iter()
             .take(limit as usize)
-            .map(|r| org_from_row(r))
+            .map(org_from_row)
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| AppError::Internal(e.into()))?;
 
@@ -289,7 +289,7 @@ impl OrgRepository for PgOrgRepository {
         .map_err(|e| AppError::Internal(e.into()))?;
 
         rows.iter()
-            .map(|r| org_from_row(r))
+            .map(org_from_row)
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| AppError::Internal(e.into()))
     }
@@ -387,7 +387,7 @@ impl OrgRepository for PgOrgRepository {
         let items: Vec<OrgMember> = rows
             .iter()
             .take(limit as usize)
-            .map(|r| org_member_from_row(r))
+            .map(org_member_from_row)
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| AppError::Internal(e.into()))?;
 

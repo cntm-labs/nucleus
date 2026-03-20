@@ -186,7 +186,7 @@ impl ProjectRepository for PgProjectRepository {
         let items: Vec<Project> = rows
             .iter()
             .take(limit as usize)
-            .map(|r| project_from_row(r))
+            .map(project_from_row)
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| AppError::Internal(e.into()))?;
 

@@ -117,7 +117,7 @@ impl WebhookRepository for PgWebhookRepository {
         .map_err(|e| AppError::Internal(e.into()))?;
 
         rows.iter()
-            .map(|r| webhook_event_from_row(r))
+            .map(webhook_event_from_row)
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| AppError::Internal(e.into()))
     }

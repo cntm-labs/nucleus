@@ -13,7 +13,7 @@ fn default_limit() -> u32 {
 
 impl PaginationParams {
     pub fn effective_limit(&self) -> u32 {
-        self.limit.min(100).max(1)
+        self.limit.clamp(1, 100)
     }
 }
 

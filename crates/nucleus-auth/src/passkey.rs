@@ -158,10 +158,7 @@ impl PasskeyService {
         let now = chrono::Utc::now().timestamp();
         let challenge = PasskeyChallenge {
             challenge_id: format!("passkey_{}", Uuid::new_v4()),
-            user_id: credentials
-                .first()
-                .map(|c| c.user_id)
-                .unwrap_or_else(UserId::new),
+            user_id: credentials.first().map(|c| c.user_id).unwrap_or_default(),
             challenge_bytes,
             created_at: now,
             expires_at: now + 300,

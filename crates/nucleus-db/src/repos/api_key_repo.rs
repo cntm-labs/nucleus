@@ -126,7 +126,7 @@ impl ApiKeyRepository for PgApiKeyRepository {
                 .map_err(|e| AppError::Internal(e.into()))?;
 
         rows.iter()
-            .map(|r| api_key_from_row(r))
+            .map(api_key_from_row)
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| AppError::Internal(e.into()))
     }

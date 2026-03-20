@@ -208,7 +208,7 @@ impl AuditRepository for PgAuditRepository {
         let items: Vec<AuditLog> = rows
             .iter()
             .take(limit as usize)
-            .map(|r| audit_log_from_row(r))
+            .map(audit_log_from_row)
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| AppError::Internal(e.into()))?;
 
@@ -302,7 +302,7 @@ impl AuditRepository for PgAuditRepository {
         let items: Vec<SignInAttempt> = rows
             .iter()
             .take(limit as usize)
-            .map(|r| sign_in_attempt_from_row(r))
+            .map(sign_in_attempt_from_row)
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| AppError::Internal(e.into()))?;
 

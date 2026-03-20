@@ -144,7 +144,14 @@ pub fn hmac_verify(key: &[u8], payload: &[u8], signature: &str) -> bool {
 
 /// Compare two byte slices in constant time
 pub fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
-    ring::constant_time::verify_slices_are_equal(a, b).is_ok()
+    if a.len() != b.len() {
+        return false;
+    }
+    let mut result: u8 = 0;
+    for (x, y) in a.iter().zip(b.iter()) {
+        result |= x ^ y;
+    }
+    result == 0
 }
 
 // ---------------------------------------------------------------------------

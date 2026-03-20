@@ -311,7 +311,7 @@ impl UserRepository for PgUserRepository {
         let items: Vec<User> = rows
             .iter()
             .take(limit as usize)
-            .map(|r| user_from_row(r))
+            .map(user_from_row)
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| AppError::Internal(e.into()))?;
 

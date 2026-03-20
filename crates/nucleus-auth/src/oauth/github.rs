@@ -35,7 +35,6 @@ struct TokenResponse {
 }
 
 #[derive(Debug, Deserialize)]
-#[allow(dead_code)]
 struct GitHubUserInfo {
     id: u64,
     email: Option<String>,
@@ -121,16 +120,16 @@ impl OAuthProvider for GitHubProvider {
             )))
         })?;
 
-        // GitHub doesn't provide first/last name split, use name as-is
+        // GitHub: use `name` for display, `login` as fallback
         Ok(OAuthUserInfo {
             provider: "github".to_string(),
             provider_user_id: gh_user.id.to_string(),
             email: gh_user.email,
-            name: gh_user.name.clone(),
+            name: gh_user.name.clone().or_else(|| Some(gh_user.login.clone())),
             first_name: gh_user.name,
             last_name: None,
             avatar_url: gh_user.avatar_url,
-            raw_data: serde_json::to_value(&user_body).unwrap_or_default(),
+            raw_data: serde_json::to_value(&gh_user.login).unwrap_or_default(),
         })
     }
 }

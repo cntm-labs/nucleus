@@ -8,12 +8,15 @@ use nucleus_db::repos::session_repo::{NewSession, Session, SessionRepository};
 
 pub struct SessionService {
     repo: Arc<dyn SessionRepository>,
-    clock: Arc<dyn Clock>,
+    _clock: Arc<dyn Clock>,
 }
 
 impl SessionService {
     pub fn new(repo: Arc<dyn SessionRepository>, clock: Arc<dyn Clock>) -> Self {
-        Self { repo, clock }
+        Self {
+            repo,
+            _clock: clock,
+        }
     }
 
     /// Create a new session, returns (session_token, session).
