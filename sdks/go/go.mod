@@ -1,4 +1,4 @@
-module github.com/nucleus-auth/nucleus-go
+module github.com/cntm-labs/nucleus/sdks/go
 
 go 1.21
 
