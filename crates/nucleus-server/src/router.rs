@@ -83,7 +83,7 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         )
         .route("/me/sessions", get(identity::handle_list_my_sessions))
         .route(
-            "/me/sessions/:id",
+            "/me/sessions/{id}",
             delete(identity::handle_revoke_my_session),
         );
 
@@ -91,25 +91,28 @@ pub fn create_router(state: Arc<AppState>) -> Router {
     let org_routes = Router::new()
         .route("/", get(org::handle_list_orgs).post(org::handle_create_org))
         .route(
-            "/:slug",
+            "/{slug}",
             get(org::handle_get_org).patch(org::handle_update_org),
         )
-        .route("/:slug/members", get(org::handle_list_members))
-        .route("/:slug/members/:user_id", delete(org::handle_remove_member))
+        .route("/{slug}/members", get(org::handle_list_members))
         .route(
-            "/:slug/members/:user_id/role",
+            "/{slug}/members/{user_id}",
+            delete(org::handle_remove_member),
+        )
+        .route(
+            "/{slug}/members/{user_id}/role",
             patch(org::handle_change_role),
         )
         .route(
-            "/:slug/invitations",
+            "/{slug}/invitations",
             get(org::handle_list_invitations).post(org::handle_create_invitation),
         )
         .route(
-            "/:slug/invitations/:id/accept",
+            "/{slug}/invitations/{id}/accept",
             post(org::handle_accept_invitation),
         )
         .route(
-            "/:slug/invitations/:id",
+            "/{slug}/invitations/{id}",
             delete(org::handle_revoke_invitation),
         )
         .layer(axum::middleware::from_fn(api_rate_limiter));
@@ -121,23 +124,23 @@ pub fn create_router(state: Arc<AppState>) -> Router {
             get(admin::handle_admin_list_users).post(admin::handle_admin_create_user),
         )
         .route(
-            "/users/:id",
+            "/users/{id}",
             get(admin::handle_admin_get_user)
                 .patch(admin::handle_admin_update_user)
                 .delete(admin::handle_admin_delete_user),
         )
-        .route("/users/:id/ban", post(admin::handle_admin_ban_user))
-        .route("/users/:id/unban", post(admin::handle_admin_unban_user));
+        .route("/users/{id}/ban", post(admin::handle_admin_ban_user))
+        .route("/users/{id}/unban", post(admin::handle_admin_unban_user));
 
     // Phase 5: Webhook admin routes (merged into admin)
     let webhook_admin_routes = Router::new()
         .route("/webhooks/events", get(webhook::handle_list_webhook_events))
         .route(
-            "/webhooks/events/:id/retry",
+            "/webhooks/events/{id}/retry",
             post(webhook::handle_retry_webhook),
         )
         .route(
-            "/webhooks/events/:id/logs",
+            "/webhooks/events/{id}/logs",
             get(webhook::handle_webhook_delivery_logs),
         );
 
@@ -149,77 +152,77 @@ pub fn create_router(state: Arc<AppState>) -> Router {
             get(dashboard::handle_list_projects).post(dashboard::handle_create_project),
         )
         .route(
-            "/projects/:id",
+            "/projects/{id}",
             get(dashboard::handle_get_project).patch(dashboard::handle_update_project),
         )
         // OAuth providers
         .route(
-            "/projects/:id/providers",
+            "/projects/{id}/providers",
             get(dashboard::handle_list_providers).post(dashboard::handle_configure_provider),
         )
         .route(
-            "/projects/:id/providers/:provider_id",
+            "/projects/{id}/providers/{provider_id}",
             delete(dashboard::handle_delete_provider),
         )
         // API keys
         .route(
-            "/projects/:id/api-keys",
+            "/projects/{id}/api-keys",
             get(dashboard::handle_list_api_keys).post(dashboard::handle_create_api_key),
         )
         .route(
-            "/projects/:id/api-keys/:key_id",
+            "/projects/{id}/api-keys/{key_id}",
             delete(dashboard::handle_revoke_api_key),
         )
         // Signing keys
         .route(
-            "/projects/:id/signing-keys",
+            "/projects/{id}/signing-keys",
             get(dashboard::handle_list_signing_keys),
         )
         .route(
-            "/projects/:id/signing-keys/rotate",
+            "/projects/{id}/signing-keys/rotate",
             post(dashboard::handle_rotate_signing_key),
         )
         // Templates
         .route(
-            "/projects/:id/templates",
+            "/projects/{id}/templates",
             get(dashboard::handle_list_templates),
         )
         .route(
-            "/projects/:id/templates/:template_id",
+            "/projects/{id}/templates/{template_id}",
             patch(dashboard::handle_update_template),
         )
         .route(
-            "/projects/:id/templates/:template_id/reset",
+            "/projects/{id}/templates/{template_id}/reset",
             post(dashboard::handle_reset_template),
         )
         // JWT templates
         .route(
-            "/projects/:id/jwt-templates",
+            "/projects/{id}/jwt-templates",
             get(dashboard::handle_list_jwt_templates).post(dashboard::handle_create_jwt_template),
         )
         .route(
-            "/projects/:id/jwt-templates/:jt_id",
+            "/projects/{id}/jwt-templates/{jt_id}",
             patch(dashboard::handle_update_jwt_template),
         )
         // Analytics
         .route(
-            "/projects/:id/analytics",
+            "/projects/{id}/analytics",
             get(dashboard::handle_get_analytics),
         )
         // Billing
-        .route("/projects/:id/usage", get(dashboard::handle_get_usage))
+        .route("/projects/{id}/usage", get(dashboard::handle_get_usage))
         .route(
-            "/projects/:id/subscription",
+            "/projects/{id}/subscription",
             get(dashboard::handle_get_subscription),
         )
         // Audit logs
         .route(
-            "/projects/:id/audit-logs",
+            "/projects/{id}/audit-logs",
             get(dashboard::handle_list_audit_logs),
         )
         // Settings
         .route(
-            "/projects/:id/settings",
+            "/projects/{id}/settings",
             get(dashboard::handle_get_settings).patch(dashboard::handle_update_settings),
         );
 
