@@ -1,3 +1,14 @@
 /target
 *.pem
 dashboard/node_modules
+
+# Flutter
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+
+# .NET
+**/obj/
+**/bin/

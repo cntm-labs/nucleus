@@ -1,0 +1,63 @@
+name: Bug Report
+description: Report a bug in Nucleus
+title: "[Bug]: "
+labels: ["bug", "status: needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! Our AI bot will triage this automatically.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Authentication (sign-in, sign-up, OAuth, MFA)
+        - Sessions (JWT, refresh, revocation)
+        - SDK (specify which in description)
+        - API endpoints
+        - Admin Dashboard
+        - Webhooks
+        - Infrastructure / Deployment
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What happened? What did you expect?
+      placeholder: "When I call /api/v1/auth/sign-in with valid credentials, I get a 500 instead of 200..."
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: Minimal steps to reproduce the issue
+      placeholder: |
+        1. Start the server with `cargo run`
+        2. Send POST to /api/v1/auth/sign-in
+        3. Observe error...
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Relevant version info
+      placeholder: |
+        - Nucleus version: v0.1.0
+        - SDK: @nucleus/nextjs v0.1.0
+        - OS: Ubuntu 22.04
+        - Rust: 1.83
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / Error Output
+      description: Paste any relevant logs (redact secrets!)
+      render: shell
+    validations:
+      required: false

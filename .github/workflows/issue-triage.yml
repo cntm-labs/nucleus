@@ -1,0 +1,96 @@
+name: Issue Triage & Auto-Fix
+
+on:
+  issues:
+    types: [opened, edited]
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      contents: write
+      pull-requests: write
+      id-token: write
+    env:
+      ISSUE_NUMBER: ${{ github.event.issue.number }}
+      ISSUE_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          use_bedrock: false
+          trigger_phrase: ""
+          direct_prompt: |
+            You are the Nucleus project AI maintainer. A new issue was just opened.
+
+            The issue number is available as env var ISSUE_NUMBER and the repo as ISSUE_REPO.
+
+            ## Your Tasks
+
+            ### 1. Analyze the Issue
+            Read the issue title and body carefully. Determine:
+            - **Type**: bug, enhancement, question, documentation, or invalid
+            - **Area**: auth, sdk, api, dashboard, infra, security
+            - **Priority**: critical, high, medium, low
+            - **Human error?** Is this a user misconfiguration/usage mistake?
+
+            Classification rules:
+            - **critical**: Security vulnerabilities, data loss, auth bypass, crash in production
+            - **high**: Feature broken, API contract violation, significant performance regression
+            - **medium**: Non-critical bugs, missing validation, minor UX issues
+            - **low**: Cosmetic, documentation, nice-to-have improvements
+
+            ### 2. Apply Labels
+            Use the GitHub CLI to apply appropriate labels. Use env vars, never interpolate
+            user-supplied content into shell commands:
+            ```bash
+            gh issue edit "$ISSUE_NUMBER" --add-label "label1,label2" --repo "$ISSUE_REPO"
+            ```
+
+            Available labels:
+            - Type: bug, enhancement, question, documentation, invalid, human-error
+            - Priority: "priority: critical", "priority: high", "priority: medium", "priority: low"
+            - Area: "area: auth", "area: sdk", "area: api", "area: dashboard", "area: infra", "area: security"
+            - Status: "status: needs-info" (if issue lacks reproduction steps)
+
+            ### 3. Respond to the Issue
+            Post a comment on the issue using `gh issue comment`.
+
+            For **bugs** (not human error):
+            - State the type, priority, and area
+            - Briefly explain what you think the bug is
+            - Suggest a fix if you can identify the root cause
+            - If critical: note that an auto-fix PR is being created
+            - If needs more info: ask specific questions
+
+            For **questions** (including from developers who fork/use the project):
+            - Provide a helpful, detailed answer based on the codebase
+            - Reference specific files and line numbers
+            - Include code examples when helpful
+            - Suggest closing the issue if answered
+
+            For **human error** / misconfiguration:
+            - Explain it's a configuration issue, not a bug
+            - Provide step-by-step fix instructions
+            - List common pitfalls
+
+            ### 4. Auto-Fix (Critical/High Bugs Only)
+            If the issue is a **confirmed critical or high priority bug** (NOT human error, NOT a question, NOT an enhancement):
+            1. Create a new branch: fix/issue-$ISSUE_NUMBER-<short-description>
+            2. Implement the fix — keep it minimal
+            3. Run `cargo check --workspace` and `cargo test --workspace` to verify
+            4. Commit with message: fix: <description> (closes #$ISSUE_NUMBER)
+            5. Push and create a PR that references the issue
+            6. Add label "status: auto-fix" to the issue
+
+            **IMPORTANT rules for auto-fix:**
+            - ONLY fix critical or high bugs where you are confident in the fix
+            - NEVER auto-fix if the issue is unclear, needs more info, or is an enhancement
+            - Run ALL tests before creating the PR
+            - Keep fixes minimal — don't refactor unrelated code
+            - If tests fail after your fix, do NOT create the PR — comment on the issue instead

@@ -1,0 +1,38 @@
+name: Question
+description: Ask a question about using Nucleus
+title: "[Question]: "
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Ask your question below. Tag `@claude` in comments for AI-assisted answers.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Topic
+      options:
+        - Getting Started / Setup
+        - SDK Usage
+        - Self-Hosting / Deployment
+        - Authentication Flows
+        - Organization / RBAC
+        - Webhooks
+        - API Usage
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: question
+    attributes:
+      label: Your Question
+      description: What do you need help with?
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: What are you trying to accomplish? (optional)
+    validations:
+      required: false

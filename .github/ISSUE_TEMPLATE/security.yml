@@ -1,0 +1,29 @@
+name: Security Vulnerability
+description: Report a security issue (use GitHub Security Advisories for sensitive reports)
+title: "[Security]: "
+labels: ["area: security", "priority: critical"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **For sensitive vulnerabilities**, please use [GitHub Security Advisories](../../security/advisories/new) instead of this public form.
+
+        Only use this template for non-sensitive security improvements.
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Describe the security concern
+    validations:
+      required: true
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options:
+        - Critical (auth bypass, data exposure)
+        - High (privilege escalation, injection)
+        - Medium (information disclosure, weak crypto)
+        - Low (best practice improvement)
+    validations:
+      required: true
