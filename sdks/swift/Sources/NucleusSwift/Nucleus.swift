@@ -12,6 +12,16 @@ public enum Nucleus {
     private(set) static var publishableKey: String = ""
     private(set) static var isConfigured: Bool = false
 
+    private static var warned = false
+    static func printDevWarning() {
+        guard !warned else { return }
+        let version = "0.1.0-dev.1"
+        if version.contains("dev") {
+            print("[Nucleus] WARNING: You are using a dev preview (\(version)). Do not use in production.")
+        }
+        warned = true
+    }
+
     /// Configure the SDK with your project's base URL and publishable key.
     ///
     /// ```swift
@@ -24,6 +34,7 @@ public enum Nucleus {
         baseURL: URL,
         publishableKey: String
     ) {
+        printDevWarning()
         self.baseURL = baseURL
         self.publishableKey = publishableKey
         self.isConfigured = true

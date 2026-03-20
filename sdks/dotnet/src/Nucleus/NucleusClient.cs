@@ -12,8 +12,20 @@ public sealed class NucleusClient : IDisposable
     private readonly string _baseUrl;
     private readonly NucleusTokenVerifier _verifier;
 
+    private static bool _devWarned;
+
     public NucleusClient(string secretKey, string baseUrl = "https://api.nucleus.dev")
     {
+        if (!_devWarned)
+        {
+            var version = typeof(NucleusClient).Assembly.GetName().Version?.ToString() ?? "0.1.0-dev.1";
+            if (version.Contains("dev") || version == "0.0.0.0")
+            {
+                Console.Error.WriteLine($"[Nucleus] WARNING: You are using a dev preview ({version}). Do not use in production.");
+            }
+            _devWarned = true;
+        }
+
         ArgumentException.ThrowIfNullOrWhiteSpace(secretKey);
 
         _baseUrl = baseUrl.TrimEnd('/');
