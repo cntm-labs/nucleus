@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Nucleus.AspNetCore</RootNamespace>
+    <PackageId>Nucleus.AspNetCore</PackageId>
+    <Description>Nucleus authentication middleware for ASP.NET Core</Description>
+    <Authors>Nucleus</Authors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="..\Nucleus\Nucleus.csproj" />
+  </ItemGroup>
+
+</Project>

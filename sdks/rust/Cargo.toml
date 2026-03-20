@@ -1,0 +1,33 @@
+[package]
+name = "nucleus-rs"
+version = "0.1.0"
+edition = "2021"
+description = "Rust backend SDK for Nucleus authentication — JWT verification, JWKS caching, admin API, and framework middleware"
+license = "MIT"
+repository = "https://github.com/nucleus-auth/nucleus-rs"
+
+[features]
+default = []
+axum = ["dep:axum", "dep:axum-core", "dep:tower", "dep:tower-layer", "dep:futures-util", "dep:pin-project-lite"]
+actix = ["dep:actix-web", "dep:actix-service", "dep:futures-util", "dep:pin-project-lite"]
+
+[dependencies]
+jsonwebtoken = "9"
+reqwest = { version = "0.12", features = ["json"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["sync", "time"] }
+thiserror = "2"
+url = "2"
+
+# axum feature
+axum = { version = "0.8", optional = true }
+axum-core = { version = "0.5", optional = true }
+tower = { version = "0.5", optional = true }
+tower-layer = { version = "0.3", optional = true }
+futures-util = { version = "0.3", optional = true }
+pin-project-lite = { version = "0.2", optional = true }
+
+# actix feature
+actix-web = { version = "4", optional = true }
+actix-service = { version = "2", optional = true }

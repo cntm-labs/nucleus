@@ -1,0 +1,17 @@
+{
+  "name": "@nucleus/react",
+  "version": "0.1.0",
+  "description": "Nucleus authentication SDK for React SPAs (Vite, CRA, etc.)",
+  "type": "module",
+  "main": "./dist/cjs/index.js",
+  "module": "./dist/esm/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": { "import": "./dist/esm/index.js", "require": "./dist/cjs/index.js", "types": "./dist/index.d.ts" }
+  },
+  "files": ["dist"],
+  "scripts": { "build": "tsup", "typecheck": "tsc --noEmit" },
+  "dependencies": { "jose": "^5.0.0" },
+  "peerDependencies": { "react": ">=18" },
+  "devDependencies": { "typescript": "~5.7.0", "tsup": "^8.0.0", "react": "^19.0.0", "react-dom": "^19.0.0", "@types/react": "^19.0.0" }
+}
