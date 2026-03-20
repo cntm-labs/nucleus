@@ -1,0 +1,81 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "separate-pull-requests": true,
+  "packages": {
+    "crates/nucleus-server": {
+      "release-type": "rust",
+      "component": "nucleus-server",
+      "changelog-path": "CHANGELOG.md"
+    },
+    "sdks/js": {
+      "release-type": "node",
+      "component": "@cntm-labs/js",
+      "changelog-path": "CHANGELOG.md"
+    },
+    "sdks/node": {
+      "release-type": "node",
+      "component": "@cntm-labs/node",
+      "changelog-path": "CHANGELOG.md"
+    },
+    "sdks/react": {
+      "release-type": "node",
+      "component": "@cntm-labs/react",
+      "changelog-path": "CHANGELOG.md"
+    },
+    "sdks/nextjs": {
+      "release-type": "node",
+      "component": "@cntm-labs/nextjs",
+      "changelog-path": "CHANGELOG.md"
+    },
+    "sdks/python": {
+      "release-type": "python",
+      "component": "cntm-labs-nucleus",
+      "changelog-path": "CHANGELOG.md"
+    },
+    "sdks/rust": {
+      "release-type": "rust",
+      "component": "nucleus-rs",
+      "changelog-path": "CHANGELOG.md"
+    },
+    "sdks/flutter": {
+      "release-type": "dart",
+      "component": "nucleus_flutter",
+      "changelog-path": "CHANGELOG.md"
+    },
+    "sdks/dotnet": {
+      "release-type": "simple",
+      "component": "CntmLabs.Nucleus",
+      "changelog-path": "CHANGELOG.md"
+    },
+    "sdks/java": {
+      "release-type": "maven",
+      "component": "nucleus-java",
+      "changelog-path": "CHANGELOG.md"
+    },
+    "sdks/android": {
+      "release-type": "simple",
+      "component": "nucleus-android",
+      "changelog-path": "CHANGELOG.md"
+    },
+    "sdks/android-java": {
+      "release-type": "simple",
+      "component": "nucleus-android-java",
+      "changelog-path": "CHANGELOG.md"
+    },
+    "sdks/swift": {
+      "release-type": "simple",
+      "component": "NucleusSwift",
+      "changelog-path": "CHANGELOG.md"
+    },
+    "sdks/go": {
+      "release-type": "go",
+      "component": "nucleus-go",
+      "changelog-path": "CHANGELOG.md"
+    },
+    "dashboard": {
+      "release-type": "node",
+      "component": "nucleus-dashboard",
+      "changelog-path": "CHANGELOG.md"
+    }
+  }
+}
