@@ -7,7 +7,7 @@ if (VERSION.includes('-dev')) {
 export { NucleusProvider, useNucleus } from './provider'
 
 // Types
-export type { NucleusUser, NucleusSession, NucleusOrganization, NucleusMembership } from './client/types'
+export type { NucleusUser, NucleusSession, NucleusOrganization, NucleusMember, NucleusInvitation, NucleusMfaSetup, NucleusAuthResponse, NucleusClaims, OAuthProvider } from './client/types'
 
 // Hooks
 export { useUser } from './hooks/use-user'
