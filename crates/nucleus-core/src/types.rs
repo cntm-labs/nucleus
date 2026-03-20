@@ -3,17 +3,7 @@ use uuid::Uuid;
 
 macro_rules! define_id {
     ($name:ident) => {
-        #[derive(
-            Debug,
-            Clone,
-            Copy,
-            PartialEq,
-            Eq,
-            Hash,
-            Serialize,
-            Deserialize,
-            sqlx::Type
-        )]
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, sqlx::Type)]
         #[sqlx(transparent)]
         pub struct $name(pub Uuid);
 

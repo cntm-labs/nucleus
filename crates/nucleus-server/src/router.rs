@@ -241,8 +241,13 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .with_state(state)
 }
 
+/// Server start time for uptime calculation
+static SERVER_START: std::sync::OnceLock<chrono::DateTime<chrono::Utc>> =
+    std::sync::OnceLock::new();
+
 async fn health_check(State(state): State<Arc<AppState>>) -> Json<serde_json::Value> {
-    // Touch state fields to confirm connectivity is available
+    let start = SERVER_START.get_or_init(chrono::Utc::now);
+
     let db_ok = sqlx::query_scalar::<_, i32>("SELECT 1")
         .fetch_one(&state.db)
         .await
@@ -257,11 +262,13 @@ async fn health_check(State(state): State<Arc<AppState>>) -> Json<serde_json::Va
     };
 
     let now = state.clock.now();
+    let uptime_secs = (now - *start).num_seconds();
 
     Json(json!({
         "status": if db_ok && redis_ok { "ok" } else { "degraded" },
         "service": "nucleus",
         "version": env!("CARGO_PKG_VERSION"),
+        "uptime_seconds": uptime_secs,
         "checks": {
             "database": db_ok,
             "redis": redis_ok,

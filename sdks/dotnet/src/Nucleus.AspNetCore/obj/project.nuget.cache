@@ -1,0 +1,21 @@
+{
+  "version": 2,
+  "dgSpecHash": "Cdspdd24Its=",
+  "success": true,
+  "projectFilePath": "/Users/mrbt/Desktop/repository/nucleus/sdks/dotnet/src/Nucleus.AspNetCore/Nucleus.AspNetCore.csproj",
+  "expectedPackageFiles": [
+    "/Users/mrbt/.nuget/packages/microsoft.bcl.memory/9.0.0/microsoft.bcl.memory.9.0.0.nupkg.sha512",
+    "/Users/mrbt/.nuget/packages/microsoft.extensions.dependencyinjection.abstractions/8.0.0/microsoft.extensions.dependencyinjection.abstractions.8.0.0.nupkg.sha512",
+    "/Users/mrbt/.nuget/packages/microsoft.extensions.logging.abstractions/8.0.0/microsoft.extensions.logging.abstractions.8.0.0.nupkg.sha512",
+    "/Users/mrbt/.nuget/packages/microsoft.identitymodel.abstractions/8.3.1/microsoft.identitymodel.abstractions.8.3.1.nupkg.sha512",
+    "/Users/mrbt/.nuget/packages/microsoft.identitymodel.jsonwebtokens/8.3.1/microsoft.identitymodel.jsonwebtokens.8.3.1.nupkg.sha512",
+    "/Users/mrbt/.nuget/packages/microsoft.identitymodel.logging/8.3.1/microsoft.identitymodel.logging.8.3.1.nupkg.sha512",
+    "/Users/mrbt/.nuget/packages/microsoft.identitymodel.protocols/8.3.1/microsoft.identitymodel.protocols.8.3.1.nupkg.sha512",
+    "/Users/mrbt/.nuget/packages/microsoft.identitymodel.protocols.openidconnect/8.3.1/microsoft.identitymodel.protocols.openidconnect.8.3.1.nupkg.sha512",
+    "/Users/mrbt/.nuget/packages/microsoft.identitymodel.tokens/8.3.1/microsoft.identitymodel.tokens.8.3.1.nupkg.sha512",
+    "/Users/mrbt/.nuget/packages/system.identitymodel.tokens.jwt/8.3.1/system.identitymodel.tokens.jwt.8.3.1.nupkg.sha512",
+    "/Users/mrbt/.nuget/packages/microsoft.netcore.app.ref/8.0.22/microsoft.netcore.app.ref.8.0.22.nupkg.sha512",
+    "/Users/mrbt/.nuget/packages/microsoft.aspnetcore.app.ref/8.0.22/microsoft.aspnetcore.app.ref.8.0.22.nupkg.sha512"
+  ],
+  "logs": []
+}
