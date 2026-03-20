@@ -47,33 +47,53 @@ impl MagicLinkService {
             return Err(AppError::Auth(AuthError::MagicLinkExpired));
         }
 
-        // 3. Verify hash matches
+        // 3. Verify hash matches (constant-time to prevent timing attacks)
         let hash = crypto::generate_token_hash(provided_token);
-        if hash != stored_hash {
+        if !crypto::constant_time_eq(hash.as_bytes(), stored_hash.as_bytes()) {
             return Err(AppError::Auth(AuthError::TokenInvalid));
         }
 
         Ok(())
     }
 
-    /// Build the magic link URL
-    pub fn build_url(base_url: &str, token: &str, redirect_url: &str) -> String {
-        format!(
+    /// Build the magic link URL.
+    /// SECURITY: validates redirect_url to prevent open redirect attacks.
+    pub fn build_url(
+        base_url: &str,
+        token: &str,
+        redirect_url: &str,
+        allowed_domains: &[&str],
+    ) -> Result<String, AppError> {
+        // Validate redirect_url
+        let parsed = url::Url::parse(redirect_url)
+            .map_err(|_| AppError::Auth(AuthError::InvalidRedirectUrl))?;
+
+        // Only allow https (or http for localhost in dev)
+        match parsed.scheme() {
+            "https" => {}
+            "http"
+                if parsed.host_str() == Some("localhost")
+                    || parsed.host_str() == Some("127.0.0.1") => {}
+            _ => return Err(AppError::Auth(AuthError::InvalidRedirectUrl)),
+        }
+
+        // Validate domain is in allowlist
+        let host = parsed.host_str().unwrap_or("");
+        let domain_allowed = allowed_domains.is_empty()
+            || allowed_domains
+                .iter()
+                .any(|d| host == *d || host.ends_with(&format!(".{}", d)));
+        if !domain_allowed {
+            return Err(AppError::Auth(AuthError::InvalidRedirectUrl));
+        }
+
+        Ok(format!(
             "{}/api/v1/auth/magic-link/verify?token={}&redirect_url={}",
             base_url,
-            urlencoding_encode(token),
-            urlencoding_encode(redirect_url),
-        )
+            urlencoding::encode(token),
+            urlencoding::encode(redirect_url),
+        ))
     }
-}
-
-fn urlencoding_encode(s: &str) -> String {
-    // Simple percent-encoding for URL safety
-    s.replace('%', "%25")
-        .replace(' ', "%20")
-        .replace('&', "%26")
-        .replace('=', "%3D")
-        .replace('+', "%2B")
 }
 
 #[cfg(test)]
@@ -160,10 +180,45 @@ mod tests {
             "https://nucleus.example.com",
             "my_token_123",
             "https://app.example.com/dashboard",
-        );
+            &["example.com"],
+        )
+        .unwrap();
         assert!(url.contains("my_token_123"));
         assert!(url.contains("redirect_url="));
         assert!(url.starts_with("https://nucleus.example.com"));
+    }
+
+    #[test]
+    fn build_url_rejects_http_non_localhost() {
+        let result = MagicLinkService::build_url(
+            "https://nucleus.example.com",
+            "token",
+            "http://evil.com/steal",
+            &["example.com"],
+        );
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn build_url_rejects_disallowed_domain() {
+        let result = MagicLinkService::build_url(
+            "https://nucleus.example.com",
+            "token",
+            "https://evil.com/phish",
+            &["example.com"],
+        );
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn build_url_allows_localhost_http() {
+        let url = MagicLinkService::build_url(
+            "https://nucleus.example.com",
+            "token",
+            "http://localhost:3000/callback",
+            &[],
+        );
+        assert!(url.is_ok());
     }
 
     #[test]

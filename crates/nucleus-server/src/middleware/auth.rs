@@ -52,8 +52,14 @@ where
             .get::<PublicKeyPem>()
             .ok_or(AppError::Auth(AuthError::TokenInvalid))?;
 
-        // 4. Verify JWT (RS256 only, enforced by JwtService)
-        let claims = JwtService::verify(token, &public_key.0)?;
+        // 4. Get the expected project ID for audience validation
+        let project_id = parts
+            .extensions
+            .get::<ProjectId>()
+            .ok_or(AppError::Auth(AuthError::TokenInvalid))?;
+
+        // 5. Verify JWT (RS256 only, audience = project_id)
+        let claims = JwtService::verify(token, &public_key.0, &project_id.to_string())?;
 
         Ok(JwtAuth(claims))
     }

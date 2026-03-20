@@ -72,7 +72,7 @@ pub async fn handle_sign_out(
 
     state
         .auth_service
-        .sign_out(&state.session_service, &session_id, &user_id)
+        .sign_out(&state.session_service, &session_id, &user_id, None)
         .await?;
 
     Ok(StatusCode::OK)

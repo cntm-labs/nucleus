@@ -60,6 +60,7 @@ uuid = { version = "1", features = ["v4", "serde"] }
 thiserror = "2"
 anyhow = "1"
 url = "2"
+urlencoding = "2"
 base64 = "0.22"
 rand = "0.8"
 rsa = { version = "0.9", features = ["pem"] }

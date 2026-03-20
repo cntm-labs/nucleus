@@ -62,9 +62,9 @@ impl OtpService {
             return Err(AppError::Auth(AuthError::OtpExpired));
         }
 
-        // 3. Verify code hash
+        // 3. Verify code hash (constant-time to prevent timing attacks)
         let hash = crypto::generate_token_hash(provided_code);
-        if hash != stored_hash {
+        if !crypto::constant_time_eq(hash.as_bytes(), stored_hash.as_bytes()) {
             return Err(AppError::Auth(AuthError::InvalidCredentials));
         }
 

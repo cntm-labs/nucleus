@@ -199,7 +199,9 @@ impl AuthService {
 
         // 3. Check not banned
         if user.banned_at.is_some() {
-            session_service.revoke_session(session_id, &user.id).await?;
+            session_service
+                .revoke_session(session_id, &user.id, None, 300)
+                .await?;
             return Err(AppError::Auth(AuthError::AccountBanned));
         }
 
@@ -218,8 +220,11 @@ impl AuthService {
         session_service: &SessionService,
         session_id: &SessionId,
         user_id: &UserId,
+        jti: Option<&str>,
     ) -> Result<(), AppError> {
-        session_service.revoke_session(session_id, user_id).await
+        session_service
+            .revoke_session(session_id, user_id, jti, self.jwt_lifetime_secs as u64)
+            .await
     }
 
     /// Sign out from all devices — revoke all sessions.
@@ -1125,7 +1130,7 @@ mod tests {
 
         // Sign out
         auth_service
-            .sign_out(&session_service, &session.id, &user.id)
+            .sign_out(&session_service, &session.id, &user.id, None)
             .await
             .unwrap();
 

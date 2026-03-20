@@ -80,7 +80,7 @@ pub async fn handle_revoke_my_session(
     let (_project_id, user_id) = auth_from_jwt(&jwt);
     state
         .session_service
-        .revoke_session(&session_id, &user_id)
+        .revoke_session(&session_id, &user_id, Some(&jwt.0.jti), 300)
         .await?;
     Ok(StatusCode::NO_CONTENT)
 }

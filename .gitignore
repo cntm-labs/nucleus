@@ -1,5 +1,8 @@
 /target
 *.pem
+.env
+.env.*
+!.env.example
 dashboard/node_modules
 
 # Flutter

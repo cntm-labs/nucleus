@@ -54,13 +54,21 @@ impl SessionService {
             .ok_or(AppError::Auth(AuthError::SessionExpired))
     }
 
-    /// Revoke a single session.
+    /// Revoke a single session and its associated JWT.
+    /// SECURITY: Always revoke the JWT when revoking a session to prevent
+    /// continued access with a stolen short-lived JWT.
     pub async fn revoke_session(
         &self,
         session_id: &SessionId,
         user_id: &UserId,
+        jti: Option<&str>,
+        jwt_ttl_secs: u64,
     ) -> Result<(), AppError> {
-        self.repo.delete(session_id, user_id).await
+        self.repo.delete(session_id, user_id).await?;
+        if let Some(jti) = jti {
+            self.repo.add_to_revocation_list(jti, jwt_ttl_secs).await?;
+        }
+        Ok(())
     }
 
     /// Revoke all sessions for a user.
@@ -298,7 +306,9 @@ mod tests {
             .await
             .unwrap();
 
-        svc.revoke_session(&session.id, &user_id).await.unwrap();
+        svc.revoke_session(&session.id, &user_id, Some("jti_test"), 300)
+            .await
+            .unwrap();
 
         let result = svc.validate_session(&session.id).await;
         assert!(matches!(

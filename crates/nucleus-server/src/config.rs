@@ -7,6 +7,7 @@ pub struct Config {
     pub host: String,
     pub port: u16,
     pub rust_log: String,
+    pub allowed_origins: Vec<String>,
 }
 
 impl Config {
@@ -18,7 +19,7 @@ impl Config {
             std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://localhost:6379".to_string());
         let master_key_hex =
             std::env::var("MASTER_ENCRYPTION_KEY").context("MASTER_ENCRYPTION_KEY must be set")?;
-        let master_encryption_key = hex::decode(&master_key_hex)
+        let master_encryption_key: [u8; 32] = hex::decode(&master_key_hex)
             .context("MASTER_ENCRYPTION_KEY must be valid hex")?
             .try_into()
             .map_err(|_| {
@@ -31,6 +32,16 @@ impl Config {
             .context("PORT must be a valid number")?;
         let rust_log = std::env::var("RUST_LOG")
             .unwrap_or_else(|_| "nucleus=debug,tower_http=debug".to_string());
+        let allowed_origins = std::env::var("ALLOWED_ORIGINS")
+            .unwrap_or_default()
+            .split(',')
+            .filter(|s| !s.is_empty())
+            .map(|s| s.trim().to_string())
+            .collect();
+
+        if master_encryption_key.iter().all(|&b| b == 0) {
+            anyhow::bail!("MASTER_ENCRYPTION_KEY must not be all zeros");
+        }
 
         Ok(Self {
             database_url,
@@ -39,6 +50,7 @@ impl Config {
             host,
             port,
             rust_log,
+            allowed_origins,
         })
     }
 

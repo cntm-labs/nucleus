@@ -19,7 +19,8 @@ jobs:
     if: github.event_name == 'push'
     steps:
       - uses: actions/checkout@v4
-      - uses: snyk/actions/setup@master
+      - uses: snyk/actions/setup@806182742461562b67788a64410098c9d9b96adb
       - run: snyk test --all-projects --severity-threshold=medium
-        env: { SNYK_TOKEN: "${{ secrets.SNYK_TOKEN }}" }
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         continue-on-error: true

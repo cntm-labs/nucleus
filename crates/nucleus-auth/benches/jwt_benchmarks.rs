@@ -26,9 +26,10 @@ fn bench_jwt_sign(c: &mut Criterion) {
 fn bench_jwt_verify(c: &mut Criterion) {
     let key_pair = JwtService::generate_key_pair("bench-kid").unwrap();
     let claims = build_test_claims();
+    let audience = claims.aud.clone();
     let token = JwtService::sign(&claims, &key_pair).unwrap();
     c.bench_function("jwt_rs256_verify", |b| {
-        b.iter(|| JwtService::verify(&token, &key_pair.public_key_pem))
+        b.iter(|| JwtService::verify(&token, &key_pair.public_key_pem, &audience))
     });
 }
 
@@ -37,8 +38,9 @@ fn bench_jwt_sign_and_verify(c: &mut Criterion) {
     c.bench_function("jwt_rs256_sign_and_verify", |b| {
         b.iter(|| {
             let claims = build_test_claims();
+            let aud = claims.aud.clone();
             let token = JwtService::sign(&claims, &key_pair).unwrap();
-            JwtService::verify(&token, &key_pair.public_key_pem).unwrap();
+            JwtService::verify(&token, &key_pair.public_key_pem, &aud).unwrap();
         })
     });
 }

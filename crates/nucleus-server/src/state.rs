@@ -19,6 +19,7 @@ pub struct AppState {
     pub signing_key: Arc<SigningKeyPair>,
     pub user_service: Arc<UserService>,
     pub org_service: Arc<OrgService>,
+    pub allowed_origins: Vec<String>,
 }
 
 impl AppState {
@@ -31,6 +32,7 @@ impl AppState {
         signing_key: Arc<SigningKeyPair>,
         user_service: Arc<UserService>,
         org_service: Arc<OrgService>,
+        allowed_origins: Vec<String>,
     ) -> Self {
         Self {
             db,
@@ -42,6 +44,7 @@ impl AppState {
             signing_key,
             user_service,
             org_service,
+            allowed_origins,
         }
     }
 }

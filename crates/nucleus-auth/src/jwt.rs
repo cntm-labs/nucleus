@@ -160,13 +160,19 @@ impl JwtService {
 
     /// Verify a JWT and return the claims
     /// SECURITY: Only accepts RS256 algorithm (rejects none, HS256, etc.)
-    pub fn verify(token: &str, public_key_pem: &[u8]) -> Result<NucleusClaims, AppError> {
+    /// SECURITY: Validates audience (project_id) to prevent cross-project token reuse
+    pub fn verify(
+        token: &str,
+        public_key_pem: &[u8],
+        expected_audience: &str,
+    ) -> Result<NucleusClaims, AppError> {
         let decoding_key = DecodingKey::from_rsa_pem(public_key_pem)
             .map_err(|_| AppError::Auth(AuthError::TokenInvalid))?;
 
         let mut validation = Validation::new(Algorithm::RS256);
         validation.validate_exp = true;
-        validation.validate_aud = false; // we validate audience manually
+        validation.validate_aud = true;
+        validation.set_audience(&[expected_audience]);
         validation.leeway = 0; // strict expiry checking, no grace period
                                // SECURITY: algorithms list only contains RS256
                                // This prevents algorithm confusion attacks
@@ -251,7 +257,7 @@ mod tests {
         let kp = test_key_pair();
         let claims = test_claims();
         let token = JwtService::sign(&claims, &kp).unwrap();
-        let verified = JwtService::verify(&token, &kp.public_key_pem).unwrap();
+        let verified = JwtService::verify(&token, &kp.public_key_pem, &claims.aud).unwrap();
         assert_eq!(verified.sub, claims.sub);
         assert_eq!(verified.email, claims.email);
         assert_eq!(verified.jti, claims.jti);
@@ -263,7 +269,7 @@ mod tests {
         let mut claims = test_claims();
         claims.exp = (Utc::now() - Duration::seconds(60)).timestamp(); // expired 1 min ago
         let token = JwtService::sign(&claims, &kp).unwrap();
-        let result = JwtService::verify(&token, &kp.public_key_pem);
+        let result = JwtService::verify(&token, &kp.public_key_pem, &claims.aud);
         assert!(matches!(
             result,
             Err(AppError::Auth(AuthError::TokenExpired))
@@ -278,7 +284,7 @@ mod tests {
         // Tamper with payload
         let parts: Vec<&str> = token.split('.').collect();
         let tampered = format!("{}.{}x.{}", parts[0], parts[1], parts[2]);
-        let result = JwtService::verify(&tampered, &kp.public_key_pem);
+        let result = JwtService::verify(&tampered, &kp.public_key_pem, &claims.aud);
         assert!(matches!(
             result,
             Err(AppError::Auth(AuthError::TokenInvalid))
@@ -291,7 +297,7 @@ mod tests {
         let kp2 = JwtService::generate_key_pair("other-kid").unwrap();
         let claims = test_claims();
         let token = JwtService::sign(&claims, &kp1).unwrap();
-        let result = JwtService::verify(&token, &kp2.public_key_pem);
+        let result = JwtService::verify(&token, &kp2.public_key_pem, &claims.aud);
         assert!(matches!(
             result,
             Err(AppError::Auth(AuthError::TokenInvalid))
@@ -306,7 +312,7 @@ mod tests {
         claims.org_role = Some("admin".to_string());
         claims.org_permissions = Some(vec!["billing:read".to_string()]);
         let token = JwtService::sign(&claims, &kp).unwrap();
-        let verified = JwtService::verify(&token, &kp.public_key_pem).unwrap();
+        let verified = JwtService::verify(&token, &kp.public_key_pem, &claims.aud).unwrap();
         assert_eq!(verified.org_id, Some("org_123".to_string()));
         assert_eq!(verified.org_role, Some("admin".to_string()));
         assert_eq!(
@@ -369,5 +375,17 @@ mod tests {
         let payload: serde_json::Value = serde_json::from_slice(&payload_bytes).unwrap();
         assert!(payload.get("email").is_none());
         assert!(payload.get("org_id").is_none());
+    }
+
+    #[test]
+    fn verify_rejects_wrong_audience() {
+        let kp = test_key_pair();
+        let claims = test_claims();
+        let token = JwtService::sign(&claims, &kp).unwrap();
+        let result = JwtService::verify(&token, &kp.public_key_pem, "wrong-project-id");
+        assert!(matches!(
+            result,
+            Err(AppError::Auth(AuthError::TokenInvalid))
+        ));
     }
 }

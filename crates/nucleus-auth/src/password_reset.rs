@@ -41,9 +41,9 @@ impl PasswordResetService {
             return Err(AppError::Auth(AuthError::TokenExpired));
         }
 
-        // 3. Verify hash matches
+        // 3. Verify hash matches (constant-time to prevent timing attacks)
         let hash = crypto::generate_token_hash(provided_token);
-        if hash != stored_hash {
+        if !crypto::constant_time_eq(hash.as_bytes(), stored_hash.as_bytes()) {
             return Err(AppError::Auth(AuthError::TokenInvalid));
         }
 

@@ -68,16 +68,17 @@ impl MfaService {
         let time = Utc::now().timestamp() as u64;
         let time_step = time / 30;
 
-        // 3. Check current and +/-1 adjacent time steps
+        // 3. Check current and +/-1 adjacent time steps (constant-time)
+        let mut valid = false;
         for offset in [-1i64, 0, 1] {
             let step = (time_step as i64 + offset) as u64;
             let expected = generate_totp_code(&secret, step);
-            if code == expected {
-                return Ok(true);
+            if crypto::constant_time_eq(code.as_bytes(), expected.as_bytes()) {
+                valid = true;
             }
         }
 
-        Ok(false)
+        Ok(valid)
     }
 
     /// Generate backup codes (10 codes, 8 chars each).
@@ -115,7 +116,10 @@ impl MfaService {
             serde_json::from_slice(&decrypted).map_err(|e| AppError::Internal(e.into()))?;
 
         let code_upper = code.to_uppercase();
-        if let Some(pos) = codes.iter().position(|c| c == &code_upper) {
+        if let Some(pos) = codes
+            .iter()
+            .position(|c| crypto::constant_time_eq(c.as_bytes(), code_upper.as_bytes()))
+        {
             codes.remove(pos);
             // Re-encrypt remaining codes
             let new_encrypted = Self::encrypt_backup_codes(&codes, encryption_key)?;

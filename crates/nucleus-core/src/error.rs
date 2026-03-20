@@ -53,6 +53,8 @@ pub enum AuthError {
     OtpMaxAttempts,
     #[error("Password does not meet requirements")]
     PasswordTooWeak,
+    #[error("Redirect URL is not allowed")]
+    InvalidRedirectUrl,
 }
 
 #[derive(Debug, Error)]
@@ -151,6 +153,7 @@ impl AuthError {
             Self::OtpExpired => "auth/otp_expired",
             Self::OtpMaxAttempts => "auth/otp_max_attempts",
             Self::PasswordTooWeak => "auth/password_too_weak",
+            Self::InvalidRedirectUrl => "auth/invalid_redirect_url",
         }
     }
 
@@ -173,6 +176,7 @@ impl AuthError {
             Self::OtpExpired => StatusCode::GONE,
             Self::OtpMaxAttempts => StatusCode::TOO_MANY_REQUESTS,
             Self::PasswordTooWeak => StatusCode::UNPROCESSABLE_ENTITY,
+            Self::InvalidRedirectUrl => StatusCode::BAD_REQUEST,
         }
     }
 }

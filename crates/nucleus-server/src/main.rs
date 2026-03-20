@@ -85,6 +85,9 @@ async fn main() -> Result<()> {
     let org_repo = Arc::new(PgOrgRepository::new(db.clone()));
     let org_service = Arc::new(OrgService::new(org_repo));
 
+    // Capture bind address before moving config fields
+    let bind_addr = config.bind_addr();
+
     // Build application state
     let state = Arc::new(AppState::new(
         db,
@@ -95,13 +98,11 @@ async fn main() -> Result<()> {
         signing_key,
         user_service,
         org_service,
+        config.allowed_origins,
     ));
 
     // Build router
     let app = create_router(state);
-
-    // Start server
-    let bind_addr = config.bind_addr();
     let listener = tokio::net::TcpListener::bind(&bind_addr).await?;
     tracing::info!("Nucleus server listening on {}", bind_addr);
 

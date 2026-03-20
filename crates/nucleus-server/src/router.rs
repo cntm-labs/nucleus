@@ -7,6 +7,7 @@ use axum::{
     Json, Router,
 };
 use serde_json::json;
+use tower_http::cors::{AllowHeaders, AllowMethods, AllowOrigin, CorsLayer};
 use tower_http::trace::TraceLayer;
 
 use crate::handlers::admin;
@@ -239,9 +240,40 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .nest("/api/v1/orgs", org_routes)
         .nest("/api/v1/admin", admin_routes.merge(webhook_admin_routes))
         .nest("/api/v1/dashboard", dashboard_routes)
+        .layer(build_cors_layer(&state.allowed_origins))
         .layer(middleware::from_fn(request_id_middleware))
         .layer(TraceLayer::new_for_http())
         .with_state(state)
+}
+
+fn build_cors_layer(allowed_origins: &[String]) -> CorsLayer {
+    let origins = if allowed_origins.is_empty() {
+        // Default: restrictive — no cross-origin requests allowed
+        AllowOrigin::list(std::iter::empty::<axum::http::HeaderValue>())
+    } else {
+        AllowOrigin::list(
+            allowed_origins
+                .iter()
+                .filter_map(|o| o.parse::<axum::http::HeaderValue>().ok()),
+        )
+    };
+
+    CorsLayer::new()
+        .allow_origin(origins)
+        .allow_methods(AllowMethods::list([
+            axum::http::Method::GET,
+            axum::http::Method::POST,
+            axum::http::Method::PATCH,
+            axum::http::Method::DELETE,
+            axum::http::Method::OPTIONS,
+        ]))
+        .allow_headers(AllowHeaders::list([
+            axum::http::header::AUTHORIZATION,
+            axum::http::header::CONTENT_TYPE,
+            axum::http::header::ACCEPT,
+        ]))
+        .allow_credentials(true)
+        .max_age(std::time::Duration::from_secs(3600))
 }
 
 /// Server start time for uptime calculation
