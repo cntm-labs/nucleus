@@ -8,7 +8,7 @@ export { NucleusProvider, useNucleus } from './provider'
 export type { NucleusProviderProps } from './provider'
 
 // Types
-export type { NucleusUser, NucleusSession, NucleusOrganization, NucleusMembership } from './client/types'
+export type { NucleusUser, NucleusSession, NucleusOrganization, NucleusMember, NucleusInvitation, NucleusMfaSetup, NucleusAuthResponse, OAuthProvider } from './client/types'
 
 // Hooks
 export { useUser } from './hooks/use-user'

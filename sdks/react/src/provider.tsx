@@ -1,17 +1,20 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react'
-import { NucleusUser, NucleusSession, NucleusOrganization } from './client/types'
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from 'react'
+import type { NucleusUser, NucleusSession, NucleusOrganization, AppearanceConfig } from './client/types'
 import { NucleusApi } from './client/api'
+import { SessionManager } from './client/session'
 
-interface NucleusContextValue {
+export interface NucleusContextValue {
   user: NucleusUser | null
   isLoaded: boolean
   isSignedIn: boolean
   session: NucleusSession | null
   organization: NucleusOrganization | null
   signOut: () => Promise<void>
-  getToken: () => Promise<string | null>
+  getToken: () => string | null
   /** @internal */
   _api: NucleusApi
+  /** @internal */
+  _sessionManager: SessionManager
   /** @internal */
   _setUser: (user: NucleusUser | null) => void
   /** @internal */
@@ -25,67 +28,86 @@ const NucleusContext = createContext<NucleusContextValue | null>(null)
 export interface NucleusProviderProps {
   publishableKey: string
   baseUrl?: string
+  appearance?: AppearanceConfig
   children: ReactNode
 }
 
-export function NucleusProvider({ publishableKey, baseUrl, children }: NucleusProviderProps) {
+export function NucleusProvider({ publishableKey, baseUrl, appearance, children }: NucleusProviderProps) {
   const [user, setUser] = useState<NucleusUser | null>(null)
   const [session, setSession] = useState<NucleusSession | null>(null)
   const [organization, setOrganization] = useState<NucleusOrganization | null>(null)
   const [isLoaded, setIsLoaded] = useState(false)
-  const [api] = useState(() => new NucleusApi({ publishableKey, baseUrl }))
+
+  const apiRef = useRef<NucleusApi>(new NucleusApi({ publishableKey, baseUrl }))
+  const sessionManagerRef = useRef<SessionManager>(
+    new SessionManager(apiRef.current, (s) => setSession(s))
+  )
 
   useEffect(() => {
-    const storedToken = typeof window !== 'undefined'
-      ? window.localStorage.getItem('__nucleus_session_token')
-      : null
+    const sm = sessionManagerRef.current
+    const api = apiRef.current
+    const stored = sm.restore()
 
-    if (storedToken) {
-      api.getUser(storedToken)
-        .then(u => {
-          setUser(u)
-          setSession({ id: '', token: storedToken, expires_at: '' })
-        })
-        .catch(() => {
-          window.localStorage.removeItem('__nucleus_session_token')
-        })
-        .finally(() => setIsLoaded(true))
+    if (stored) {
+      const isExpired = new Date(stored.expires_at).getTime() <= Date.now()
+      if (isExpired) {
+        sm.refresh(stored.refresh_token)
+          .then(async (s) => {
+            if (s) {
+              try { setUser(await api.getUser(s.token)) } catch { /* ignore */ }
+            }
+          })
+          .finally(() => setIsLoaded(true))
+      } else {
+        const restoredSession: NucleusSession = {
+          id: stored.session_id, token: stored.token,
+          refresh_token: stored.refresh_token, expires_at: stored.expires_at, user_id: '',
+        }
+        setSession(restoredSession)
+        sm.setSession(restoredSession)
+        api.getUser(stored.token)
+          .then(u => setUser(u))
+          .catch(() => { sm.clearSession(); setUser(null) })
+          .finally(() => setIsLoaded(true))
+      }
     } else {
       setIsLoaded(true)
     }
-  }, [api])
+
+    return () => sm.destroy()
+  }, [])
 
   const signOut = useCallback(async () => {
     if (session?.token) {
-      try { await api.signOut(session.token) } catch { /* best-effort */ }
+      try { await apiRef.current.signOut(session.token) } catch { /* best-effort */ }
     }
     setUser(null)
-    setSession(null)
     setOrganization(null)
-    if (typeof window !== 'undefined') {
-      window.localStorage.removeItem('__nucleus_session_token')
-    }
-  }, [api, session])
+    sessionManagerRef.current.clearSession()
+  }, [session])
 
-  const getToken = useCallback(async () => session?.token || null, [session])
+  const getToken = useCallback(() => session?.token ?? null, [session])
+
+  const cssVars = appearance?.variables
+    ? Object.entries(appearance.variables).reduce<Record<string, string>>((acc, [k, v]) => {
+        acc[k.startsWith('--') ? k : `--nucleus-${k}`] = v
+        return acc
+      }, {})
+    : undefined
 
   return (
     <NucleusContext.Provider
       value={{
-        user,
-        isLoaded,
-        isSignedIn: !!user,
-        session,
-        organization,
-        signOut,
-        getToken,
-        _api: api,
-        _setUser: setUser,
-        _setSession: setSession,
-        _setOrganization: setOrganization,
+        user, isLoaded, isSignedIn: !!user && !!session,
+        session, organization, signOut, getToken,
+        _api: apiRef.current,
+        _sessionManager: sessionManagerRef.current,
+        _setUser: setUser, _setSession: setSession, _setOrganization: setOrganization,
       }}
     >
-      {children}
+      <div style={cssVars as React.CSSProperties}>
+        {children}
+      </div>
     </NucleusContext.Provider>
   )
 }
