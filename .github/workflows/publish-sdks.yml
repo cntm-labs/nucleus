@@ -1,0 +1,222 @@
+name: Publish SDKs
+
+on:
+  workflow_dispatch:
+    inputs:
+      sdk:
+        description: 'Which SDK to publish'
+        required: true
+        type: choice
+        options:
+          - all
+          - npm
+          - python
+          - rust
+          - flutter
+          - nuget
+          - maven
+          - swift
+          - go
+      version:
+        description: 'Version to publish (e.g. 0.1.0-dev.2)'
+        required: true
+        default: '0.1.0-dev.1'
+      dry-run:
+        description: 'Dry run (do not actually publish)'
+        required: false
+        type: boolean
+        default: true
+  workflow_call:
+    inputs:
+      sdk:
+        required: true
+        type: string
+      version:
+        required: true
+        type: string
+      dry-run:
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  # --- npm (4 packages) ---
+  npm:
+    if: inputs.sdk == 'all' || inputs.sdk == 'npm'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        package: [js, node, react, nextjs]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+      - name: Update version
+        env:
+          SDK_VERSION: ${{ inputs.version }}
+        run: cd sdks/${{ matrix.package }} && npm version "$SDK_VERSION" --no-git-tag-version --allow-same-version
+      - name: Build
+        run: cd sdks/${{ matrix.package }} && npm install && npm run build --if-present
+      - name: Publish
+        if: inputs.dry-run == false
+        run: cd sdks/${{ matrix.package }} && npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Dry run
+        if: inputs.dry-run == true
+        run: cd sdks/${{ matrix.package }} && npm publish --access public --dry-run
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  # --- Python ---
+  python:
+    if: inputs.sdk == 'all' || inputs.sdk == 'python'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install build tools
+        run: pip install build twine
+      - name: Build
+        run: cd sdks/python && python -m build
+      - name: Publish
+        if: inputs.dry-run == false
+        run: cd sdks/python && twine upload dist/*
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
+      - name: Dry run
+        if: inputs.dry-run == true
+        run: cd sdks/python && twine check dist/*
+
+  # --- Rust ---
+  rust:
+    if: inputs.sdk == 'all' || inputs.sdk == 'rust'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Publish
+        if: inputs.dry-run == false
+        env:
+          CRATES_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
+        run: cd sdks/rust && cargo publish --token "$CRATES_TOKEN"
+      - name: Dry run
+        if: inputs.dry-run == true
+        run: cd sdks/rust && cargo publish --dry-run
+
+  # --- Flutter ---
+  flutter:
+    if: inputs.sdk == 'all' || inputs.sdk == 'flutter'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.0'
+      - name: Setup pub credentials
+        env:
+          PUB_CREDENTIALS: ${{ secrets.PUB_DEV_CREDENTIALS }}
+        run: |
+          mkdir -p "$HOME/.config/dart"
+          echo "$PUB_CREDENTIALS" > "$HOME/.config/dart/pub-credentials.json"
+      - name: Publish
+        if: inputs.dry-run == false
+        run: cd sdks/flutter && dart pub publish --force
+      - name: Dry run
+        if: inputs.dry-run == true
+        run: cd sdks/flutter && dart pub publish --dry-run
+
+  # --- NuGet (.NET) ---
+  nuget:
+    if: inputs.sdk == 'all' || inputs.sdk == 'nuget'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0'
+      - name: Pack
+        run: |
+          cd sdks/dotnet/src/Nucleus && dotnet pack -c Release -o ../../../../nupkgs
+          cd ../../Nucleus.AspNetCore && dotnet pack -c Release -o ../../../../nupkgs
+      - name: Publish
+        if: inputs.dry-run == false
+        env:
+          NUGET_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: dotnet nuget push "nupkgs/*.nupkg" --api-key "$NUGET_KEY" --source https://api.nuget.org/v3/index.json
+      - name: Dry run
+        if: inputs.dry-run == true
+        run: ls -la nupkgs/
+
+  # --- Maven Central (Java + Android) ---
+  maven:
+    if: inputs.sdk == 'all' || inputs.sdk == 'maven'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      - name: Import GPG key
+        env:
+          GPG_KEY: ${{ secrets.MAVEN_GPG_KEY }}
+        run: echo "$GPG_KEY" | base64 -d | gpg --batch --import
+      - name: Deploy Java SDK
+        if: inputs.dry-run == false
+        env:
+          MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
+          MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
+          GPG_PASSPHRASE: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
+        run: |
+          cd sdks/java && mvn deploy -P release \
+            -Dgpg.passphrase="$GPG_PASSPHRASE"
+      - name: Dry run
+        if: inputs.dry-run == true
+        run: cd sdks/java && mvn package -P release -DskipTests
+
+  # --- Swift (CocoaPods) ---
+  swift:
+    if: inputs.sdk == 'all' || inputs.sdk == 'swift'
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate podspec
+        run: cd sdks/swift && pod lib lint NucleusSwift.podspec --allow-warnings
+      - name: Publish
+        if: inputs.dry-run == false
+        run: cd sdks/swift && pod trunk push NucleusSwift.podspec --allow-warnings
+        env:
+          COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_TOKEN }}
+      - name: Dry run
+        if: inputs.dry-run == true
+        run: echo "Dry run — podspec validated"
+
+  # --- Go ---
+  go:
+    if: inputs.sdk == 'all' || inputs.sdk == 'go'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+      - name: Verify module
+        run: cd sdks/go && go vet ./...
+      - name: Create tag
+        if: inputs.dry-run == false
+        env:
+          SDK_VERSION: ${{ inputs.version }}
+        run: |
+          git tag "sdks/go/v${SDK_VERSION}"
+          git push origin "sdks/go/v${SDK_VERSION}"
+      - name: Dry run
+        if: inputs.dry-run == true
+        env:
+          SDK_VERSION: ${{ inputs.version }}
+        run: echo "Would create tag sdks/go/v${SDK_VERSION}"
