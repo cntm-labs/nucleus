@@ -54,5 +54,8 @@ vendor/
 lcov.info
 tarpaulin-report.html
 
+# Worktrees
+.worktrees/
+
 # OS
 Thumbs.db
