@@ -1,13 +1,13 @@
 import { z } from 'zod'
 
 export const emailSchema = z
-  .string({ required_error: 'Email is required' })
+  .string({ error: (issue) => issue.input === undefined ? 'Email is required' : 'Expected string' })
   .trim()
   .min(1, 'Email is required')
   .email('Invalid email format')
 
 export const passwordSchema = z
-  .string({ required_error: 'Password is required' })
+  .string({ error: (issue) => issue.input === undefined ? 'Password is required' : 'Expected string' })
   .min(1, 'Password is required')
   .min(8, 'Password must be at least 8 characters')
 
