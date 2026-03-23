@@ -73,8 +73,15 @@ class NucleusApiClient {
   Future<void> signOut() => _post('/v1/auth/sign-out').then((_) {});
 
   // --- OAuth ---
-  String getOAuthUrl(String provider, String redirectUri) =>
-    '${config.effectiveBaseUrl}/v1/oauth/$provider/authorize?redirect_uri=${Uri.encodeComponent(redirectUri)}&publishable_key=${config.publishableKey}';
+  String getOAuthUrl(String provider, String redirectUri, {String? state}) {
+    final params = <String, String>{
+      'redirect_uri': redirectUri,
+      'publishable_key': config.publishableKey,
+    };
+    if (state != null) params['state'] = state;
+    final query = params.entries.map((e) => '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent(e.value)}').join('&');
+    return '${config.effectiveBaseUrl}/v1/oauth/$provider/authorize?$query';
+  }
 
   Future<({NucleusUser user, NucleusSession session})> exchangeOAuthCode(String code, String redirectUri) async {
     final json = await _post('/v1/oauth/token', body: {'code': code, 'redirect_uri': redirectUri});
