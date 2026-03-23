@@ -1,36 +1,27 @@
 import { useState, useCallback } from 'react'
 import { useNucleus } from '../provider'
 
-interface SignInAttempt {
-  status: 'idle' | 'loading' | 'success' | 'error'
-  error: string | null
-}
-
 export function useSignIn() {
-  const { _api, _setUser, _setSession } = useNucleus()
-  const [attempt, setAttempt] = useState<SignInAttempt>({ status: 'idle', error: null })
+  const { _api, _sessionManager, _setUser } = useNucleus()
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const signIn = useCallback(async (email: string, password: string) => {
-    setAttempt({ status: 'loading', error: null })
+    setIsLoading(true)
+    setError(null)
     try {
       const result = await _api.signIn(email, password)
       _setUser(result.user)
-      _setSession(result.session)
-      if (typeof window !== 'undefined') {
-        window.localStorage.setItem('__nucleus_session_token', result.session.token)
-      }
-      setAttempt({ status: 'success', error: null })
+      _sessionManager.setSession(result.session)
       return result
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Sign in failed'
-      setAttempt({ status: 'error', error: message })
+      setError(message)
       throw err
+    } finally {
+      setIsLoading(false)
     }
-  }, [_api, _setUser, _setSession])
+  }, [_api, _sessionManager, _setUser])
 
-  return {
-    signIn,
-    isLoading: attempt.status === 'loading',
-    error: attempt.error,
-  }
+  return { signIn, isLoading, error }
 }
