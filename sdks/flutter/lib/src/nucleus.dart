@@ -1,6 +1,7 @@
 import 'config.dart';
 import 'client.dart';
 import 'auth/auth_state.dart';
+import 'auth/oauth.dart';
 import 'session/token_storage.dart';
 import 'session/auto_refresh.dart';
 import 'models/session.dart';
@@ -22,6 +23,11 @@ class Nucleus {
   }
 
   static bool get isConfigured => _configured;
+
+  static NucleusOAuth get oauth {
+    if (_client == null) throw StateError('Nucleus not configured. Call Nucleus.configure() first.');
+    return NucleusOAuth(_client!);
+  }
 
   static Future<void> configure(NucleusConfig config) async {
     _client = NucleusApiClient(config);

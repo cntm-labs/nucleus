@@ -5,6 +5,7 @@ import '../models/session.dart';
 import '../models/organization.dart';
 import '../models/member.dart';
 import '../session/token_storage.dart';
+import 'oauth.dart';
 
 class NucleusAuth extends ChangeNotifier {
   final NucleusApiClient _api;
@@ -64,6 +65,13 @@ class NucleusAuth extends ChangeNotifier {
   Future<void> mfaSendSms(String phone) => _api.mfaSmsSend(phone);
   Future<bool> mfaVerifySms(String code) => _api.mfaSmsVerify(code);
   Future<List<String>> mfaGetBackupCodes() => _api.mfaBackupCodes();
+
+  // --- OAuth ---
+  Future<void> handleOAuthCallback(String code, {String redirectUri = 'nucleus://oauth/callback', String? state}) async {
+    final oauth = NucleusOAuth(_api);
+    final result = await oauth.handleCallback(code, redirectUri: redirectUri, state: state);
+    await _setAuthResult(result.user, result.session);
+  }
 
   // --- Verification ---
   Future<void> sendEmailVerification(String email) => _api.sendEmailVerification(email);
