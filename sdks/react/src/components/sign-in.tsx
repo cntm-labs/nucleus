@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { useSignIn } from '../hooks/use-sign-in'
 import { useOAuth } from '../hooks/use-oauth'
+import { useMfa } from '../hooks/use-mfa'
 import { useStyles, Divider } from './appearance'
 import type { OAuthProvider } from '../client/types'
 
@@ -19,6 +20,7 @@ export function SignIn({ afterSignInUrl = '/', onSignIn, oauthProviders = [] }: 
   const [step, setStep] = useState<'credentials' | 'mfa'>('credentials')
   const { signIn, isLoading, error } = useSignIn()
   const { signInWithOAuth, isLoading: oauthLoading, error: oauthError } = useOAuth()
+  const { verifyTotp, isLoading: mfaLoading, error: mfaError } = useMfa()
   const s = useStyles()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -42,7 +44,7 @@ export function SignIn({ afterSignInUrl = '/', onSignIn, oauthProviders = [] }: 
     } catch { /* error tracked by hook */ }
   }
 
-  const displayError = error || oauthError
+  const displayError = error || oauthError || mfaError
 
   return (
     <div style={s.card}>
@@ -88,8 +90,13 @@ export function SignIn({ afterSignInUrl = '/', onSignIn, oauthProviders = [] }: 
       {step === 'mfa' && (
         <form onSubmit={async (e) => {
           e.preventDefault()
-          // MFA verification would be handled by useMfa hook in a real flow
-          setStep('credentials')
+          try {
+            const result = await verifyTotp(mfaCode)
+            if (result.verified) {
+              onSignIn?.()
+              if (typeof window !== 'undefined') window.location.href = afterSignInUrl
+            }
+          } catch { /* error tracked by useMfa hook */ }
         }}>
           <p style={{ fontSize: 14, marginBottom: 12, color: '#6b7280' }}>
             Enter the verification code from your authenticator app
@@ -100,8 +107,8 @@ export function SignIn({ afterSignInUrl = '/', onSignIn, oauthProviders = [] }: 
             style={{ ...s.input, textAlign: 'center', letterSpacing: 8, fontSize: 20 }}
             maxLength={6} required
           />
-          <button type="submit" style={{ ...s.button, marginTop: 8 }}>
-            Verify
+          <button type="submit" disabled={mfaLoading} style={{ ...s.button, marginTop: 8, opacity: mfaLoading ? 0.7 : 1 }}>
+            {mfaLoading ? 'Verifying...' : 'Verify'}
           </button>
         </form>
       )}
