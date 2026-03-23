@@ -14,13 +14,13 @@ describe('NucleusApi', () => {
 
   it('signIn sends POST', async () => {
     mockFetch.mockResolvedValue(jsonResponse({ user: { id: 'u' }, session: { id: 's' } }))
-    await api.signIn('a@b.com', 'pass')
+    await api.signIn('a@b.com', 'password123')
     expect(mockFetch.mock.calls[0][0]).toBe('https://api.test.com/v1/auth/sign-in')
   })
 
   it('signUp includes names', async () => {
     mockFetch.mockResolvedValue(jsonResponse({ user: {}, session: {} }))
-    await api.signUp('a@b.com', 'p', 'J', 'D')
+    await api.signUp('a@b.com', 'password123', 'J', 'D')
     expect(JSON.parse(mockFetch.mock.calls[0][1].body).first_name).toBe('J')
   })
 
@@ -49,7 +49,7 @@ describe('NucleusApi', () => {
 
   it('throws on error', async () => {
     mockFetch.mockResolvedValue(new Response('fail', { status: 500 }))
-    await expect(api.signIn('a', 'b')).rejects.toThrow()
+    await expect(api.signIn('a@b.com', 'password123')).rejects.toThrow()
   })
 
   it('204 returns undefined', async () => {

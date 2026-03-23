@@ -18,7 +18,7 @@ describe('NucleusApi', () => {
 
   it('signIn sends correct request', async () => {
     mockFetch.mockResolvedValue(jsonResponse({ user: { id: 'u' }, session: { id: 's' } }))
-    await api.signIn('a@b.com', 'pass')
+    await api.signIn('a@b.com', 'password123')
     expect(mockFetch.mock.calls[0][0]).toBe('https://api.test.com/v1/auth/sign-in')
     expect(mockFetch.mock.calls[0][1].method).toBe('POST')
     expect(mockFetch.mock.calls[0][1].headers['X-Nucleus-Publishable-Key']).toBe('pk_test')
@@ -26,7 +26,7 @@ describe('NucleusApi', () => {
 
   it('signUp sends names', async () => {
     mockFetch.mockResolvedValue(jsonResponse({ user: {}, session: {} }))
-    await api.signUp('a@b.com', 'pass', 'J', 'D')
+    await api.signUp('a@b.com', 'password123', 'J', 'D')
     const body = JSON.parse(mockFetch.mock.calls[0][1].body)
     expect(body.first_name).toBe('J')
   })
@@ -72,7 +72,7 @@ describe('NucleusApi', () => {
 
   it('throws on error response', async () => {
     mockFetch.mockResolvedValue(new Response('Unauthorized', { status: 401 }))
-    await expect(api.signIn('a@b.com', 'bad')).rejects.toThrow('Nucleus API error')
+    await expect(api.signIn('a@b.com', 'password123')).rejects.toThrow('Nucleus API error')
   })
 
   it('204 returns undefined', async () => {

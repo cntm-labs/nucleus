@@ -10,17 +10,44 @@
     "directory": "sdks/react"
   },
   "homepage": "https://github.com/cntm-labs/nucleus",
-  "publishConfig": { "access": "public" },
+  "publishConfig": {
+    "access": "public"
+  },
   "type": "module",
   "main": "./dist/cjs/index.js",
   "module": "./dist/esm/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
-    ".": { "import": "./dist/esm/index.js", "require": "./dist/cjs/index.js", "types": "./dist/index.d.ts" }
+    ".": {
+      "import": "./dist/esm/index.js",
+      "require": "./dist/cjs/index.js",
+      "types": "./dist/index.d.ts"
+    }
   },
-  "files": ["dist"],
-  "scripts": { "build": "tsup", "typecheck": "tsc --noEmit", "test": "vitest run" },
-  "dependencies": { "jose": "^5.0.0" },
-  "peerDependencies": { "react": ">=18" },
-  "devDependencies": { "typescript": "~5.7.0", "tsup": "^8.0.0", "vitest": "^3.0.0", "@testing-library/react": "^16.0.0", "@testing-library/jest-dom": "^6.0.0", "jsdom": "^25.0.0", "react": "^19.0.0", "react-dom": "^19.0.0", "@types/react": "^19.0.0" }
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "jose": "^5.0.0",
+    "zod": "^4.3.6"
+  },
+  "peerDependencies": {
+    "react": ">=18"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.0.0",
+    "@testing-library/react": "^16.0.0",
+    "@types/react": "^19.0.0",
+    "jsdom": "^25.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tsup": "^8.0.0",
+    "typescript": "~5.7.0",
+    "vitest": "^3.0.0"
+  }
 }

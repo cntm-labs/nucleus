@@ -5,6 +5,7 @@ import 'models/user.dart';
 import 'models/session.dart';
 import 'models/organization.dart';
 import 'models/member.dart';
+import 'validation.dart';
 
 class NucleusApiClient {
   final NucleusConfig config;
@@ -57,11 +58,15 @@ class NucleusApiClient {
 
   // --- Auth ---
   Future<({NucleusUser user, NucleusSession session})> signIn(String email, String password) async {
+    validateEmail(email);
+    validatePassword(password);
     final json = await _post('/v1/auth/sign-in', body: {'email': email, 'password': password});
     return (user: NucleusUser.fromJson(json['user']), session: NucleusSession.fromJson(json['session']));
   }
 
   Future<({NucleusUser user, NucleusSession session})> signUp(String email, String password, {String? firstName, String? lastName}) async {
+    validateEmail(email);
+    validatePassword(password);
     final json = await _post('/v1/auth/sign-up', body: {
       'email': email, 'password': password,
       if (firstName != null) 'first_name': firstName,

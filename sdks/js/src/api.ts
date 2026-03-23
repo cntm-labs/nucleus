@@ -3,6 +3,7 @@ import type {
   NucleusMember, NucleusInvitation, NucleusMfaSetup,
   NucleusAuthResponse, OAuthProvider,
 } from './types'
+import { validateSignIn, validateSignUp } from './validation'
 
 const DEFAULT_BASE_URL = 'https://api.nucleus.dev'
 
@@ -38,12 +39,14 @@ export class NucleusApi {
 
   // --- Auth ---
   signIn(email: string, password: string) {
+    validateSignIn(email, password)
     return this.request<NucleusAuthResponse>('/v1/auth/sign-in', {
       method: 'POST', body: JSON.stringify({ email, password }),
     })
   }
 
   signUp(email: string, password: string, firstName?: string, lastName?: string) {
+    validateSignUp(email, password)
     return this.request<NucleusAuthResponse>('/v1/auth/sign-up', {
       method: 'POST',
       body: JSON.stringify({ email, password, first_name: firstName, last_name: lastName }),

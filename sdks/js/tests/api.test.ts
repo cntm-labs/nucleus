@@ -27,7 +27,7 @@ describe('NucleusApi', () => {
     it('strips trailing slash from baseUrl', () => {
       const a = new NucleusApi('pk', 'https://api.test.com/')
       mockFetch.mockResolvedValue(jsonResponse({ user: {}, session: {} }))
-      a.signIn('a@b.com', 'pass')
+      a.signIn('a@b.com', 'password123')
       expect(mockFetch).toHaveBeenCalledWith(
         'https://api.test.com/v1/auth/sign-in',
         expect.any(Object),
@@ -37,7 +37,7 @@ describe('NucleusApi', () => {
     it('uses default baseUrl when not provided', () => {
       const a = new NucleusApi('pk')
       mockFetch.mockResolvedValue(jsonResponse({ user: {}, session: {} }))
-      a.signIn('a@b.com', 'pass')
+      a.signIn('a@b.com', 'password123')
       expect(mockFetch).toHaveBeenCalledWith(
         'https://api.nucleus.dev/v1/auth/sign-in',
         expect.any(Object),
@@ -68,9 +68,9 @@ describe('NucleusApi', () => {
   describe('signUp', () => {
     it('sends POST with all fields', async () => {
       mockFetch.mockResolvedValue(jsonResponse({ user: { id: 'u_1' }, session: { id: 's_1' } }))
-      await api.signUp('a@b.com', 'pass', 'John', 'Doe')
+      await api.signUp('a@b.com', 'password123', 'John', 'Doe')
       const body = JSON.parse(mockFetch.mock.calls[0][1].body)
-      expect(body).toEqual({ email: 'a@b.com', password: 'pass', first_name: 'John', last_name: 'Doe' })
+      expect(body).toEqual({ email: 'a@b.com', password: 'password123', first_name: 'John', last_name: 'Doe' })
     })
   })
 
@@ -139,13 +139,13 @@ describe('NucleusApi', () => {
   describe('error handling', () => {
     it('throws NucleusApiError on non-ok response', async () => {
       mockFetch.mockResolvedValue(errorResponse(401, 'Unauthorized'))
-      await expect(api.signIn('a@b.com', 'bad')).rejects.toThrow(NucleusApiError)
+      await expect(api.signIn('a@b.com', 'password123')).rejects.toThrow(NucleusApiError)
     })
 
     it('NucleusApiError contains status and body', async () => {
       mockFetch.mockResolvedValue(errorResponse(403, 'Forbidden'))
       try {
-        await api.signIn('a@b.com', 'bad')
+        await api.signIn('a@b.com', 'password123')
         expect.unreachable('should have thrown')
       } catch (e) {
         expect(e).toBeInstanceOf(NucleusApiError)
