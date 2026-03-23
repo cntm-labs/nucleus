@@ -57,8 +57,9 @@ export class NucleusApi {
   }
 
   // --- OAuth ---
-  getOAuthUrl(provider: OAuthProvider, redirectUri: string) {
+  getOAuthUrl(provider: OAuthProvider, redirectUri: string, state?: string) {
     const params = new URLSearchParams({ redirect_uri: redirectUri })
+    if (state) params.set('state', state)
     return `${this.baseUrl}/v1/oauth/${provider}/authorize?${params}&publishable_key=${this.publishableKey}`
   }
 
