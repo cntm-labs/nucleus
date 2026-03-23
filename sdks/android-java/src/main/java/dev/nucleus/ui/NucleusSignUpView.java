@@ -8,26 +8,25 @@ import android.widget.*;
 import dev.nucleus.*;
 import dev.nucleus.network.ApiClient;
 
-public class NucleusSignInView extends LinearLayout {
-    private EditText emailInput, passwordInput;
-    private Button signInButton;
+public class NucleusSignUpView extends LinearLayout {
+    private EditText firstNameInput, lastNameInput, emailInput, passwordInput;
+    private Button signUpButton;
     private TextView errorText;
-    private SignInListener listener;
+    private SignUpListener listener;
     private NucleusAppearance appearance = new NucleusAppearance.Builder().build();
 
-    public interface SignInListener { void onSignIn(); }
+    public interface SignUpListener { void onSignUp(); }
 
-    public NucleusSignInView(Context c) { super(c); init(); }
-    public NucleusSignInView(Context c, AttributeSet a) { super(c, a); init(); }
+    public NucleusSignUpView(Context c) { super(c); init(); }
+    public NucleusSignUpView(Context c, AttributeSet a) { super(c, a); init(); }
 
-    public void setListener(SignInListener listener) { this.listener = listener; }
+    public void setListener(SignUpListener listener) { this.listener = listener; }
     public void setAppearance(NucleusAppearance appearance) { this.appearance = appearance; init(); }
 
     private void init() {
         removeAllViews();
         setOrientation(VERTICAL);
         setPadding(dp(24), dp(24), dp(24), dp(24));
-        setGravity(Gravity.CENTER_HORIZONTAL);
 
         GradientDrawable bg = new GradientDrawable();
         bg.setColor(appearance.getBackgroundColor());
@@ -36,7 +35,7 @@ public class NucleusSignInView extends LinearLayout {
         setBackground(bg);
 
         TextView title = new TextView(getContext());
-        title.setText("Sign In");
+        title.setText("Create Account");
         title.setTextSize(20);
         title.setTextColor(appearance.getTextColor());
         title.setGravity(Gravity.CENTER);
@@ -45,8 +44,19 @@ public class NucleusSignInView extends LinearLayout {
         errorText = new TextView(getContext());
         errorText.setTextColor(appearance.getErrorColor());
         errorText.setVisibility(GONE);
-        errorText.setPadding(dp(8), dp(8), dp(8), dp(8));
-        addView(errorText, lp(dp(16)));
+        addView(errorText, lp(dp(12)));
+
+        LinearLayout nameRow = new LinearLayout(getContext());
+        nameRow.setOrientation(HORIZONTAL);
+        firstNameInput = new EditText(getContext()); firstNameInput.setHint("First Name");
+        lastNameInput = new EditText(getContext()); lastNameInput.setHint("Last Name");
+        LayoutParams half = new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f);
+        half.rightMargin = dp(4);
+        nameRow.addView(firstNameInput, half);
+        LayoutParams half2 = new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f);
+        half2.leftMargin = dp(4);
+        nameRow.addView(lastNameInput, half2);
+        addView(nameRow, lp(dp(8)));
 
         emailInput = new EditText(getContext());
         emailInput.setHint("Email");
@@ -58,30 +68,33 @@ public class NucleusSignInView extends LinearLayout {
         passwordInput.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
         addView(passwordInput, lp(dp(16)));
 
-        signInButton = new Button(getContext());
-        signInButton.setText("Sign In");
-        signInButton.setBackgroundColor(appearance.getPrimaryColor());
-        signInButton.setTextColor(0xFFFFFFFF);
-        signInButton.setOnClickListener(v -> handleSignIn());
-        addView(signInButton, lp(0));
+        signUpButton = new Button(getContext());
+        signUpButton.setText("Sign Up");
+        signUpButton.setBackgroundColor(appearance.getPrimaryColor());
+        signUpButton.setTextColor(0xFFFFFFFF);
+        signUpButton.setOnClickListener(v -> handleSignUp());
+        addView(signUpButton, lp(0));
     }
 
-    private void handleSignIn() {
+    private void handleSignUp() {
         String email = emailInput.getText().toString().trim();
         String password = passwordInput.getText().toString();
         if (email.isEmpty() || password.isEmpty()) { showError("Email and password required"); return; }
 
-        signInButton.setEnabled(false);
+        signUpButton.setEnabled(false);
         errorText.setVisibility(GONE);
+        String fn = firstNameInput.getText().toString().trim();
+        String ln = lastNameInput.getText().toString().trim();
 
-        Nucleus.getAuth().signIn(email, password, new NucleusCallback<ApiClient.AuthResult>() {
-            @Override public void onSuccess(ApiClient.AuthResult result) {
-                post(() -> { signInButton.setEnabled(true); if (listener != null) listener.onSignIn(); });
-            }
-            @Override public void onError(NucleusException error) {
-                post(() -> { signInButton.setEnabled(true); showError(error.getMessage()); });
-            }
-        });
+        Nucleus.getAuth().signUp(email, password, fn.isEmpty() ? null : fn, ln.isEmpty() ? null : ln,
+            new NucleusCallback<ApiClient.AuthResult>() {
+                @Override public void onSuccess(ApiClient.AuthResult result) {
+                    post(() -> { signUpButton.setEnabled(true); if (listener != null) listener.onSignUp(); });
+                }
+                @Override public void onError(NucleusException error) {
+                    post(() -> { signUpButton.setEnabled(true); showError(error.getMessage()); });
+                }
+            });
     }
 
     private void showError(String msg) { errorText.setText(msg); errorText.setVisibility(VISIBLE); }
