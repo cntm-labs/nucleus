@@ -2,6 +2,9 @@ import type { NucleusAuthResponse } from './types'
 import type { NucleusApi } from './api'
 
 export async function signInWithPasskey(api: NucleusApi, token: string): Promise<NucleusAuthResponse> {
+  if (typeof window === 'undefined') {
+    throw new Error('Passkeys are only available in browser environments')
+  }
   const challenge = await api.getPasskeyChallenge(token)
   const credential = await navigator.credentials.get({
     publicKey: {

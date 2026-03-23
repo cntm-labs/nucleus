@@ -5,6 +5,9 @@ export function startOAuthFlow(
   api: NucleusApi,
   provider: OAuthProvider,
 ): Promise<NucleusAuthResponse> {
+  if (typeof window === 'undefined') {
+    return Promise.reject(new Error('OAuth is only available in browser environments'))
+  }
   return new Promise((resolve, reject) => {
     const redirectUri = `${window.location.origin}/__nucleus/oauth/callback`
     const state = crypto.randomUUID()
