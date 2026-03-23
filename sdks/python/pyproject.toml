@@ -22,6 +22,9 @@ Homepage = "https://github.com/cntm-labs/nucleus"
 Repository = "https://github.com/cntm-labs/nucleus"
 Issues = "https://github.com/cntm-labs/nucleus/issues"
 
+[tool.hatch.build.targets.wheel]
+packages = ["src/nucleus"]
+
 [project.optional-dependencies]
 fastapi = ["fastapi>=0.115"]
 django = ["django>=4.2"]
