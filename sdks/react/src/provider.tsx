@@ -105,9 +105,7 @@ export function NucleusProvider({ publishableKey, baseUrl, appearance, children 
         _setUser: setUser, _setSession: setSession, _setOrganization: setOrganization,
       }}
     >
-      <div style={cssVars as React.CSSProperties}>
-        {children}
-      </div>
+      {cssVars ? <div style={cssVars as React.CSSProperties}>{children}</div> : children}
     </NucleusContext.Provider>
   )
 }

@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react'
 import { useNucleus } from '../provider'
-import { setSessionToken } from '../client/session'
+import { setSessionTokens } from '../client/session'
 import type { OAuthProvider, NucleusAuthResponse } from '../client/types'
 
 export function useOAuth() {
@@ -34,7 +34,7 @@ export function useOAuth() {
 
       _setUser(result.user)
       _setSession(result.session)
-      setSessionToken(result.session.token, result.session.expires_at)
+      setSessionTokens(result.session.token, result.session.refresh_token, result.session.expires_at)
       return result
     } catch (err) {
       setError(err instanceof Error ? err.message : 'OAuth sign in failed')

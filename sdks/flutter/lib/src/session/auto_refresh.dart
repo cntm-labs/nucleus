@@ -5,9 +5,14 @@ class AutoRefresh {
   final Future<void> Function() onRefresh;
   AutoRefresh({required this.onRefresh});
 
-  void start({Duration interval = const Duration(minutes: 4)}) {
+  void scheduleAt(DateTime expiresAt, {Duration buffer = const Duration(seconds: 60)}) {
     _timer?.cancel();
-    _timer = Timer.periodic(interval, (_) => onRefresh());
+    final refreshAt = expiresAt.subtract(buffer).difference(DateTime.now());
+    if (refreshAt.isNegative) {
+      onRefresh();
+      return;
+    }
+    _timer = Timer(refreshAt, () => onRefresh());
   }
 
   void stop() { _timer?.cancel(); _timer = null; }

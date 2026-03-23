@@ -37,6 +37,6 @@ export async function auth(): Promise<{
     orgRole: claims?.org_role ?? null,
     orgPermissions: claims?.org_permissions ?? [],
     claims,
-    getToken: async () => token,
+    getToken: async () => claims ? token : null,
   }
 }

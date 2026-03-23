@@ -38,10 +38,11 @@ class NucleusAuth extends ChangeNotifier {
     return result;
   }
 
-  Future<void> signOut() async {
+  /// Internal sign-out — clears state only. Use [Nucleus.signOut()] instead
+  /// to also stop auto-refresh and call the server sign-out endpoint.
+  void clearAuthState() {
     _user = null; _session = null; _organization = null;
     _api.setToken(null);
-    await TokenStorage.clear();
     notifyListeners();
   }
 
@@ -98,6 +99,7 @@ class NucleusAuth extends ChangeNotifier {
     _api.setToken(session.token);
     await TokenStorage.saveSession(session.token);
     await TokenStorage.saveRefresh(session.refreshToken);
+    await TokenStorage.saveExpiresAt(session.expiresAt.toIso8601String());
     notifyListeners();
   }
 }

@@ -32,16 +32,20 @@ class Nucleus {
     // Restore session from secure storage
     final token = await TokenStorage.getSession();
     final refreshToken = await TokenStorage.getRefresh();
+    final expiresAtStr = await TokenStorage.getExpiresAt();
     if (token != null && refreshToken != null) {
       _client!.setToken(token);
       try {
         final user = await _client!.getUser();
+        final expiresAt = expiresAtStr != null
+            ? DateTime.parse(expiresAtStr)
+            : DateTime.now().add(const Duration(minutes: 5));
+        final session = NucleusSession(
+          id: '', token: token, refreshToken: refreshToken, expiresAt: expiresAt,
+        );
         _auth!.setUser(user);
-        _auth!.setSession(NucleusSession(
-          id: '', token: token, refreshToken: refreshToken,
-          expiresAt: DateTime.now().add(const Duration(minutes: 5)),
-        ));
-        _autoRefresh!.start();
+        _auth!.setSession(session);
+        _autoRefresh!.scheduleAt(expiresAt);
       } catch (_) {
         await TokenStorage.clear();
         _client!.setToken(null);
@@ -57,7 +61,9 @@ class Nucleus {
       _client!.setToken(newSession.token);
       await TokenStorage.saveSession(newSession.token);
       await TokenStorage.saveRefresh(newSession.refreshToken);
+      await TokenStorage.saveExpiresAt(newSession.expiresAt.toIso8601String());
       _auth!.setSession(newSession);
+      _autoRefresh?.scheduleAt(newSession.expiresAt);
     } catch (_) {
       await signOut();
     }
@@ -68,7 +74,7 @@ class Nucleus {
     _client?.setToken(null);
     _autoRefresh?.stop();
     await TokenStorage.clear();
-    _auth?.signOut();
+    _auth?.clearAuthState();
   }
 
   static void dispose() {

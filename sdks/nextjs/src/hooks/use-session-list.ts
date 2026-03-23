@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react'
 import { useNucleus } from '../provider'
-import { setSessionToken } from '../client/session'
+import { setSessionTokens } from '../client/session'
 import type { NucleusSession } from '../client/types'
 
 export function useSessionList() {
@@ -27,7 +27,7 @@ export function useSessionList() {
     try {
       const session = await _api.switchSession(getToken()!, sessionId)
       _setSession(session)
-      setSessionToken(session.token, session.expires_at)
+      setSessionTokens(session.token, session.refresh_token, session.expires_at)
       const user = await _api.getUser(session.token)
       _setUser(user)
       return session

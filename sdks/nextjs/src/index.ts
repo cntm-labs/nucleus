@@ -45,4 +45,4 @@ export type { OrgProfileProps } from './components/org-profile'
 
 // Client utilities
 export { NucleusApi } from './client/api'
-export { getSessionToken, setSessionToken, clearSessionToken } from './client/session'
+export { getSessionToken, getRefreshToken, getExpiresAt, setSessionTokens, clearSessionTokens } from './client/session'

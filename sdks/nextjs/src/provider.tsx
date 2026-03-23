@@ -2,7 +2,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from 'react'
 import type { NucleusUser, NucleusSession, NucleusOrganization } from './client/types'
 import { NucleusApi } from './client/api'
-import { getSessionToken, setSessionToken, clearSessionToken, autoRefresh } from './client/session'
+import { getSessionToken, getRefreshToken, getExpiresAt, setSessionTokens, clearSessionTokens, autoRefresh } from './client/session'
 
 export interface NucleusContextValue {
   user: NucleusUser | null
@@ -41,29 +41,53 @@ export function NucleusProvider({ publishableKey, baseUrl, children }: NucleusPr
   useEffect(() => {
     const api = apiRef.current
     const token = getSessionToken()
+    const refreshToken = getRefreshToken()
+    const expiresAt = getExpiresAt()
     if (!token) { setIsLoaded(true); return }
 
-    api.getUser(token)
-      .then(u => {
-        setUser(u)
-        setSession({ id: '', token, refresh_token: '', expires_at: '', user_id: u.id })
-      })
-      .catch(() => clearSessionToken())
-      .finally(() => setIsLoaded(true))
+    // If we have refresh_token and expires_at, restore full session
+    if (refreshToken && expiresAt) {
+      const restoredSession: NucleusSession = {
+        id: '', token, refresh_token: refreshToken, expires_at: expiresAt, user_id: '',
+      }
+      setSession(restoredSession)
+      api.getUser(token)
+        .then(u => { setUser(u); setSession(prev => prev ? { ...prev, user_id: u.id } : null) })
+        .catch(() => clearSessionTokens())
+        .finally(() => setIsLoaded(true))
+    } else {
+      // Incomplete session data — try to use token but can't auto-refresh
+      api.getUser(token)
+        .then(u => {
+          setUser(u)
+          setSession({ id: '', token, refresh_token: '', expires_at: '', user_id: u.id })
+        })
+        .catch(() => clearSessionTokens())
+        .finally(() => setIsLoaded(true))
+    }
   }, [])
 
-  // Auto-refresh timer
+  // Auto-refresh timer — only if we have valid expires_at
   useEffect(() => {
-    if (!session?.expires_at) return
+    if (!session?.expires_at || !session?.refresh_token) return
+    const expiresMs = new Date(session.expires_at).getTime()
+    if (isNaN(expiresMs)) return
+    const refreshAt = Math.max(0, expiresMs - 60_000 - Date.now())
     const timer = setTimeout(async () => {
       const newToken = await autoRefresh(session.expires_at, async () => {
         const s = await apiRef.current.refreshSession(session.refresh_token)
-        return { token: s.token, expires_at: s.expires_at }
+        return { token: s.token, refresh_token: s.refresh_token, expires_at: s.expires_at }
       })
       if (newToken && newToken !== session.token) {
-        setSession(prev => prev ? { ...prev, token: newToken } : null)
+        const newExpiresAt = getExpiresAt()
+        const newRefreshToken = getRefreshToken()
+        setSession(prev => prev ? {
+          ...prev, token: newToken,
+          expires_at: newExpiresAt ?? prev.expires_at,
+          refresh_token: newRefreshToken ?? prev.refresh_token,
+        } : null)
       }
-    }, Math.max(0, new Date(session.expires_at).getTime() - 60_000 - Date.now()))
+    }, refreshAt)
     return () => clearTimeout(timer)
   }, [session])
 
@@ -74,7 +98,7 @@ export function NucleusProvider({ publishableKey, baseUrl, children }: NucleusPr
     setUser(null)
     setSession(null)
     setOrganization(null)
-    clearSessionToken()
+    clearSessionTokens()
   }, [session])
 
   const getToken = useCallback(() => session?.token ?? null, [session])

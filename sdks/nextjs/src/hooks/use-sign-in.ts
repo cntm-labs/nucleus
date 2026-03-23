@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react'
 import { useNucleus } from '../provider'
-import { setSessionToken } from '../client/session'
+import { setSessionTokens } from '../client/session'
 
 export function useSignIn() {
   const { _api, _setUser, _setSession } = useNucleus()
@@ -14,7 +14,7 @@ export function useSignIn() {
       const result = await _api.signIn(email, password)
       _setUser(result.user)
       _setSession(result.session)
-      setSessionToken(result.session.token, result.session.expires_at)
+      setSessionTokens(result.session.token, result.session.refresh_token, result.session.expires_at)
       return result
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Sign in failed'

@@ -118,8 +118,12 @@ class NucleusApiClient {
 
   // --- Sessions ---
   Future<List<NucleusSession>> getSessions() async {
-    final json = await _get('/v1/sessions');
-    return (json['sessions'] as List?)?.map((e) => NucleusSession.fromJson(e)).toList() ?? [];
+    final res = await http.get(Uri.parse('${config.effectiveBaseUrl}/v1/sessions'), headers: _headers());
+    if (res.statusCode >= 300) throw NucleusApiException(res.statusCode, res.body);
+    final decoded = jsonDecode(res.body);
+    if (decoded is List) return decoded.map((e) => NucleusSession.fromJson(e)).toList();
+    if (decoded is Map && decoded.containsKey('sessions')) return (decoded['sessions'] as List).map((e) => NucleusSession.fromJson(e)).toList();
+    return [];
   }
 
   Future<NucleusSession> refreshSession(String refreshToken) async {
@@ -156,8 +160,12 @@ class NucleusApiClient {
 
   // --- Organizations ---
   Future<List<NucleusOrganization>> getOrganizations() async {
-    final json = await _get('/v1/organizations');
-    return (json['organizations'] as List?)?.map((e) => NucleusOrganization.fromJson(e)).toList() ?? [];
+    final res = await http.get(Uri.parse('${config.effectiveBaseUrl}/v1/organizations'), headers: _headers());
+    if (res.statusCode >= 300) throw NucleusApiException(res.statusCode, res.body);
+    final decoded = jsonDecode(res.body);
+    if (decoded is List) return decoded.map((e) => NucleusOrganization.fromJson(e)).toList();
+    if (decoded is Map && decoded.containsKey('organizations')) return (decoded['organizations'] as List).map((e) => NucleusOrganization.fromJson(e)).toList();
+    return [];
   }
 
   Future<NucleusOrganization> createOrganization(String name, String slug) async {
@@ -166,8 +174,12 @@ class NucleusApiClient {
   }
 
   Future<List<NucleusMember>> getMembers(String orgId) async {
-    final json = await _get('/v1/organizations/$orgId/members');
-    return (json['members'] as List?)?.map((e) => NucleusMember.fromJson(e)).toList() ?? [];
+    final res = await http.get(Uri.parse('${config.effectiveBaseUrl}/v1/organizations/$orgId/members'), headers: _headers());
+    if (res.statusCode >= 300) throw NucleusApiException(res.statusCode, res.body);
+    final decoded = jsonDecode(res.body);
+    if (decoded is List) return decoded.map((e) => NucleusMember.fromJson(e)).toList();
+    if (decoded is Map && decoded.containsKey('members')) return (decoded['members'] as List).map((e) => NucleusMember.fromJson(e)).toList();
+    return [];
   }
 
   Future<void> removeMember(String orgId, String memberId) => _delete('/v1/organizations/$orgId/members/$memberId');

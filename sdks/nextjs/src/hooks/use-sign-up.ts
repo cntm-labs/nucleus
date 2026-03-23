@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react'
 import { useNucleus } from '../provider'
-import { setSessionToken } from '../client/session'
+import { setSessionTokens } from '../client/session'
 
 export function useSignUp() {
   const { _api, _setUser, _setSession } = useNucleus()
@@ -14,7 +14,7 @@ export function useSignUp() {
       const result = await _api.signUp(email, password, firstName, lastName)
       _setUser(result.user)
       _setSession(result.session)
-      setSessionToken(result.session.token, result.session.expires_at)
+      setSessionTokens(result.session.token, result.session.refresh_token, result.session.expires_at)
       return result
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Sign up failed'
