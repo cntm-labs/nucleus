@@ -36,7 +36,7 @@ impl WebhookSigner {
         }
 
         let expected = Self::sign(webhook_secret, timestamp, body);
-        expected == signature
+        crypto::constant_time_eq(expected.as_bytes(), signature.as_bytes())
     }
 
     /// Build headers for webhook delivery.
