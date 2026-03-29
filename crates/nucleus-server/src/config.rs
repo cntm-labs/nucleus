@@ -8,6 +8,14 @@ pub struct Config {
     pub port: u16,
     pub rust_log: String,
     pub allowed_origins: Vec<String>,
+    pub issuer_url: String,
+    pub jwt_lifetime_secs: i64,
+    pub rp_name: String,
+    pub rp_id: String,
+    pub rate_limit_auth_max: u32,
+    pub rate_limit_auth_window_secs: u64,
+    pub rate_limit_api_max: u32,
+    pub rate_limit_api_window_secs: u64,
 }
 
 impl Config {
@@ -39,6 +47,31 @@ impl Config {
             .map(|s| s.trim().to_string())
             .collect();
 
+        let issuer_url =
+            std::env::var("ISSUER_URL").unwrap_or_else(|_| "https://nucleus.local".to_string());
+        let jwt_lifetime_secs = std::env::var("JWT_LIFETIME_SECS")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(300);
+        let rp_name = std::env::var("RP_NAME").unwrap_or_else(|_| "Nucleus".to_string());
+        let rp_id = std::env::var("RP_ID").unwrap_or_else(|_| "localhost".to_string());
+        let rate_limit_auth_max = std::env::var("RATE_LIMIT_AUTH_MAX")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(60);
+        let rate_limit_auth_window_secs = std::env::var("RATE_LIMIT_AUTH_WINDOW_SECS")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(60);
+        let rate_limit_api_max = std::env::var("RATE_LIMIT_API_MAX")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(1000);
+        let rate_limit_api_window_secs = std::env::var("RATE_LIMIT_API_WINDOW_SECS")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(60);
+
         if master_encryption_key.iter().all(|&b| b == 0) {
             anyhow::bail!("MASTER_ENCRYPTION_KEY must not be all zeros");
         }
@@ -51,6 +84,14 @@ impl Config {
             port,
             rust_log,
             allowed_origins,
+            issuer_url,
+            jwt_lifetime_secs,
+            rp_name,
+            rp_id,
+            rate_limit_auth_max,
+            rate_limit_auth_window_secs,
+            rate_limit_api_max,
+            rate_limit_api_window_secs,
         })
     }
 

@@ -1552,6 +1552,7 @@ dependencies = [
  "chrono",
  "dotenvy",
  "hex",
+ "jsonwebtoken",
  "nucleus-admin-api",
  "nucleus-auth",
  "nucleus-core",

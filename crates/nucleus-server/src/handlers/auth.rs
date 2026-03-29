@@ -204,9 +204,15 @@ pub async fn handle_mfa_verify(
 // ---------------------------------------------------------------------------
 
 pub async fn handle_passkey_register_begin(
+    State(state): State<Arc<AppState>>,
     Json(req): Json<nucleus_auth::handlers::passkey::PasskeyRegisterBeginRequest>,
 ) -> Result<Json<nucleus_auth::handlers::passkey::PasskeyRegisterBeginResponse>, AppError> {
-    nucleus_auth::handlers::passkey::handle_passkey_register_begin(Json(req)).await
+    nucleus_auth::handlers::passkey::handle_passkey_register_begin(
+        &state.rp_name,
+        &state.rp_id,
+        Json(req),
+    )
+    .await
 }
 
 pub async fn handle_passkey_register_finish(

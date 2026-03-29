@@ -108,8 +108,8 @@ async fn main() -> Result<()> {
         credential_repo,
         audit_repo,
         signing_key.clone(),
-        "https://nucleus.local".to_string(),
-        300, // 5 min JWT lifetime
+        config.issuer_url.clone(),
+        config.jwt_lifetime_secs,
     ));
 
     // Create identity user service
@@ -123,20 +123,32 @@ async fn main() -> Result<()> {
     let bind_addr = config.bind_addr();
 
     // Build application state
-    let state = Arc::new(AppState::new(
+    let state = Arc::new(AppState {
         db,
         redis,
-        config.master_encryption_key,
+        master_key: config.master_encryption_key,
+        clock: Arc::new(SystemClock),
         auth_service,
         session_service,
         signing_key,
         user_service,
         org_service,
-        config.allowed_origins,
-    ));
+        allowed_origins: config.allowed_origins,
+        issuer_url: config.issuer_url,
+        rp_name: config.rp_name,
+        rp_id: config.rp_id,
+    });
 
-    // Build router
-    let app = create_router(state);
+    // Build router with configurable rate limits
+    let auth_rate_limit = crate::middleware::rate_limit::RateLimitConfig {
+        max_requests: config.rate_limit_auth_max,
+        window_secs: config.rate_limit_auth_window_secs,
+    };
+    let api_rate_limit = crate::middleware::rate_limit::RateLimitConfig {
+        max_requests: config.rate_limit_api_max,
+        window_secs: config.rate_limit_api_window_secs,
+    };
+    let app = create_router(state, auth_rate_limit, api_rate_limit);
     let listener = tokio::net::TcpListener::bind(&bind_addr).await?;
     tracing::info!("Nucleus server listening on {}", bind_addr);
 

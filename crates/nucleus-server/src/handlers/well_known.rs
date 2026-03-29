@@ -24,8 +24,8 @@ pub async fn handle_jwks(State(state): State<Arc<AppState>>) -> impl IntoRespons
 
 /// GET /.well-known/openid-configuration
 /// OpenID Connect Discovery document.
-pub async fn handle_openid_configuration(State(_state): State<Arc<AppState>>) -> impl IntoResponse {
-    let issuer = "https://nucleus.local"; // TODO: from config
+pub async fn handle_openid_configuration(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    let issuer = &state.issuer_url;
 
     let config = json!({
         "issuer": issuer,
