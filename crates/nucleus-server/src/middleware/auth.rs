@@ -1,8 +1,11 @@
+use std::sync::Arc;
+
 use axum::extract::FromRequestParts;
 use axum::http::request::Parts;
 use nucleus_auth::jwt::{JwtService, NucleusClaims};
 use nucleus_core::error::{ApiError, AppError, AuthError};
 use nucleus_core::types::ProjectId;
+use nucleus_session::session::SessionService;
 use sha2::{Digest, Sha256};
 
 // ---------------------------------------------------------------------------
@@ -60,6 +63,13 @@ where
 
         // 5. Verify JWT (RS256 only, audience = project_id)
         let claims = JwtService::verify(token, &public_key.0, &project_id.to_string())?;
+
+        // 6. Check JWT revocation list
+        if let Some(session_service) = parts.extensions.get::<Arc<SessionService>>() {
+            if session_service.is_jwt_revoked(&claims.jti).await? {
+                return Err(AppError::Auth(AuthError::TokenRevoked));
+            }
+        }
 
         Ok(JwtAuth(claims))
     }
