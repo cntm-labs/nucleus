@@ -107,7 +107,7 @@ async fn main() -> Result<()> {
 
     let auth_service = Arc::new(AuthService::new(
         user_repo.clone(),
-        credential_repo,
+        credential_repo.clone(),
         audit_repo,
         signing_key.clone(),
         config.issuer_url.clone(),
@@ -135,6 +135,7 @@ async fn main() -> Result<()> {
         signing_key,
         user_service,
         user_repo,
+        credential_repo,
         token_repo,
         org_service,
         allowed_origins: config.allowed_origins,

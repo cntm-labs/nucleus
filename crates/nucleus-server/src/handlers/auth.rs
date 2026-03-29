@@ -243,13 +243,19 @@ pub async fn handle_passkey_auth_finish(
 // ---------------------------------------------------------------------------
 
 pub async fn handle_request_reset(
+    State(state): State<Arc<AppState>>,
     Json(req): Json<nucleus_auth::handlers::password_reset::RequestResetRequest>,
 ) -> Result<Json<nucleus_auth::handlers::password_reset::RequestResetResponse>, AppError> {
-    nucleus_auth::handlers::password_reset::handle_request_reset(Json(req)).await
+    let reset_state = state.password_reset_state();
+    nucleus_auth::handlers::password_reset::handle_request_reset(State(reset_state), Json(req))
+        .await
 }
 
 pub async fn handle_confirm_reset(
+    State(state): State<Arc<AppState>>,
     Json(req): Json<nucleus_auth::handlers::password_reset::ConfirmResetRequest>,
 ) -> Result<Json<nucleus_auth::handlers::password_reset::ConfirmResetResponse>, AppError> {
-    nucleus_auth::handlers::password_reset::handle_confirm_reset(Json(req)).await
+    let reset_state = state.password_reset_state();
+    nucleus_auth::handlers::password_reset::handle_confirm_reset(State(reset_state), Json(req))
+        .await
 }
