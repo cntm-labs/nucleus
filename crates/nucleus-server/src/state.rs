@@ -4,6 +4,7 @@ use nucleus_auth::jwt::SigningKeyPair;
 use nucleus_auth::service::AuthService;
 use nucleus_core::clock::Clock;
 use nucleus_db::repos::credential_repo::CredentialRepository;
+use nucleus_db::repos::mfa_enrollment_repo::MfaEnrollmentRepository;
 use nucleus_db::repos::user_repo::UserRepository;
 use nucleus_db::repos::verification_token_repo::VerificationTokenRepository;
 use nucleus_identity::user::UserService;
@@ -24,6 +25,7 @@ pub struct AppState {
     pub user_repo: Arc<dyn UserRepository>,
     pub credential_repo: Arc<dyn CredentialRepository>,
     pub token_repo: Arc<dyn VerificationTokenRepository>,
+    pub mfa_repo: Arc<dyn MfaEnrollmentRepository>,
     pub org_service: Arc<OrgService>,
     pub allowed_origins: Vec<String>,
     pub issuer_url: String,
@@ -58,6 +60,17 @@ impl AppState {
             user_repo: self.user_repo.clone(),
             session_service: self.session_service.clone(),
             auth_service: self.auth_service.clone(),
+        }
+    }
+
+    pub fn mfa_state(&self) -> nucleus_auth::handlers::mfa::MfaState {
+        nucleus_auth::handlers::mfa::MfaState {
+            mfa_repo: self.mfa_repo.clone(),
+            user_repo: self.user_repo.clone(),
+            redis: self.redis.clone(),
+            session_service: self.session_service.clone(),
+            auth_service: self.auth_service.clone(),
+            master_key: self.master_key,
         }
     }
 }

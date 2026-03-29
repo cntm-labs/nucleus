@@ -17,6 +17,7 @@ use nucleus_db::pool::create_pg_pool;
 use nucleus_db::redis::create_redis_pool;
 use nucleus_db::repos::audit_repo::PgAuditRepository;
 use nucleus_db::repos::credential_repo::PgCredentialRepository;
+use nucleus_db::repos::mfa_enrollment_repo::PgMfaEnrollmentRepository;
 use nucleus_db::repos::org_repo::PgOrgRepository;
 use nucleus_db::repos::session_repo::RedisSessionRepository;
 use nucleus_db::repos::signing_key_repo::{PgSigningKeyRepository, SigningKeyRepository};
@@ -104,6 +105,7 @@ async fn main() -> Result<()> {
     let credential_repo = Arc::new(PgCredentialRepository::new(db.clone()));
     let audit_repo = Arc::new(PgAuditRepository::new(db.clone()));
     let token_repo = Arc::new(PgVerificationTokenRepository::new(db.clone()));
+    let mfa_repo = Arc::new(PgMfaEnrollmentRepository::new(db.clone()));
 
     let auth_service = Arc::new(AuthService::new(
         user_repo.clone(),
@@ -137,6 +139,7 @@ async fn main() -> Result<()> {
         user_repo,
         credential_repo,
         token_repo,
+        mfa_repo,
         org_service,
         allowed_origins: config.allowed_origins,
         issuer_url: config.issuer_url,

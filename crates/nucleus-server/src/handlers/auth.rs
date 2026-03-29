@@ -203,9 +203,11 @@ pub async fn handle_verify_otp(
 // ---------------------------------------------------------------------------
 
 pub async fn handle_mfa_verify(
+    State(state): State<Arc<AppState>>,
     Json(req): Json<nucleus_auth::handlers::mfa::MfaVerifyRequest>,
 ) -> Result<Json<nucleus_auth::handlers::mfa::MfaVerifyResponse>, AppError> {
-    nucleus_auth::handlers::mfa::handle_mfa_verify(Json(req)).await
+    let mfa_state = state.mfa_state();
+    nucleus_auth::handlers::mfa::handle_mfa_verify(State(mfa_state), Json(req)).await
 }
 
 // ---------------------------------------------------------------------------
