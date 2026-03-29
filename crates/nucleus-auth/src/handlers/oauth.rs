@@ -97,6 +97,7 @@ pub struct OAuthHandlerState {
 /// and returns the authorization URL.
 pub async fn handle_oauth_start(
     State(oauth_state): State<Arc<OAuthHandlerState>>,
+    project_id: ProjectId,
     Json(req): Json<OAuthStartRequest>,
 ) -> Result<(StatusCode, Json<OAuthStartResponse>), AppError> {
     // 1. Find the provider
@@ -118,8 +119,6 @@ pub async fn handle_oauth_start(
     let auth_url = provider.authorization_url(&state, Some(&challenge))?;
 
     // 5. Store state in Redis with 10-minute TTL
-    // TODO: project_id will come from middleware in production
-    let project_id = ProjectId::new();
     let state_data = OAuthStateData {
         provider: req.provider,
         pkce_verifier: Some(verifier),
@@ -663,7 +662,7 @@ mod tests {
             redirect_url: None,
         };
 
-        let result = handle_oauth_start(State(state.clone()), Json(req)).await;
+        let result = handle_oauth_start(State(state.clone()), ProjectId::new(), Json(req)).await;
         assert!(result.is_ok());
         let (status, Json(resp)) = result.unwrap();
         assert_eq!(status, StatusCode::OK);

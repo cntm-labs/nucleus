@@ -11,6 +11,7 @@ pub struct Session {
     pub id: SessionId,
     pub user_id: UserId,
     pub project_id: ProjectId,
+    pub token_hash: String,
     pub device_type: Option<String>,
     pub device_name: Option<String>,
     pub browser: Option<String>,
@@ -23,6 +24,7 @@ pub struct Session {
 pub struct NewSession {
     pub user_id: UserId,
     pub project_id: ProjectId,
+    pub token_hash: String,
     pub device_type: Option<String>,
     pub device_name: Option<String>,
     pub browser: Option<String>,
@@ -75,6 +77,7 @@ fn session_from_hash(values: Vec<(String, String)>) -> Result<Session, AppError>
                 .parse()
                 .map_err(|e: uuid::Error| AppError::Internal(e.into()))?,
         ),
+        token_hash: required_field(&values, "token_hash")?,
         device_type: opt_field(&values, "device_type"),
         device_name: opt_field(&values, "device_name"),
         browser: opt_field(&values, "browser"),
@@ -119,6 +122,7 @@ impl SessionRepository for RedisSessionRepository {
             ("id".to_string(), session_id.0.to_string()),
             ("user_id".to_string(), session.user_id.0.to_string()),
             ("project_id".to_string(), session.project_id.0.to_string()),
+            ("token_hash".to_string(), session.token_hash.clone()),
             ("created_at".to_string(), now.clone()),
             ("last_active_at".to_string(), now.clone()),
         ];
@@ -151,6 +155,7 @@ impl SessionRepository for RedisSessionRepository {
             id: session_id,
             user_id: session.user_id,
             project_id: session.project_id,
+            token_hash: session.token_hash.clone(),
             device_type: session.device_type.clone(),
             device_name: session.device_name.clone(),
             browser: session.browser.clone(),

@@ -1,14 +1,17 @@
 use std::sync::Arc;
 
 use axum::{
-    extract::State,
-    middleware,
+    extract::{Request, State},
+    middleware::{self, Next},
+    response::Response,
     routing::{delete, get, patch, post},
     Json, Router,
 };
+use nucleus_core::types::ProjectId;
 use serde_json::json;
 use tower_http::cors::{AllowHeaders, AllowMethods, AllowOrigin, CorsLayer};
 use tower_http::trace::TraceLayer;
+use uuid::Uuid;
 
 use crate::handlers::admin;
 use crate::handlers::auth;
@@ -17,6 +20,7 @@ use crate::handlers::identity;
 use crate::handlers::org;
 use crate::handlers::webhook;
 use crate::handlers::well_known;
+use crate::middleware::auth::PublicKeyPem;
 use crate::middleware::metrics::{handle_metrics, METRICS_ENDPOINT};
 use crate::middleware::rate_limit::{make_rate_limit_layer, RateLimitConfig};
 use crate::middleware::request_id::request_id_middleware;
@@ -72,6 +76,10 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         // Phase 3: Password Reset
         .route("/password/reset", post(auth::handle_request_reset))
         .route("/password/reset/confirm", post(auth::handle_confirm_reset))
+        .layer(axum::middleware::from_fn_with_state(
+            state.clone(),
+            inject_auth_context,
+        ))
         .layer(axum::middleware::from_fn(auth_rate_limiter));
 
     // Phase 4: User profile routes (authenticated)
@@ -86,7 +94,11 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .route(
             "/me/sessions/{id}",
             delete(identity::handle_revoke_my_session),
-        );
+        )
+        .layer(axum::middleware::from_fn_with_state(
+            state.clone(),
+            inject_auth_context,
+        ));
 
     // Phase 4: Organization routes (authenticated)
     let org_routes = Router::new()
@@ -116,6 +128,10 @@ pub fn create_router(state: Arc<AppState>) -> Router {
             "/{slug}/invitations/{id}",
             delete(org::handle_revoke_invitation),
         )
+        .layer(axum::middleware::from_fn_with_state(
+            state.clone(),
+            inject_auth_context,
+        ))
         .layer(axum::middleware::from_fn(api_rate_limiter));
 
     // Phase 4: Admin routes (require secret API key)
@@ -244,6 +260,21 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .layer(middleware::from_fn(request_id_middleware))
         .layer(TraceLayer::new_for_http())
         .with_state(state)
+}
+
+/// Middleware that injects auth context (public key, project ID, session service)
+/// into request extensions so that JwtAuth extractor can validate tokens.
+async fn inject_auth_context(
+    State(state): State<Arc<AppState>>,
+    mut req: Request,
+    next: Next,
+) -> Response {
+    req.extensions_mut()
+        .insert(PublicKeyPem(state.signing_key.public_key_pem.clone()));
+    req.extensions_mut()
+        .insert(ProjectId::from_uuid(Uuid::nil())); // System project
+    req.extensions_mut().insert(state.session_service.clone());
+    next.run(req).await
 }
 
 fn build_cors_layer(allowed_origins: &[String]) -> CorsLayer {

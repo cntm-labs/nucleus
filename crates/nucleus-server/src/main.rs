@@ -9,20 +9,23 @@ use std::sync::Arc;
 use anyhow::Result;
 use tracing_subscriber::EnvFilter;
 
-use nucleus_auth::jwt::JwtService;
+use nucleus_auth::jwt::{JwtService, SigningKeyPair};
 use nucleus_auth::service::AuthService;
 use nucleus_core::clock::SystemClock;
+use nucleus_core::crypto;
 use nucleus_db::pool::create_pg_pool;
 use nucleus_db::redis::create_redis_pool;
 use nucleus_db::repos::audit_repo::PgAuditRepository;
 use nucleus_db::repos::credential_repo::PgCredentialRepository;
 use nucleus_db::repos::org_repo::PgOrgRepository;
 use nucleus_db::repos::session_repo::RedisSessionRepository;
+use nucleus_db::repos::signing_key_repo::{PgSigningKeyRepository, SigningKeyRepository};
 use nucleus_db::repos::user_repo::PgUserRepository;
 use nucleus_identity::user::UserService;
 use nucleus_migrate::run_migrations;
 use nucleus_org::organization::OrgService;
 use nucleus_session::session::SessionService;
+use uuid::Uuid;
 
 use crate::config::Config;
 use crate::router::create_router;
@@ -54,9 +57,40 @@ async fn main() -> Result<()> {
     let redis = create_redis_pool(&config.redis_url).await?;
     tracing::info!("Connected to Redis");
 
-    // Generate signing key pair for JWT
+    // Load or create signing key pair for JWT
+    let signing_key_repo = PgSigningKeyRepository::new(db.clone());
+    let default_project_id = Uuid::nil(); // System-level key
     let signing_key = Arc::new(
-        JwtService::generate_key_pair("nucleus-key-1").expect("Failed to generate signing key"),
+        match signing_key_repo.find_current(&default_project_id).await? {
+            Some(row) => {
+                let private_pem = crypto::decrypt(
+                    &hex::decode(&row.private_key_enc)
+                        .map_err(|e| anyhow::anyhow!("hex decode error: {}", e))?,
+                    &config.master_encryption_key,
+                )?;
+                tracing::info!("Loaded existing signing key {}", row.id);
+                SigningKeyPair {
+                    kid: row.id.to_string(),
+                    private_key_pem: private_pem,
+                    public_key_pem: row.public_key.as_bytes().to_vec(),
+                    algorithm: jsonwebtoken::Algorithm::RS256,
+                }
+            }
+            None => {
+                let key = JwtService::generate_key_pair(&Uuid::new_v4().to_string())?;
+                let encrypted = hex::encode(crypto::encrypt(
+                    &key.private_key_pem,
+                    &config.master_encryption_key,
+                )?);
+                let public_pem = String::from_utf8(key.public_key_pem.clone())
+                    .map_err(|e| anyhow::anyhow!("utf8 error: {}", e))?;
+                signing_key_repo
+                    .create(&default_project_id, "RS256", &public_pem, &encrypted)
+                    .await?;
+                tracing::info!("Generated and persisted new signing key");
+                key
+            }
+        },
     );
 
     // Create session repository and service
