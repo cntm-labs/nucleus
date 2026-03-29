@@ -36,11 +36,24 @@ describe('setNucleusSession', () => {
     expect(expiresCall[2].httpOnly).toBe(true)
   })
 
-  it('sets expiration date from expiresAt string', async () => {
+  it('sets session cookie expiry from expiresAt, refresh cookie with longer expiry', async () => {
+    const now = Date.now()
+    vi.setSystemTime(now)
+
     await setNucleusSession('tok', 'ref', '2026-06-15T12:00:00Z')
 
-    const options = mockSet.mock.calls[0][2]
-    expect(options.expires).toEqual(new Date('2026-06-15T12:00:00Z'))
+    const sessionOptions = mockSet.mock.calls[0][2]
+    const refreshOptions = mockSet.mock.calls[1][2]
+
+    // Session cookie expires at JWT expiry
+    expect(sessionOptions.expires).toEqual(new Date('2026-06-15T12:00:00Z'))
+
+    // Refresh cookie expires 30 days from now (much longer than session)
+    const thirtyDays = 30 * 24 * 60 * 60 * 1000
+    expect(refreshOptions.expires.getTime()).toBeGreaterThanOrEqual(now + thirtyDays - 1000)
+    expect(refreshOptions.expires.getTime()).toBeLessThanOrEqual(now + thirtyDays + 1000)
+
+    vi.useRealTimers()
   })
 })
 
