@@ -1,13 +1,14 @@
 use axum::{extract::Query, extract::State, http::StatusCode, Json};
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 use nucleus_auth::handlers::sign_in::{SignInRequest, SignInResponse};
 use nucleus_auth::handlers::sign_up::{SignUpRequest, SignUpResponse};
-use nucleus_auth::handlers::token::{
-    RefreshRequest, RefreshResponse, SignOutAllRequest, SignOutAllResponse, SignOutRequest,
-};
+use nucleus_auth::handlers::token::RefreshResponse;
 use nucleus_core::error::AppError;
+use nucleus_core::types::{ProjectId, SessionId, UserId};
 
+use crate::middleware::auth::JwtAuth;
 use crate::state::AppState;
 
 // Re-use the response types from nucleus-auth but delegate to the service layer directly.
@@ -28,37 +29,85 @@ pub async fn handle_sign_in(
         .await
 }
 
+#[derive(Debug, Deserialize)]
+pub struct AuthRefreshRequest {
+    pub session_id: String,
+}
+
 pub async fn handle_refresh(
+    JwtAuth(claims): JwtAuth,
     State(state): State<Arc<AppState>>,
-    Json(req): Json<RefreshRequest>,
+    Json(req): Json<AuthRefreshRequest>,
 ) -> Result<Json<RefreshResponse>, AppError> {
-    let token_state = Arc::new(nucleus_auth::handlers::token::TokenState {
-        auth_service: state.auth_service.clone(),
-        session_service: state.session_service.clone(),
-    });
-    nucleus_auth::handlers::token::handle_refresh(State(token_state), Json(req)).await
+    let session_id: SessionId = req
+        .session_id
+        .parse()
+        .map_err(|_| AppError::Auth(nucleus_core::error::AuthError::SessionExpired))?;
+    let project_id: ProjectId = claims
+        .aud
+        .parse()
+        .map_err(|_| AppError::Auth(nucleus_core::error::AuthError::TokenInvalid))?;
+
+    let (jwt, expires_in) = state
+        .auth_service
+        .refresh_token(&state.session_service, &session_id, &project_id)
+        .await?;
+
+    Ok(Json(RefreshResponse { jwt, expires_in }))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AuthSignOutRequest {
+    pub session_id: String,
 }
 
 pub async fn handle_sign_out(
+    JwtAuth(claims): JwtAuth,
     State(state): State<Arc<AppState>>,
-    Json(req): Json<SignOutRequest>,
+    Json(req): Json<AuthSignOutRequest>,
 ) -> Result<StatusCode, AppError> {
-    let token_state = Arc::new(nucleus_auth::handlers::token::TokenState {
-        auth_service: state.auth_service.clone(),
-        session_service: state.session_service.clone(),
-    });
-    nucleus_auth::handlers::token::handle_sign_out(State(token_state), Json(req)).await
+    let session_id: SessionId = req
+        .session_id
+        .parse()
+        .map_err(|_| AppError::Auth(nucleus_core::error::AuthError::SessionExpired))?;
+    let user_id: UserId = claims
+        .sub
+        .parse()
+        .map_err(|_| AppError::Auth(nucleus_core::error::AuthError::TokenInvalid))?;
+
+    state
+        .auth_service
+        .sign_out(
+            &state.session_service,
+            &session_id,
+            &user_id,
+            Some(&claims.jti),
+        )
+        .await?;
+
+    Ok(StatusCode::OK)
+}
+
+#[derive(Debug, Serialize)]
+pub struct AuthSignOutAllResponse {
+    pub revoked_count: u64,
 }
 
 pub async fn handle_sign_out_all(
+    JwtAuth(claims): JwtAuth,
     State(state): State<Arc<AppState>>,
-    Json(req): Json<SignOutAllRequest>,
-) -> Result<Json<SignOutAllResponse>, AppError> {
-    let token_state = Arc::new(nucleus_auth::handlers::token::TokenState {
-        auth_service: state.auth_service.clone(),
-        session_service: state.session_service.clone(),
-    });
-    nucleus_auth::handlers::token::handle_sign_out_all(State(token_state), Json(req)).await
+) -> Result<Json<AuthSignOutAllResponse>, AppError> {
+    let user_id: UserId = claims
+        .sub
+        .parse()
+        .map_err(|_| AppError::Auth(nucleus_core::error::AuthError::TokenInvalid))?;
+
+    let revoked_count = state
+        .auth_service
+        .sign_out_all(&state.session_service, &user_id)
+        .await?;
+
+    Ok(Json(AuthSignOutAllResponse { revoked_count }))
 }
 
 // ---------------------------------------------------------------------------
