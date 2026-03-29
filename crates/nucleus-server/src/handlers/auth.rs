@@ -162,15 +162,20 @@ pub async fn handle_oauth_callback(
 // ---------------------------------------------------------------------------
 
 pub async fn handle_send_magic_link(
+    State(state): State<Arc<AppState>>,
     Json(req): Json<nucleus_auth::handlers::magic_link::SendMagicLinkRequest>,
 ) -> Result<Json<nucleus_auth::handlers::magic_link::SendMagicLinkResponse>, AppError> {
-    nucleus_auth::handlers::magic_link::handle_send_magic_link(Json(req)).await
+    let magic_state = state.magic_link_state();
+    nucleus_auth::handlers::magic_link::handle_send_magic_link(State(magic_state), Json(req)).await
 }
 
 pub async fn handle_verify_magic_link(
+    State(state): State<Arc<AppState>>,
     Query(params): Query<nucleus_auth::handlers::magic_link::VerifyMagicLinkQuery>,
 ) -> Result<Json<nucleus_auth::handlers::magic_link::VerifyMagicLinkResponse>, AppError> {
-    nucleus_auth::handlers::magic_link::handle_verify_magic_link(Query(params)).await
+    let magic_state = state.magic_link_state();
+    nucleus_auth::handlers::magic_link::handle_verify_magic_link(State(magic_state), Query(params))
+        .await
 }
 
 // ---------------------------------------------------------------------------

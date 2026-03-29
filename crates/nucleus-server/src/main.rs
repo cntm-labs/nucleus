@@ -21,6 +21,7 @@ use nucleus_db::repos::org_repo::PgOrgRepository;
 use nucleus_db::repos::session_repo::RedisSessionRepository;
 use nucleus_db::repos::signing_key_repo::{PgSigningKeyRepository, SigningKeyRepository};
 use nucleus_db::repos::user_repo::PgUserRepository;
+use nucleus_db::repos::verification_token_repo::PgVerificationTokenRepository;
 use nucleus_identity::user::UserService;
 use nucleus_migrate::run_migrations;
 use nucleus_org::organization::OrgService;
@@ -98,10 +99,11 @@ async fn main() -> Result<()> {
     let clock: Arc<dyn nucleus_core::clock::Clock> = Arc::new(SystemClock);
     let session_service = Arc::new(SessionService::new(session_repo, clock));
 
-    // Create auth service repositories
+    // Create repositories
     let user_repo = Arc::new(PgUserRepository::new(db.clone()));
     let credential_repo = Arc::new(PgCredentialRepository::new(db.clone()));
     let audit_repo = Arc::new(PgAuditRepository::new(db.clone()));
+    let token_repo = Arc::new(PgVerificationTokenRepository::new(db.clone()));
 
     let auth_service = Arc::new(AuthService::new(
         user_repo.clone(),
@@ -113,7 +115,7 @@ async fn main() -> Result<()> {
     ));
 
     // Create identity user service
-    let user_service = Arc::new(UserService::new(user_repo));
+    let user_service = Arc::new(UserService::new(user_repo.clone()));
 
     // Create organization service
     let org_repo = Arc::new(PgOrgRepository::new(db.clone()));
@@ -132,6 +134,8 @@ async fn main() -> Result<()> {
         session_service,
         signing_key,
         user_service,
+        user_repo,
+        token_repo,
         org_service,
         allowed_origins: config.allowed_origins,
         issuer_url: config.issuer_url,
