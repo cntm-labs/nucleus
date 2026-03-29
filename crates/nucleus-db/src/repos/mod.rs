@@ -6,6 +6,7 @@ pub mod project_repo;
 pub mod session_repo;
 pub mod signing_key_repo;
 pub mod user_repo;
+pub mod verification_token_repo;
 pub mod webhook_repo;
 
 pub use api_key_repo::*;
@@ -16,4 +17,5 @@ pub use project_repo::*;
 pub use session_repo::*;
 pub use signing_key_repo::*;
 pub use user_repo::*;
+pub use verification_token_repo::*;
 pub use webhook_repo::*;
