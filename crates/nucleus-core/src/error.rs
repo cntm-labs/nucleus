@@ -35,10 +35,14 @@ pub enum AuthError {
     SessionExpired,
     #[error("Session has been revoked")]
     SessionRevoked,
+    #[error("Session token is invalid")]
+    SessionInvalid,
     #[error("Token has expired")]
     TokenExpired,
     #[error("Token is invalid")]
     TokenInvalid,
+    #[error("Token has been revoked")]
+    TokenRevoked,
     #[error("OAuth state mismatch")]
     OAuthStateMismatch,
     #[error("OAuth provider error: {0}")]
@@ -144,8 +148,10 @@ impl AuthError {
             Self::MfaInvalidCode => "auth/mfa_invalid_code",
             Self::SessionExpired => "auth/session_expired",
             Self::SessionRevoked => "auth/session_revoked",
+            Self::SessionInvalid => "auth/session_invalid",
             Self::TokenExpired => "auth/token_expired",
             Self::TokenInvalid => "auth/token_invalid",
+            Self::TokenRevoked => "auth/token_revoked",
             Self::OAuthStateMismatch => "auth/oauth_state_mismatch",
             Self::OAuthProviderError(_) => "auth/oauth_provider_error",
             Self::PasskeyChallenged => "auth/passkey_challenged",
@@ -167,8 +173,10 @@ impl AuthError {
             Self::MfaInvalidCode => StatusCode::UNAUTHORIZED,
             Self::SessionExpired => StatusCode::UNAUTHORIZED,
             Self::SessionRevoked => StatusCode::UNAUTHORIZED,
+            Self::SessionInvalid => StatusCode::UNAUTHORIZED,
             Self::TokenExpired => StatusCode::UNAUTHORIZED,
             Self::TokenInvalid => StatusCode::UNAUTHORIZED,
+            Self::TokenRevoked => StatusCode::UNAUTHORIZED,
             Self::OAuthStateMismatch => StatusCode::BAD_REQUEST,
             Self::OAuthProviderError(_) => StatusCode::BAD_GATEWAY,
             Self::PasskeyChallenged => StatusCode::UNAUTHORIZED,

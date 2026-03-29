@@ -31,10 +31,12 @@ impl SessionService {
         ttl_secs: u64,
     ) -> Result<(String, Session), AppError> {
         let session_token = crypto::generate_token();
+        let token_hash = crypto::generate_token_hash(&session_token);
 
         let new_session = NewSession {
             user_id: *user_id,
             project_id: *project_id,
+            token_hash,
             device_type: device_info.device_type,
             device_name: device_info.device_name,
             browser: device_info.browser,
@@ -52,6 +54,20 @@ impl SessionService {
             .find_by_id(session_id)
             .await?
             .ok_or(AppError::Auth(AuthError::SessionExpired))
+    }
+
+    /// Validate a session exists and the token matches the stored hash.
+    pub async fn validate_session_with_token(
+        &self,
+        session_id: &SessionId,
+        token: &str,
+    ) -> Result<Session, AppError> {
+        let session = self.validate_session(session_id).await?;
+        let token_hash = crypto::generate_token_hash(token);
+        if !crypto::constant_time_eq(token_hash.as_bytes(), session.token_hash.as_bytes()) {
+            return Err(AppError::Auth(AuthError::SessionInvalid));
+        }
+        Ok(session)
     }
 
     /// Revoke a single session and its associated JWT.
@@ -157,6 +173,7 @@ mod tests {
                 id: session_id,
                 user_id: session.user_id,
                 project_id: session.project_id,
+                token_hash: session.token_hash.clone(),
                 device_type: session.device_type.clone(),
                 device_name: session.device_name.clone(),
                 browser: session.browser.clone(),
@@ -335,6 +352,48 @@ mod tests {
 
         let sessions = svc.list_user_sessions(&user_id).await.unwrap();
         assert!(sessions.is_empty());
+    }
+
+    #[tokio::test]
+    async fn validate_session_with_correct_token() {
+        let svc = test_service();
+        let (token, session) = svc
+            .create_session(
+                &UserId::new(),
+                &ProjectId::new(),
+                DeviceInfo::default(),
+                3600,
+            )
+            .await
+            .unwrap();
+
+        let found = svc
+            .validate_session_with_token(&session.id, &token)
+            .await
+            .unwrap();
+        assert_eq!(found.id, session.id);
+    }
+
+    #[tokio::test]
+    async fn validate_session_with_wrong_token_fails() {
+        let svc = test_service();
+        let (_token, session) = svc
+            .create_session(
+                &UserId::new(),
+                &ProjectId::new(),
+                DeviceInfo::default(),
+                3600,
+            )
+            .await
+            .unwrap();
+
+        let result = svc
+            .validate_session_with_token(&session.id, "wrong_token")
+            .await;
+        assert!(matches!(
+            result,
+            Err(AppError::Auth(AuthError::SessionInvalid))
+        ));
     }
 
     #[tokio::test]

@@ -666,6 +666,7 @@ mod tests {
                 id: session_id,
                 user_id: session.user_id,
                 project_id: session.project_id,
+                token_hash: session.token_hash.clone(),
                 device_type: session.device_type.clone(),
                 device_name: session.device_name.clone(),
                 browser: session.browser.clone(),
