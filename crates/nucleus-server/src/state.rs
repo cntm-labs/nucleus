@@ -51,4 +51,13 @@ impl AppState {
             session_service: self.session_service.clone(),
         }
     }
+
+    pub fn otp_state(&self) -> nucleus_auth::handlers::otp::OtpState {
+        nucleus_auth::handlers::otp::OtpState {
+            redis: self.redis.clone(),
+            user_repo: self.user_repo.clone(),
+            session_service: self.session_service.clone(),
+            auth_service: self.auth_service.clone(),
+        }
+    }
 }

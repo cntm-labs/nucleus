@@ -183,15 +183,19 @@ pub async fn handle_verify_magic_link(
 // ---------------------------------------------------------------------------
 
 pub async fn handle_send_otp(
+    State(state): State<Arc<AppState>>,
     Json(req): Json<nucleus_auth::handlers::otp::SendOtpRequest>,
 ) -> Result<Json<nucleus_auth::handlers::otp::SendOtpResponse>, AppError> {
-    nucleus_auth::handlers::otp::handle_send_otp(Json(req)).await
+    let otp_state = state.otp_state();
+    nucleus_auth::handlers::otp::handle_send_otp(State(otp_state), Json(req)).await
 }
 
 pub async fn handle_verify_otp(
+    State(state): State<Arc<AppState>>,
     Json(req): Json<nucleus_auth::handlers::otp::VerifyOtpRequest>,
 ) -> Result<Json<nucleus_auth::handlers::otp::VerifyOtpResponse>, AppError> {
-    nucleus_auth::handlers::otp::handle_verify_otp(Json(req)).await
+    let otp_state = state.otp_state();
+    nucleus_auth::handlers::otp::handle_verify_otp(State(otp_state), Json(req)).await
 }
 
 // ---------------------------------------------------------------------------

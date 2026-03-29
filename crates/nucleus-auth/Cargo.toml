@@ -8,6 +8,7 @@ edition = "2021"
 nucleus-core = { path = "../nucleus-core", version = "0.1.0" }
 nucleus-db = { path = "../nucleus-db", version = "0.1.0" }
 nucleus-session = { path = "../nucleus-session", version = "0.1.0" }
+redis = { workspace = true }
 argon2 = { workspace = true }
 axum = { workspace = true }
 jsonwebtoken = { workspace = true }
