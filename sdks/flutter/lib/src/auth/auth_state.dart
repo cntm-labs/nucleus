@@ -67,8 +67,7 @@ class NucleusAuth extends ChangeNotifier {
   Future<List<String>> mfaGetBackupCodes() => _api.mfaBackupCodes();
 
   // --- OAuth ---
-  Future<void> handleOAuthCallback(String code, {String redirectUri = 'nucleus://oauth/callback', String? state}) async {
-    final oauth = NucleusOAuth(_api);
+  Future<void> handleOAuthCallback(NucleusOAuth oauth, String code, {String redirectUri = 'nucleus://oauth/callback', String? state}) async {
     final result = await oauth.handleCallback(code, redirectUri: redirectUri, state: state);
     await _setAuthResult(result.user, result.session);
   }

@@ -9,6 +9,7 @@ import 'models/session.dart';
 class Nucleus {
   static NucleusApiClient? _client;
   static NucleusAuth? _auth;
+  static NucleusOAuth? _oauth;
   static AutoRefresh? _autoRefresh;
   static bool _configured = false;
 
@@ -26,7 +27,8 @@ class Nucleus {
 
   static NucleusOAuth get oauth {
     if (_client == null) throw StateError('Nucleus not configured. Call Nucleus.configure() first.');
-    return NucleusOAuth(_client!);
+    _oauth ??= NucleusOAuth(_client!);
+    return _oauth!;
   }
 
   static Future<void> configure(NucleusConfig config) async {
