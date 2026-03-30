@@ -4,10 +4,11 @@
 name = "nucleus-rs"
 version = "0.1.0-dev.1"
 edition = "2021"
-description = "DEV PREVIEW — Not ready for production. Nucleus authentication SDK for Rust."
+description = "Nucleus authentication SDK for Rust."
 license = "MIT"
 repository = "https://github.com/cntm-labs/nucleus"
 homepage = "https://github.com/cntm-labs/nucleus"
+documentation = "https://docs.rs/nucleus-rs"
 readme = "README.md"
 keywords = ["authentication", "auth", "nucleus", "sdk"]
 categories = ["authentication", "web-programming"]
