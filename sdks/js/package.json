@@ -1,7 +1,8 @@
 {
   "name": "@cntm-labs/js",
   "version": "0.1.0-dev.1",
-  "description": "DEV PREVIEW — Not ready for production. Nucleus vanilla JS authentication SDK.",
+  "description": "Nucleus authentication SDK for JavaScript.",
+  "keywords": ["authentication", "auth", "nucleus", "sdk", "jwt", "oauth"],
   "license": "MIT",
   "author": "cntm-labs",
   "repository": {
@@ -13,6 +14,7 @@
   "publishConfig": {
     "access": "public"
   },
+  "sideEffects": false,
   "type": "module",
   "main": "./dist/cjs/index.js",
   "module": "./dist/esm/index.js",
@@ -25,12 +27,15 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "LICENSE",
+    "README.md"
   ],
   "scripts": {
     "build": "tsup",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "prepublishOnly": "npm run build"
   },
   "dependencies": {
     "jose": "^5.0.0",

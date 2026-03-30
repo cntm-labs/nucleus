@@ -1,7 +1,8 @@
 {
   "name": "@cntm-labs/node",
   "version": "0.1.0-dev.1",
-  "description": "DEV PREVIEW — Not ready for production. Nucleus authentication SDK for Node.js backends.",
+  "description": "Nucleus authentication SDK for Node.js.",
+  "keywords": ["authentication", "auth", "nucleus", "sdk", "node", "express", "fastify"],
   "license": "MIT",
   "author": "cntm-labs",
   "repository": {
@@ -11,6 +12,7 @@
   },
   "homepage": "https://github.com/cntm-labs/nucleus",
   "publishConfig": { "access": "public" },
+  "sideEffects": false,
   "type": "module",
   "main": "./dist/cjs/index.js",
   "module": "./dist/esm/index.js",
@@ -37,12 +39,13 @@
       "types": "./dist/hono.d.ts"
     }
   },
-  "files": ["dist"],
+  "files": ["dist", "LICENSE", "README.md"],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "prepublishOnly": "npm run build"
   },
   "dependencies": {
     "jose": "^5.0.0"
