@@ -1,10 +1,52 @@
+use std::sync::Arc;
+
+use axum::extract::State;
 use axum::Json;
-use nucleus_core::error::AppError;
+use chrono::{DateTime, Utc};
+use nucleus_core::error::{AppError, AuthError, UserError};
+use nucleus_core::types::ProjectId;
+use nucleus_db::repos::user_repo::UserRepository;
+use nucleus_session::session::{DeviceInfo, SessionService};
+use redis::aio::ConnectionManager;
+use redis::AsyncCommands;
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
+
+use crate::otp::{OtpConfig, OtpService};
+use crate::service::AuthService;
+
+// ---------------------------------------------------------------------------
+// State
+// ---------------------------------------------------------------------------
+
+#[derive(Clone)]
+pub struct OtpState {
+    pub redis: ConnectionManager,
+    pub user_repo: Arc<dyn UserRepository>,
+    pub session_service: Arc<SessionService>,
+    pub auth_service: Arc<AuthService>,
+}
+
+// ---------------------------------------------------------------------------
+// Redis-stored OTP record
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Serialize, Deserialize)]
+struct StoredOtp {
+    code_hash: String,
+    expires_at: DateTime<Utc>,
+    attempts: u32,
+    max_attempts: u32,
+}
+
+// ---------------------------------------------------------------------------
+// Send OTP
+// ---------------------------------------------------------------------------
 
 #[derive(Debug, Deserialize)]
 pub struct SendOtpRequest {
     pub email_or_phone: String,
+    pub project_id: Uuid,
 }
 
 #[derive(Debug, Serialize)]
@@ -14,20 +56,58 @@ pub struct SendOtpResponse {
 
 /// POST /auth/sign-in/otp/send
 pub async fn handle_send_otp(
-    Json(_req): Json<SendOtpRequest>,
+    State(state): State<OtpState>,
+    Json(body): Json<SendOtpRequest>,
 ) -> Result<Json<SendOtpResponse>, AppError> {
-    // Generate OTP, store hash in Redis (key: otp:{project}:{email}:{purpose})
-    // "Send" via email/SMS service (placeholder for now)
-    // Anti-enumeration: always return success
+    let project_id = ProjectId::from_uuid(body.project_id);
+
+    // Look up user — always return success (anti-enumeration)
+    let user = state
+        .user_repo
+        .find_by_email(&project_id, &body.email_or_phone)
+        .await?;
+
+    if user.is_some() {
+        let config = OtpConfig::default();
+        let generated = OtpService::generate(&config);
+        let key = format!("otp:{}:{}:login", body.project_id, body.email_or_phone);
+
+        let stored = StoredOtp {
+            code_hash: generated.code_hash,
+            expires_at: generated.expires_at,
+            attempts: 0,
+            max_attempts: generated.max_attempts,
+        };
+
+        let json = serde_json::to_string(&stored)
+            .map_err(|e| AppError::Internal(anyhow::anyhow!("serialize error: {}", e)))?;
+
+        let mut conn = state.redis.clone();
+        conn.set_ex::<_, _, ()>(&key, &json, config.ttl_secs)
+            .await
+            .map_err(|e| AppError::Internal(e.into()))?;
+
+        // TODO: Send code via email/SMS service
+        tracing::debug!(
+            email = %body.email_or_phone,
+            "OTP generated (delivery not yet wired)"
+        );
+    }
+
     Ok(Json(SendOtpResponse {
         message: "If an account exists, a verification code has been sent.".to_string(),
     }))
 }
 
+// ---------------------------------------------------------------------------
+// Verify OTP
+// ---------------------------------------------------------------------------
+
 #[derive(Debug, Deserialize)]
 pub struct VerifyOtpRequest {
     pub email_or_phone: String,
     pub code: String,
+    pub project_id: Uuid,
 }
 
 #[derive(Debug, Serialize)]
@@ -39,18 +119,72 @@ pub struct VerifyOtpResponse {
 
 /// POST /auth/sign-in/otp/verify
 pub async fn handle_verify_otp(
-    Json(_req): Json<VerifyOtpRequest>,
+    State(state): State<OtpState>,
+    Json(body): Json<VerifyOtpRequest>,
 ) -> Result<Json<VerifyOtpResponse>, AppError> {
-    // Flow:
-    // 1. Look up OTP record in Redis by key otp:{project}:{email_or_phone}:{purpose}
-    // 2. Deserialize stored record: { code_hash, expires_at, attempts, max_attempts }
-    // 3. Increment attempts counter in Redis
-    // 4. Call OtpService::verify(code, stored_hash, expires_at, attempts, max_attempts)
-    // 5. If valid: find/create user by email_or_phone, create session, issue JWT
-    // 6. Delete OTP record from Redis
-    //
-    // Requires: Redis connection + UserRepository (not yet wired into handler)
-    Err(AppError::Internal(anyhow::anyhow!(
-        "OTP verification requires Redis and database integration"
-    )))
+    let key = format!("otp:{}:{}:login", body.project_id, body.email_or_phone);
+    let mut conn = state.redis.clone();
+
+    // 1. Get stored OTP from Redis
+    let stored_json: Option<String> = conn
+        .get(&key)
+        .await
+        .map_err(|e| AppError::Internal(e.into()))?;
+
+    let stored_json = stored_json.ok_or(AppError::Auth(AuthError::OtpExpired))?;
+
+    let mut stored: StoredOtp = serde_json::from_str(&stored_json)
+        .map_err(|e| AppError::Internal(anyhow::anyhow!("deserialize error: {}", e)))?;
+
+    // 2. Increment attempts and save back
+    stored.attempts += 1;
+    let updated_json = serde_json::to_string(&stored)
+        .map_err(|e| AppError::Internal(anyhow::anyhow!("serialize error: {}", e)))?;
+
+    // Preserve remaining TTL
+    let ttl: i64 = conn
+        .ttl(&key)
+        .await
+        .map_err(|e| AppError::Internal(e.into()))?;
+    if ttl > 0 {
+        conn.set_ex::<_, _, ()>(&key, &updated_json, ttl as u64)
+            .await
+            .map_err(|e| AppError::Internal(e.into()))?;
+    }
+
+    // 3. Verify code
+    OtpService::verify(
+        &body.code,
+        &stored.code_hash,
+        &stored.expires_at,
+        stored.attempts - 1, // verify uses pre-increment count
+        stored.max_attempts,
+    )?;
+
+    // 4. Delete OTP from Redis (single-use)
+    conn.del::<_, ()>(&key)
+        .await
+        .map_err(|e| AppError::Internal(e.into()))?;
+
+    // 5. Find user and create session
+    let project_id = ProjectId::from_uuid(body.project_id);
+    let user = state
+        .user_repo
+        .find_by_email(&project_id, &body.email_or_phone)
+        .await?
+        .ok_or(AppError::User(UserError::NotFound))?;
+
+    let (_session_token, session) = state
+        .session_service
+        .create_session(&user.id, &project_id, DeviceInfo::default(), 3600)
+        .await?;
+
+    let jwt = state.auth_service.issue_jwt_for_user(&user, &project_id)?;
+
+    Ok(Json(VerifyOtpResponse {
+        user: serde_json::to_value(&user)
+            .map_err(|e| AppError::Internal(anyhow::anyhow!("serialize error: {}", e)))?,
+        jwt,
+        session_token: session.id.to_string(),
+    }))
 }

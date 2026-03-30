@@ -162,15 +162,20 @@ pub async fn handle_oauth_callback(
 // ---------------------------------------------------------------------------
 
 pub async fn handle_send_magic_link(
+    State(state): State<Arc<AppState>>,
     Json(req): Json<nucleus_auth::handlers::magic_link::SendMagicLinkRequest>,
 ) -> Result<Json<nucleus_auth::handlers::magic_link::SendMagicLinkResponse>, AppError> {
-    nucleus_auth::handlers::magic_link::handle_send_magic_link(Json(req)).await
+    let magic_state = state.magic_link_state();
+    nucleus_auth::handlers::magic_link::handle_send_magic_link(State(magic_state), Json(req)).await
 }
 
 pub async fn handle_verify_magic_link(
+    State(state): State<Arc<AppState>>,
     Query(params): Query<nucleus_auth::handlers::magic_link::VerifyMagicLinkQuery>,
 ) -> Result<Json<nucleus_auth::handlers::magic_link::VerifyMagicLinkResponse>, AppError> {
-    nucleus_auth::handlers::magic_link::handle_verify_magic_link(Query(params)).await
+    let magic_state = state.magic_link_state();
+    nucleus_auth::handlers::magic_link::handle_verify_magic_link(State(magic_state), Query(params))
+        .await
 }
 
 // ---------------------------------------------------------------------------
@@ -178,15 +183,19 @@ pub async fn handle_verify_magic_link(
 // ---------------------------------------------------------------------------
 
 pub async fn handle_send_otp(
+    State(state): State<Arc<AppState>>,
     Json(req): Json<nucleus_auth::handlers::otp::SendOtpRequest>,
 ) -> Result<Json<nucleus_auth::handlers::otp::SendOtpResponse>, AppError> {
-    nucleus_auth::handlers::otp::handle_send_otp(Json(req)).await
+    let otp_state = state.otp_state();
+    nucleus_auth::handlers::otp::handle_send_otp(State(otp_state), Json(req)).await
 }
 
 pub async fn handle_verify_otp(
+    State(state): State<Arc<AppState>>,
     Json(req): Json<nucleus_auth::handlers::otp::VerifyOtpRequest>,
 ) -> Result<Json<nucleus_auth::handlers::otp::VerifyOtpResponse>, AppError> {
-    nucleus_auth::handlers::otp::handle_verify_otp(Json(req)).await
+    let otp_state = state.otp_state();
+    nucleus_auth::handlers::otp::handle_verify_otp(State(otp_state), Json(req)).await
 }
 
 // ---------------------------------------------------------------------------
@@ -194,9 +203,11 @@ pub async fn handle_verify_otp(
 // ---------------------------------------------------------------------------
 
 pub async fn handle_mfa_verify(
+    State(state): State<Arc<AppState>>,
     Json(req): Json<nucleus_auth::handlers::mfa::MfaVerifyRequest>,
 ) -> Result<Json<nucleus_auth::handlers::mfa::MfaVerifyResponse>, AppError> {
-    nucleus_auth::handlers::mfa::handle_mfa_verify(Json(req)).await
+    let mfa_state = state.mfa_state();
+    nucleus_auth::handlers::mfa::handle_mfa_verify(State(mfa_state), Json(req)).await
 }
 
 // ---------------------------------------------------------------------------
@@ -204,9 +215,15 @@ pub async fn handle_mfa_verify(
 // ---------------------------------------------------------------------------
 
 pub async fn handle_passkey_register_begin(
+    State(state): State<Arc<AppState>>,
     Json(req): Json<nucleus_auth::handlers::passkey::PasskeyRegisterBeginRequest>,
 ) -> Result<Json<nucleus_auth::handlers::passkey::PasskeyRegisterBeginResponse>, AppError> {
-    nucleus_auth::handlers::passkey::handle_passkey_register_begin(Json(req)).await
+    nucleus_auth::handlers::passkey::handle_passkey_register_begin(
+        &state.rp_name,
+        &state.rp_id,
+        Json(req),
+    )
+    .await
 }
 
 pub async fn handle_passkey_register_finish(
@@ -232,13 +249,19 @@ pub async fn handle_passkey_auth_finish(
 // ---------------------------------------------------------------------------
 
 pub async fn handle_request_reset(
+    State(state): State<Arc<AppState>>,
     Json(req): Json<nucleus_auth::handlers::password_reset::RequestResetRequest>,
 ) -> Result<Json<nucleus_auth::handlers::password_reset::RequestResetResponse>, AppError> {
-    nucleus_auth::handlers::password_reset::handle_request_reset(Json(req)).await
+    let reset_state = state.password_reset_state();
+    nucleus_auth::handlers::password_reset::handle_request_reset(State(reset_state), Json(req))
+        .await
 }
 
 pub async fn handle_confirm_reset(
+    State(state): State<Arc<AppState>>,
     Json(req): Json<nucleus_auth::handlers::password_reset::ConfirmResetRequest>,
 ) -> Result<Json<nucleus_auth::handlers::password_reset::ConfirmResetResponse>, AppError> {
-    nucleus_auth::handlers::password_reset::handle_confirm_reset(Json(req)).await
+    let reset_state = state.password_reset_state();
+    nucleus_auth::handlers::password_reset::handle_confirm_reset(State(reset_state), Json(req))
+        .await
 }

@@ -26,15 +26,19 @@ use crate::middleware::rate_limit::{make_rate_limit_layer, RateLimitConfig};
 use crate::middleware::request_id::request_id_middleware;
 use crate::state::AppState;
 
-pub fn create_router(state: Arc<AppState>) -> Router {
+pub fn create_router(
+    state: Arc<AppState>,
+    auth_rate_limit: RateLimitConfig,
+    api_rate_limit: RateLimitConfig,
+) -> Router {
     let auth_rate_limiter = make_rate_limit_layer(
         Arc::new(state.redis.clone()),
-        RateLimitConfig::auth(),
+        auth_rate_limit,
         "auth".to_string(),
     );
     let api_rate_limiter = make_rate_limit_layer(
         Arc::new(state.redis.clone()),
-        RateLimitConfig::api(),
+        api_rate_limit,
         "api".to_string(),
     );
 

@@ -1,162 +1,205 @@
+use std::sync::Arc;
+
+use axum::extract::{Path, Query, State};
 use axum::Json;
 use nucleus_core::error::AppError;
+use nucleus_core::pagination::PaginationParams;
+use uuid::Uuid;
+
+use crate::state::AppState;
 
 // ---------------------------------------------------------------------------
-// Phase 5: Dashboard API routes (thin wrappers)
+// Projects
 // ---------------------------------------------------------------------------
 
-// -- Projects ---------------------------------------------------------------
-
-/// GET /api/v1/dashboard/projects
-pub async fn handle_list_projects() -> Result<Json<serde_json::Value>, AppError> {
-    nucleus_admin_api::handlers::dashboard::handle_list_projects().await
+pub async fn handle_list_projects(
+    State(state): State<Arc<AppState>>,
+    query: Query<PaginationParams>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let ds = state.dashboard_state();
+    nucleus_admin_api::handlers::dashboard::handle_list_projects(State(ds), query).await
 }
 
-/// POST /api/v1/dashboard/projects
 pub async fn handle_create_project(
-    Json(req): Json<serde_json::Value>,
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<nucleus_admin_api::handlers::dashboard::CreateProjectRequest>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    nucleus_admin_api::handlers::dashboard::handle_create_project(Json(req)).await
+    let ds = state.dashboard_state();
+    nucleus_admin_api::handlers::dashboard::handle_create_project(State(ds), Json(req)).await
 }
 
-/// GET /api/v1/dashboard/projects/:id
-pub async fn handle_get_project() -> Result<Json<serde_json::Value>, AppError> {
-    nucleus_admin_api::handlers::dashboard::handle_get_project().await
+pub async fn handle_get_project(
+    State(state): State<Arc<AppState>>,
+    path: Path<Uuid>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let ds = state.dashboard_state();
+    nucleus_admin_api::handlers::dashboard::handle_get_project(State(ds), path).await
 }
 
-/// PATCH /api/v1/dashboard/projects/:id
 pub async fn handle_update_project(
-    Json(req): Json<serde_json::Value>,
+    State(state): State<Arc<AppState>>,
+    path: Path<Uuid>,
+    Json(req): Json<nucleus_admin_api::handlers::dashboard::UpdateProjectRequest>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    nucleus_admin_api::handlers::dashboard::handle_update_project(Json(req)).await
+    let ds = state.dashboard_state();
+    nucleus_admin_api::handlers::dashboard::handle_update_project(State(ds), path, Json(req)).await
 }
 
-// -- OAuth providers --------------------------------------------------------
+// ---------------------------------------------------------------------------
+// OAuth providers (stub pass-through)
+// ---------------------------------------------------------------------------
 
-/// GET /api/v1/dashboard/projects/:id/providers
 pub async fn handle_list_providers() -> Result<Json<serde_json::Value>, AppError> {
     nucleus_admin_api::handlers::dashboard::handle_list_providers().await
 }
 
-/// POST /api/v1/dashboard/projects/:id/providers
 pub async fn handle_configure_provider(
     Json(req): Json<serde_json::Value>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     nucleus_admin_api::handlers::dashboard::handle_configure_provider(Json(req)).await
 }
 
-/// DELETE /api/v1/dashboard/projects/:id/providers/:provider_id
 pub async fn handle_delete_provider() -> Result<axum::http::StatusCode, AppError> {
     nucleus_admin_api::handlers::dashboard::handle_delete_provider().await
 }
 
-// -- API keys ---------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// API keys
+// ---------------------------------------------------------------------------
 
-/// GET /api/v1/dashboard/projects/:id/api-keys
-pub async fn handle_list_api_keys() -> Result<Json<serde_json::Value>, AppError> {
-    nucleus_admin_api::handlers::dashboard::handle_list_api_keys().await
-}
-
-/// POST /api/v1/dashboard/projects/:id/api-keys
-pub async fn handle_create_api_key(
-    Json(req): Json<serde_json::Value>,
+pub async fn handle_list_api_keys(
+    State(state): State<Arc<AppState>>,
+    path: Path<Uuid>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    nucleus_admin_api::handlers::dashboard::handle_create_api_key(Json(req)).await
+    let ds = state.dashboard_state();
+    nucleus_admin_api::handlers::dashboard::handle_list_api_keys(State(ds), path).await
 }
 
-/// DELETE /api/v1/dashboard/projects/:id/api-keys/:key_id
-pub async fn handle_revoke_api_key() -> Result<axum::http::StatusCode, AppError> {
-    nucleus_admin_api::handlers::dashboard::handle_revoke_api_key().await
+pub async fn handle_create_api_key(
+    State(state): State<Arc<AppState>>,
+    path: Path<Uuid>,
+    Json(req): Json<nucleus_admin_api::handlers::dashboard::CreateApiKeyRequest>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let ds = state.dashboard_state();
+    nucleus_admin_api::handlers::dashboard::handle_create_api_key(State(ds), path, Json(req)).await
 }
 
-// -- Signing keys -----------------------------------------------------------
-
-/// GET /api/v1/dashboard/projects/:id/signing-keys
-pub async fn handle_list_signing_keys() -> Result<Json<serde_json::Value>, AppError> {
-    nucleus_admin_api::handlers::dashboard::handle_list_signing_keys().await
+pub async fn handle_revoke_api_key(
+    State(state): State<Arc<AppState>>,
+    path: Path<(Uuid, Uuid)>,
+) -> Result<axum::http::StatusCode, AppError> {
+    let ds = state.dashboard_state();
+    nucleus_admin_api::handlers::dashboard::handle_revoke_api_key(State(ds), path).await
 }
 
-/// POST /api/v1/dashboard/projects/:id/signing-keys/rotate
-pub async fn handle_rotate_signing_key() -> Result<Json<serde_json::Value>, AppError> {
-    nucleus_admin_api::handlers::dashboard::handle_rotate_signing_key().await
+// ---------------------------------------------------------------------------
+// Signing keys
+// ---------------------------------------------------------------------------
+
+pub async fn handle_list_signing_keys(
+    State(state): State<Arc<AppState>>,
+    path: Path<Uuid>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let ds = state.dashboard_state();
+    nucleus_admin_api::handlers::dashboard::handle_list_signing_keys(State(ds), path).await
 }
 
-// -- Templates --------------------------------------------------------------
+pub async fn handle_rotate_signing_key(
+    State(state): State<Arc<AppState>>,
+    path: Path<Uuid>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let ds = state.dashboard_state();
+    nucleus_admin_api::handlers::dashboard::handle_rotate_signing_key(State(ds), path).await
+}
 
-/// GET /api/v1/dashboard/projects/:id/templates
+// ---------------------------------------------------------------------------
+// Templates (stub pass-through)
+// ---------------------------------------------------------------------------
+
 pub async fn handle_list_templates() -> Result<Json<serde_json::Value>, AppError> {
     nucleus_admin_api::handlers::dashboard::handle_list_templates().await
 }
 
-/// PATCH /api/v1/dashboard/projects/:id/templates/:template_id
 pub async fn handle_update_template(
     Json(req): Json<serde_json::Value>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     nucleus_admin_api::handlers::dashboard::handle_update_template(Json(req)).await
 }
 
-/// POST /api/v1/dashboard/projects/:id/templates/:template_id/reset
 pub async fn handle_reset_template() -> Result<Json<serde_json::Value>, AppError> {
     nucleus_admin_api::handlers::dashboard::handle_reset_template().await
 }
 
-// -- JWT templates ----------------------------------------------------------
+// ---------------------------------------------------------------------------
+// JWT templates (stub pass-through)
+// ---------------------------------------------------------------------------
 
-/// GET /api/v1/dashboard/projects/:id/jwt-templates
 pub async fn handle_list_jwt_templates() -> Result<Json<serde_json::Value>, AppError> {
     nucleus_admin_api::handlers::dashboard::handle_list_jwt_templates().await
 }
 
-/// POST /api/v1/dashboard/projects/:id/jwt-templates
 pub async fn handle_create_jwt_template(
     Json(req): Json<serde_json::Value>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     nucleus_admin_api::handlers::dashboard::handle_create_jwt_template(Json(req)).await
 }
 
-/// PATCH /api/v1/dashboard/projects/:id/jwt-templates/:jt_id
 pub async fn handle_update_jwt_template(
     Json(req): Json<serde_json::Value>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     nucleus_admin_api::handlers::dashboard::handle_update_jwt_template(Json(req)).await
 }
 
-// -- Analytics --------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Analytics (stub pass-through)
+// ---------------------------------------------------------------------------
 
-/// GET /api/v1/dashboard/projects/:id/analytics
 pub async fn handle_get_analytics() -> Result<Json<serde_json::Value>, AppError> {
     nucleus_admin_api::handlers::dashboard::handle_get_analytics().await
 }
 
-// -- Billing ----------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Billing (stub pass-through)
+// ---------------------------------------------------------------------------
 
-/// GET /api/v1/dashboard/projects/:id/usage
 pub async fn handle_get_usage() -> Result<Json<serde_json::Value>, AppError> {
     nucleus_admin_api::handlers::dashboard::handle_get_usage().await
 }
 
-/// GET /api/v1/dashboard/projects/:id/subscription
 pub async fn handle_get_subscription() -> Result<Json<serde_json::Value>, AppError> {
     nucleus_admin_api::handlers::dashboard::handle_get_subscription().await
 }
 
-// -- Audit logs -------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Audit logs
+// ---------------------------------------------------------------------------
 
-/// GET /api/v1/dashboard/projects/:id/audit-logs
-pub async fn handle_list_audit_logs() -> Result<Json<serde_json::Value>, AppError> {
-    nucleus_admin_api::handlers::dashboard::handle_list_audit_logs().await
+pub async fn handle_list_audit_logs(
+    State(state): State<Arc<AppState>>,
+    path: Path<Uuid>,
+    query: Query<PaginationParams>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let ds = state.dashboard_state();
+    nucleus_admin_api::handlers::dashboard::handle_list_audit_logs(State(ds), path, query).await
 }
 
-// -- Settings ---------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Settings
+// ---------------------------------------------------------------------------
 
-/// GET /api/v1/dashboard/projects/:id/settings
-pub async fn handle_get_settings() -> Result<Json<serde_json::Value>, AppError> {
-    nucleus_admin_api::handlers::dashboard::handle_get_settings().await
+pub async fn handle_get_settings(
+    State(state): State<Arc<AppState>>,
+    path: Path<Uuid>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let ds = state.dashboard_state();
+    nucleus_admin_api::handlers::dashboard::handle_get_settings(State(ds), path).await
 }
 
-/// PATCH /api/v1/dashboard/projects/:id/settings
 pub async fn handle_update_settings(
+    State(state): State<Arc<AppState>>,
+    path: Path<Uuid>,
     Json(req): Json<serde_json::Value>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    nucleus_admin_api::handlers::dashboard::handle_update_settings(Json(req)).await
+    let ds = state.dashboard_state();
+    nucleus_admin_api::handlers::dashboard::handle_update_settings(State(ds), path, Json(req)).await
 }

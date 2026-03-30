@@ -1410,9 +1410,11 @@ dependencies = [
 name = "nucleus-admin-api"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "async-trait",
  "axum",
  "chrono",
+ "hex",
  "nucleus-core",
  "nucleus-db",
  "serde",
@@ -1439,6 +1441,7 @@ dependencies = [
  "nucleus-db",
  "nucleus-session",
  "rand",
+ "redis",
  "ring",
  "rsa",
  "serde",
@@ -1552,6 +1555,7 @@ dependencies = [
  "chrono",
  "dotenvy",
  "hex",
+ "jsonwebtoken",
  "nucleus-admin-api",
  "nucleus-auth",
  "nucleus-core",

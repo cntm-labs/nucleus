@@ -20,24 +20,6 @@ pub struct RateLimitConfig {
     pub window_secs: u64,
 }
 
-impl RateLimitConfig {
-    /// Preset for authentication endpoints (60 requests / 60 s).
-    pub fn auth() -> Self {
-        Self {
-            max_requests: 60,
-            window_secs: 60,
-        }
-    }
-
-    /// Preset for general API endpoints (1000 requests / 60 s).
-    pub fn api() -> Self {
-        Self {
-            max_requests: 1000,
-            window_secs: 60,
-        }
-    }
-}
-
 // ---------------------------------------------------------------------------
 // Client IP extraction
 // ---------------------------------------------------------------------------
@@ -273,16 +255,12 @@ mod tests {
     // -- Config presets --
 
     #[test]
-    fn auth_preset_values() {
-        let cfg = RateLimitConfig::auth();
-        assert_eq!(cfg.max_requests, 60);
-        assert_eq!(cfg.window_secs, 60);
-    }
-
-    #[test]
-    fn api_preset_values() {
-        let cfg = RateLimitConfig::api();
-        assert_eq!(cfg.max_requests, 1000);
-        assert_eq!(cfg.window_secs, 60);
+    fn config_stores_values() {
+        let cfg = RateLimitConfig {
+            max_requests: 120,
+            window_secs: 30,
+        };
+        assert_eq!(cfg.max_requests, 120);
+        assert_eq!(cfg.window_secs, 30);
     }
 }

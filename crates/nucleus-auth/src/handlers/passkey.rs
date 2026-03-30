@@ -25,6 +25,8 @@ pub struct PasskeyRegisterBeginResponse {
 /// `PublicKeyCredentialCreationOptions` for the client to pass to
 /// `navigator.credentials.create()`.
 pub async fn handle_passkey_register_begin(
+    rp_name: &str,
+    rp_id: &str,
     Json(req): Json<PasskeyRegisterBeginRequest>,
 ) -> Result<Json<PasskeyRegisterBeginResponse>, AppError> {
     // 1. Parse and validate user_id
@@ -34,8 +36,7 @@ pub async fn handle_passkey_register_begin(
         .map_err(|_| AppError::Internal(anyhow::anyhow!("Invalid user_id format")))?;
 
     // 2. Create PasskeyService with project RP config
-    // TODO: RP name and ID should come from project configuration in AppState
-    let service = PasskeyService::new("Nucleus", "localhost");
+    let service = PasskeyService::new(rp_name, rp_id);
 
     // 3. Call begin_registration to generate challenge + options
     let (options, _challenge) =
