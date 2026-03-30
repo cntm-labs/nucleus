@@ -23,3 +23,39 @@ dependencies {
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.json:json:20240303'
 }
+
+afterEvaluate {
+    publishing {
+        publications {
+            release(MavenPublication) {
+                from components.release
+                groupId = 'io.github.cntm-labs'
+                artifactId = 'nucleus-android-java'
+                version = project.version
+
+                pom {
+                    name = 'Nucleus Android Java SDK'
+                    description = 'Nucleus authentication SDK for Android (Java).'
+                    url = 'https://github.com/cntm-labs/nucleus'
+                    licenses {
+                        license {
+                            name = 'MIT'
+                            url = 'https://opensource.org/licenses/MIT'
+                        }
+                    }
+                    developers {
+                        developer {
+                            id = 'cntm-labs'
+                            name = 'cntm-labs'
+                            url = 'https://github.com/cntm-labs'
+                        }
+                    }
+                    scm {
+                        connection = 'scm:git:git://github.com/cntm-labs/nucleus.git'
+                        url = 'https://github.com/cntm-labs/nucleus'
+                    }
+                }
+            }
+        }
+    }
+}

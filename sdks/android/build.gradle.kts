@@ -85,3 +85,39 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
 }
+
+afterEvaluate {
+    publishing {
+        publications {
+            create<MavenPublication>("release") {
+                from(components["release"])
+                groupId = "io.github.cntm-labs"
+                artifactId = "nucleus-android"
+                version = project.version.toString()
+
+                pom {
+                    name.set("Nucleus Android SDK")
+                    description.set("Nucleus authentication SDK for Android (Kotlin).")
+                    url.set("https://github.com/cntm-labs/nucleus")
+                    licenses {
+                        license {
+                            name.set("MIT")
+                            url.set("https://opensource.org/licenses/MIT")
+                        }
+                    }
+                    developers {
+                        developer {
+                            id.set("cntm-labs")
+                            name.set("cntm-labs")
+                            url.set("https://github.com/cntm-labs")
+                        }
+                    }
+                    scm {
+                        connection.set("scm:git:git://github.com/cntm-labs/nucleus.git")
+                        url.set("https://github.com/cntm-labs/nucleus")
+                    }
+                }
+            }
+        }
+    }
+}
