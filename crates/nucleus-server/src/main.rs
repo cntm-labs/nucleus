@@ -15,10 +15,12 @@ use nucleus_core::clock::SystemClock;
 use nucleus_core::crypto;
 use nucleus_db::pool::create_pg_pool;
 use nucleus_db::redis::create_redis_pool;
+use nucleus_db::repos::api_key_repo::PgApiKeyRepository;
 use nucleus_db::repos::audit_repo::PgAuditRepository;
 use nucleus_db::repos::credential_repo::PgCredentialRepository;
 use nucleus_db::repos::mfa_enrollment_repo::PgMfaEnrollmentRepository;
 use nucleus_db::repos::org_repo::PgOrgRepository;
+use nucleus_db::repos::project_repo::PgProjectRepository;
 use nucleus_db::repos::session_repo::RedisSessionRepository;
 use nucleus_db::repos::signing_key_repo::{PgSigningKeyRepository, SigningKeyRepository};
 use nucleus_db::repos::user_repo::PgUserRepository;
@@ -60,10 +62,14 @@ async fn main() -> Result<()> {
     tracing::info!("Connected to Redis");
 
     // Load or create signing key pair for JWT
-    let signing_key_repo = PgSigningKeyRepository::new(db.clone());
+    let signing_key_repo_instance = PgSigningKeyRepository::new(db.clone());
+    let signing_key_repo = Arc::new(PgSigningKeyRepository::new(db.clone()));
     let default_project_id = Uuid::nil(); // System-level key
     let signing_key = Arc::new(
-        match signing_key_repo.find_current(&default_project_id).await? {
+        match signing_key_repo_instance
+            .find_current(&default_project_id)
+            .await?
+        {
             Some(row) => {
                 let private_pem = crypto::decrypt(
                     &hex::decode(&row.private_key_enc)
@@ -86,7 +92,7 @@ async fn main() -> Result<()> {
                 )?);
                 let public_pem = String::from_utf8(key.public_key_pem.clone())
                     .map_err(|e| anyhow::anyhow!("utf8 error: {}", e))?;
-                signing_key_repo
+                signing_key_repo_instance
                     .create(&default_project_id, "RS256", &public_pem, &encrypted)
                     .await?;
                 tracing::info!("Generated and persisted new signing key");
@@ -106,6 +112,11 @@ async fn main() -> Result<()> {
     let audit_repo = Arc::new(PgAuditRepository::new(db.clone()));
     let token_repo = Arc::new(PgVerificationTokenRepository::new(db.clone()));
     let mfa_repo = Arc::new(PgMfaEnrollmentRepository::new(db.clone()));
+    let project_repo = Arc::new(PgProjectRepository::new(db.clone()));
+    let api_key_repo = Arc::new(PgApiKeyRepository::new(db.clone()));
+    let audit_repo_dashboard = Arc::new(nucleus_db::repos::audit_repo::PgAuditRepository::new(
+        db.clone(),
+    ));
 
     let auth_service = Arc::new(AuthService::new(
         user_repo.clone(),
@@ -140,6 +151,10 @@ async fn main() -> Result<()> {
         credential_repo,
         token_repo,
         mfa_repo,
+        project_repo,
+        api_key_repo,
+        audit_repo: audit_repo_dashboard,
+        signing_key_repo,
         org_service,
         allowed_origins: config.allowed_origins,
         issuer_url: config.issuer_url,

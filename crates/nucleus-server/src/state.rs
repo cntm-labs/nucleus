@@ -3,8 +3,12 @@ use std::sync::Arc;
 use nucleus_auth::jwt::SigningKeyPair;
 use nucleus_auth::service::AuthService;
 use nucleus_core::clock::Clock;
+use nucleus_db::repos::api_key_repo::ApiKeyRepository;
+use nucleus_db::repos::audit_repo::AuditRepository;
 use nucleus_db::repos::credential_repo::CredentialRepository;
 use nucleus_db::repos::mfa_enrollment_repo::MfaEnrollmentRepository;
+use nucleus_db::repos::project_repo::ProjectRepository;
+use nucleus_db::repos::signing_key_repo::SigningKeyRepository;
 use nucleus_db::repos::user_repo::UserRepository;
 use nucleus_db::repos::verification_token_repo::VerificationTokenRepository;
 use nucleus_identity::user::UserService;
@@ -26,6 +30,10 @@ pub struct AppState {
     pub credential_repo: Arc<dyn CredentialRepository>,
     pub token_repo: Arc<dyn VerificationTokenRepository>,
     pub mfa_repo: Arc<dyn MfaEnrollmentRepository>,
+    pub project_repo: Arc<dyn ProjectRepository>,
+    pub api_key_repo: Arc<dyn ApiKeyRepository>,
+    pub audit_repo: Arc<dyn AuditRepository>,
+    pub signing_key_repo: Arc<dyn SigningKeyRepository>,
     pub org_service: Arc<OrgService>,
     pub allowed_origins: Vec<String>,
     pub issuer_url: String,
@@ -60,6 +68,16 @@ impl AppState {
             user_repo: self.user_repo.clone(),
             session_service: self.session_service.clone(),
             auth_service: self.auth_service.clone(),
+        }
+    }
+
+    pub fn dashboard_state(&self) -> nucleus_admin_api::handlers::dashboard::DashboardState {
+        nucleus_admin_api::handlers::dashboard::DashboardState {
+            project_repo: self.project_repo.clone(),
+            api_key_repo: self.api_key_repo.clone(),
+            audit_repo: self.audit_repo.clone(),
+            signing_key_repo: self.signing_key_repo.clone(),
+            master_key: self.master_key,
         }
     }
 
