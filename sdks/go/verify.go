@@ -26,7 +26,7 @@ func VerifyToken(token string, cfg *Config) (*NucleusClaims, error) {
 		return nil, fmt.Errorf("nucleus: failed to fetch JWKS: %w", err)
 	}
 
-	parsed, err := jwt.ParseWithClaims(token, &NucleusClaims{}, kf.KeyfuncLegacy, jwt.WithValidMethods([]string{"RS256"}))
+	parsed, err := jwt.ParseWithClaims(token, &NucleusClaims{}, kf.Keyfunc, jwt.WithValidMethods([]string{"RS256"}))
 	if err != nil {
 		return nil, fmt.Errorf("nucleus: invalid token: %w", err)
 	}
@@ -62,7 +62,7 @@ func getKeyfunc(cfg *Config) (keyfunc.Keyfunc, error) {
 		return jwksCache, nil
 	}
 
-	kf, err := keyfunc.NewDefault([]string{url}, keyfunc.WithContext(context.Background()))
+	kf, err := keyfunc.NewDefaultCtx(context.Background(), []string{url})
 	if err != nil {
 		return nil, err
 	}
