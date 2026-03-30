@@ -1,19 +1,24 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFrameworks>net6.0;net8.0</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <RootNamespace>Nucleus.AspNetCore</RootNamespace>
     <PackageId>CntmLabs.Nucleus.AspNetCore</PackageId>
     <Version>0.1.0-dev.1</Version>
     <Authors>cntm-labs</Authors>
-    <Description>DEV PREVIEW — Not ready for production. Nucleus authentication middleware for ASP.NET Core.</Description>
+    <Description>Nucleus authentication middleware for ASP.NET Core.</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/cntm-labs/nucleus</PackageProjectUrl>
     <RepositoryUrl>https://github.com/cntm-labs/nucleus</RepositoryUrl>
     <PackageTags>authentication;auth;nucleus;sdk;aspnetcore</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <!-- SourceLink -->
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
   </PropertyGroup>
 
   <ItemGroup>
@@ -23,6 +28,7 @@
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <ProjectReference Include="..\Nucleus\Nucleus.csproj" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
   </ItemGroup>
 
 </Project>

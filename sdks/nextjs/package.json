@@ -1,7 +1,8 @@
 {
   "name": "@cntm-labs/nextjs",
   "version": "0.1.0-dev.1",
-  "description": "DEV PREVIEW — Not ready for production. Nucleus authentication SDK for Next.js.",
+  "description": "Nucleus authentication SDK for Next.js.",
+  "keywords": ["authentication", "auth", "nucleus", "sdk", "nextjs", "server-components"],
   "license": "MIT",
   "author": "cntm-labs",
   "repository": {
@@ -13,6 +14,7 @@
   "publishConfig": {
     "access": "public"
   },
+  "sideEffects": false,
   "type": "module",
   "main": "./dist/cjs/index.js",
   "module": "./dist/esm/index.js",
@@ -30,12 +32,15 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "LICENSE",
+    "README.md"
   ],
   "scripts": {
     "build": "tsup",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "prepublishOnly": "npm run build"
   },
   "dependencies": {
     "jose": "^5.0.0",
