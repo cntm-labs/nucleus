@@ -9,14 +9,24 @@ def _get_jwks(base_url: str) -> dict:
     res.raise_for_status()
     return res.json()
 
-def verify_token(token: str, base_url: str = "https://api.nucleus.dev") -> NucleusClaims:
+def verify_token(
+    token: str,
+    base_url: str = "https://api.nucleus.dev",
+    audience: str | None = None,
+) -> NucleusClaims:
     jwks = _get_jwks(base_url)
     header = jwt.get_unverified_header(token)
     key = next((k for k in jwks["keys"] if k["kid"] == header.get("kid")), None)
     if not key:
         raise ValueError("No matching key found in JWKS")
     public_key = jwt.algorithms.RSAAlgorithm.from_jwk(key)
-    payload = jwt.decode(token, public_key, algorithms=["RS256"], options={"verify_aud": False})
+    decode_opts: dict = {}
+    decode_kwargs: dict = {"algorithms": ["RS256"]}
+    if audience:
+        decode_kwargs["audience"] = audience
+    else:
+        decode_opts["verify_aud"] = False
+    payload = jwt.decode(token, public_key, options=decode_opts, **decode_kwargs)
     return NucleusClaims(
         user_id=payload["sub"], project_id=payload.get("aud", ""),
         email=payload.get("email"), first_name=payload.get("first_name"),

@@ -76,3 +76,26 @@ class TestVerifyTokenFailures:
         with patch("nucleus.verify._get_jwks", return_value=jwks_response):
             with pytest.raises(Exception):
                 verify_token("not.a.valid.token", base_url="https://test.local")
+
+
+class TestAudienceValidation:
+    def test_valid_audience_passes(self, jwks_response):
+        token = make_token(valid_claims(aud="project_456"))
+        _get_jwks.cache_clear()
+        with patch("nucleus.verify._get_jwks", return_value=jwks_response):
+            claims = verify_token(token, base_url="https://test.local", audience="project_456")
+        assert claims.project_id == "project_456"
+
+    def test_wrong_audience_raises(self, jwks_response):
+        token = make_token(valid_claims(aud="project_456"))
+        _get_jwks.cache_clear()
+        with patch("nucleus.verify._get_jwks", return_value=jwks_response):
+            with pytest.raises(pyjwt.InvalidAudienceError):
+                verify_token(token, base_url="https://test.local", audience="wrong_project")
+
+    def test_no_audience_skips_validation(self, jwks_response):
+        token = make_token(valid_claims(aud="project_456"))
+        _get_jwks.cache_clear()
+        with patch("nucleus.verify._get_jwks", return_value=jwks_response):
+            claims = verify_token(token, base_url="https://test.local")
+        assert claims.project_id == "project_456"
