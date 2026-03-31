@@ -300,7 +300,7 @@ impl AuthService {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use async_trait::async_trait;
     use chrono::Utc;
@@ -312,18 +312,18 @@ mod tests {
 
     // ── Mock UserRepository ──────────────────────────────────────────
 
-    struct MockUserRepo {
+    pub(crate) struct MockUserRepo {
         users: Mutex<Vec<User>>,
     }
 
     impl MockUserRepo {
-        fn new() -> Self {
+        pub(crate) fn new() -> Self {
             Self {
                 users: Mutex::new(Vec::new()),
             }
         }
 
-        fn with_user(user: User) -> Self {
+        pub(crate) fn with_user(user: User) -> Self {
             Self {
                 users: Mutex::new(vec![user]),
             }
@@ -428,18 +428,18 @@ mod tests {
 
     // ── Mock CredentialRepository ────────────────────────────────────
 
-    struct MockCredentialRepo {
+    pub(crate) struct MockCredentialRepo {
         credentials: Mutex<Vec<Credential>>,
     }
 
     impl MockCredentialRepo {
-        fn new() -> Self {
+        pub(crate) fn new() -> Self {
             Self {
                 credentials: Mutex::new(Vec::new()),
             }
         }
 
-        fn with_credential(cred: Credential) -> Self {
+        pub(crate) fn with_credential(cred: Credential) -> Self {
             Self {
                 credentials: Mutex::new(vec![cred]),
             }
@@ -511,12 +511,12 @@ mod tests {
         user_agent: Option<String>,
     }
 
-    struct MockAuditRepo {
+    pub(crate) struct MockAuditRepo {
         sign_in_attempts: Mutex<Vec<RecordedAttempt>>,
     }
 
     impl MockAuditRepo {
-        fn new() -> Self {
+        pub(crate) fn new() -> Self {
             Self {
                 sign_in_attempts: Mutex::new(Vec::new()),
             }
@@ -581,11 +581,11 @@ mod tests {
 
     use crate::jwt::JwtService;
 
-    fn test_signing_key() -> Arc<SigningKeyPair> {
+    pub(crate) fn test_signing_key() -> Arc<SigningKeyPair> {
         Arc::new(JwtService::generate_key_pair("test-kid").unwrap())
     }
 
-    fn make_service(
+    pub(crate) fn make_service(
         user_repo: Arc<dyn UserRepository>,
         cred_repo: Arc<dyn CredentialRepository>,
         audit_repo: Arc<dyn AuditRepository>,
@@ -600,7 +600,7 @@ mod tests {
         )
     }
 
-    fn make_test_user(project_id: &ProjectId) -> User {
+    pub(crate) fn make_test_user(project_id: &ProjectId) -> User {
         User {
             id: UserId::new(),
             project_id: *project_id,
@@ -623,7 +623,7 @@ mod tests {
         }
     }
 
-    fn make_password_credential(user_id: &UserId, password: &str) -> Credential {
+    pub(crate) fn make_password_credential(user_id: &UserId, password: &str) -> Credential {
         let hash = PasswordService::hash(password).unwrap();
         Credential {
             id: CredentialId::new(),

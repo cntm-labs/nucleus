@@ -16,7 +16,7 @@ def verify_token(token: str, base_url: str = "https://api.nucleus.dev") -> Nucle
     if not key:
         raise ValueError("No matching key found in JWKS")
     public_key = jwt.algorithms.RSAAlgorithm.from_jwk(key)
-    payload = jwt.decode(token, public_key, algorithms=["RS256"])
+    payload = jwt.decode(token, public_key, algorithms=["RS256"], options={"verify_aud": False})
     return NucleusClaims(
         user_id=payload["sub"], project_id=payload.get("aud", ""),
         email=payload.get("email"), first_name=payload.get("first_name"),
