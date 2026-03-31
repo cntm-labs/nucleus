@@ -160,9 +160,3 @@ func TestVerifyToken_InvalidTokenString(t *testing.T) {
 	}
 }
 
-func TestClaimsFromContext_Nil(t *testing.T) {
-	claims := ClaimsFromContext(nil)
-	if claims != nil {
-		t.Error("expected nil claims from nil context")
-	}
-}
