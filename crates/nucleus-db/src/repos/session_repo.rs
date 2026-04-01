@@ -280,3 +280,255 @@ impl SessionRepository for RedisSessionRepository {
         Ok(exists)
     }
 }
+
+/// In-memory mock for testing SessionRepository trait contracts.
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use async_trait::async_trait;
+    use chrono::Utc;
+    use std::collections::{HashMap, HashSet};
+    use std::sync::Mutex;
+
+    struct MockSessionRepo {
+        sessions: Mutex<HashMap<SessionId, Session>>,
+        user_sessions: Mutex<HashMap<UserId, Vec<SessionId>>>,
+        revoked_jwts: Mutex<HashSet<String>>,
+    }
+
+    impl MockSessionRepo {
+        fn new() -> Self {
+            Self {
+                sessions: Mutex::new(HashMap::new()),
+                user_sessions: Mutex::new(HashMap::new()),
+                revoked_jwts: Mutex::new(HashSet::new()),
+            }
+        }
+    }
+
+    #[async_trait]
+    impl SessionRepository for MockSessionRepo {
+        async fn create(&self, session: &NewSession) -> Result<Session, AppError> {
+            let session_id = SessionId::new();
+            let now = Utc::now().to_rfc3339();
+            let s = Session {
+                id: session_id,
+                user_id: session.user_id,
+                project_id: session.project_id,
+                token_hash: session.token_hash.clone(),
+                device_type: session.device_type.clone(),
+                device_name: session.device_name.clone(),
+                browser: session.browser.clone(),
+                ip: session.ip.clone(),
+                country_code: None,
+                created_at: now.clone(),
+                last_active_at: now,
+            };
+            self.sessions.lock().unwrap().insert(session_id, s.clone());
+            self.user_sessions
+                .lock()
+                .unwrap()
+                .entry(session.user_id)
+                .or_default()
+                .push(session_id);
+            Ok(s)
+        }
+
+        async fn find_by_id(&self, session_id: &SessionId) -> Result<Option<Session>, AppError> {
+            Ok(self.sessions.lock().unwrap().get(session_id).cloned())
+        }
+
+        async fn update_last_active(&self, session_id: &SessionId) -> Result<(), AppError> {
+            if let Some(s) = self.sessions.lock().unwrap().get_mut(session_id) {
+                s.last_active_at = Utc::now().to_rfc3339();
+            }
+            Ok(())
+        }
+
+        async fn delete(&self, session_id: &SessionId, user_id: &UserId) -> Result<(), AppError> {
+            self.sessions.lock().unwrap().remove(session_id);
+            if let Some(ids) = self.user_sessions.lock().unwrap().get_mut(user_id) {
+                ids.retain(|id| id != session_id);
+            }
+            Ok(())
+        }
+
+        async fn delete_all_for_user(&self, user_id: &UserId) -> Result<u64, AppError> {
+            let mut sessions = self.sessions.lock().unwrap();
+            let mut user_sessions = self.user_sessions.lock().unwrap();
+            let ids = user_sessions.remove(user_id).unwrap_or_default();
+            let count = ids.len() as u64;
+            for id in &ids {
+                sessions.remove(id);
+            }
+            Ok(count)
+        }
+
+        async fn list_for_user(&self, user_id: &UserId) -> Result<Vec<Session>, AppError> {
+            let sessions = self.sessions.lock().unwrap();
+            let user_sessions = self.user_sessions.lock().unwrap();
+            let ids = match user_sessions.get(user_id) {
+                Some(ids) => ids.clone(),
+                None => return Ok(vec![]),
+            };
+            Ok(ids
+                .iter()
+                .filter_map(|id| sessions.get(id).cloned())
+                .collect())
+        }
+
+        async fn add_to_revocation_list(&self, jti: &str, _ttl_secs: u64) -> Result<(), AppError> {
+            self.revoked_jwts.lock().unwrap().insert(jti.to_string());
+            Ok(())
+        }
+
+        async fn is_revoked(&self, jti: &str) -> Result<bool, AppError> {
+            Ok(self.revoked_jwts.lock().unwrap().contains(jti))
+        }
+    }
+
+    fn make_new_session(user_id: UserId, project_id: ProjectId) -> NewSession {
+        NewSession {
+            user_id,
+            project_id,
+            token_hash: "test_hash_abc".to_string(),
+            device_type: Some("desktop".to_string()),
+            device_name: None,
+            browser: Some("Chrome".to_string()),
+            ip: Some("127.0.0.1".to_string()),
+            ttl_secs: 3600,
+        }
+    }
+
+    #[tokio::test]
+    async fn create_session_returns_session_with_id() {
+        let repo = MockSessionRepo::new();
+        let user_id = UserId::new();
+        let project_id = ProjectId::new();
+
+        let session = repo
+            .create(&make_new_session(user_id, project_id))
+            .await
+            .unwrap();
+
+        assert_eq!(session.user_id, user_id);
+        assert_eq!(session.project_id, project_id);
+        assert!(!session.id.0.is_nil());
+        assert_eq!(session.browser, Some("Chrome".to_string()));
+    }
+
+    #[tokio::test]
+    async fn find_by_id_returns_created_session() {
+        let repo = MockSessionRepo::new();
+        let user_id = UserId::new();
+        let project_id = ProjectId::new();
+
+        let session = repo
+            .create(&make_new_session(user_id, project_id))
+            .await
+            .unwrap();
+
+        let found = repo.find_by_id(&session.id).await.unwrap();
+        assert!(found.is_some());
+        assert_eq!(found.unwrap().id, session.id);
+    }
+
+    #[tokio::test]
+    async fn find_by_id_returns_none_for_nonexistent() {
+        let repo = MockSessionRepo::new();
+        let result = repo.find_by_id(&SessionId::new()).await.unwrap();
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn delete_removes_session() {
+        let repo = MockSessionRepo::new();
+        let user_id = UserId::new();
+        let project_id = ProjectId::new();
+
+        let session = repo
+            .create(&make_new_session(user_id, project_id))
+            .await
+            .unwrap();
+
+        repo.delete(&session.id, &user_id).await.unwrap();
+
+        let found = repo.find_by_id(&session.id).await.unwrap();
+        assert!(found.is_none());
+    }
+
+    #[tokio::test]
+    async fn delete_all_for_user_removes_all_sessions() {
+        let repo = MockSessionRepo::new();
+        let user_id = UserId::new();
+        let project_id = ProjectId::new();
+
+        for _ in 0..3 {
+            repo.create(&make_new_session(user_id, project_id))
+                .await
+                .unwrap();
+        }
+
+        let count = repo.delete_all_for_user(&user_id).await.unwrap();
+        assert_eq!(count, 3);
+
+        let remaining = repo.list_for_user(&user_id).await.unwrap();
+        assert!(remaining.is_empty());
+    }
+
+    #[tokio::test]
+    async fn list_for_user_returns_only_that_users_sessions() {
+        let repo = MockSessionRepo::new();
+        let user_a = UserId::new();
+        let user_b = UserId::new();
+        let project_id = ProjectId::new();
+
+        repo.create(&make_new_session(user_a, project_id))
+            .await
+            .unwrap();
+        repo.create(&make_new_session(user_a, project_id))
+            .await
+            .unwrap();
+        repo.create(&make_new_session(user_b, project_id))
+            .await
+            .unwrap();
+
+        let a_sessions = repo.list_for_user(&user_a).await.unwrap();
+        assert_eq!(a_sessions.len(), 2);
+
+        let b_sessions = repo.list_for_user(&user_b).await.unwrap();
+        assert_eq!(b_sessions.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn jwt_revocation_list_works() {
+        let repo = MockSessionRepo::new();
+
+        assert!(!repo.is_revoked("jti_abc").await.unwrap());
+
+        repo.add_to_revocation_list("jti_abc", 300).await.unwrap();
+
+        assert!(repo.is_revoked("jti_abc").await.unwrap());
+        assert!(!repo.is_revoked("jti_xyz").await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn update_last_active_changes_timestamp() {
+        let repo = MockSessionRepo::new();
+        let user_id = UserId::new();
+        let project_id = ProjectId::new();
+
+        let session = repo
+            .create(&make_new_session(user_id, project_id))
+            .await
+            .unwrap();
+        let original = session.last_active_at.clone();
+
+        // Small delay to ensure timestamps differ
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        repo.update_last_active(&session.id).await.unwrap();
+
+        let updated = repo.find_by_id(&session.id).await.unwrap().unwrap();
+        assert_ne!(updated.last_active_at, original);
+    }
+}

@@ -38,3 +38,6 @@ pin-project-lite = { version = "0.2", optional = true }
 # actix feature
 actix-web = { version = "4", optional = true }
 actix-service = { version = "2", optional = true }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }

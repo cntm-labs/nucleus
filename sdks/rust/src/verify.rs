@@ -152,3 +152,110 @@ impl JwksVerifier {
         Ok(key)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::claims::NucleusClaims;
+
+    #[test]
+    fn verifier_creation_stores_jwks_url() {
+        let verifier = JwksVerifier::new("https://api.test.com", 3600);
+        assert_eq!(verifier.jwks_url, "https://api.test.com/.well-known/jwks.json");
+    }
+
+    #[test]
+    fn verifier_trims_trailing_slash() {
+        let verifier = JwksVerifier::new("https://api.test.com/", 3600);
+        assert_eq!(verifier.jwks_url, "https://api.test.com/.well-known/jwks.json");
+    }
+
+    #[test]
+    fn verifier_stores_ttl() {
+        let verifier = JwksVerifier::new("https://api.test.com", 7200);
+        assert_eq!(verifier.ttl, Duration::from_secs(7200));
+    }
+
+    #[tokio::test]
+    async fn verify_invalid_token_returns_error() {
+        let verifier = JwksVerifier::new("https://api.test.com", 3600);
+        let result = verifier.verify("not.a.valid.token").await;
+        assert!(result.is_err());
+        match result {
+            Err(NucleusError::InvalidToken(_)) => {}
+            other => panic!("expected InvalidToken error, got: {:?}", other),
+        }
+    }
+
+    #[tokio::test]
+    async fn verify_empty_token_returns_error() {
+        let verifier = JwksVerifier::new("https://api.test.com", 3600);
+        let result = verifier.verify("").await;
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn claims_serde_roundtrip() {
+        let json = serde_json::json!({
+            "sub": "user_123",
+            "iss": "https://api.test.com",
+            "aud": "project_456",
+            "exp": 1700000000u64,
+            "iat": 1699996400u64,
+            "jti": "jwt_abc",
+            "email": "test@example.com",
+            "first_name": "Test",
+            "last_name": "User",
+            "org_id": "org_1",
+            "org_role": "admin",
+            "org_permissions": ["read", "write"]
+        });
+
+        let claims: NucleusClaims = serde_json::from_value(json).unwrap();
+        assert_eq!(claims.user_id(), "user_123");
+        assert_eq!(claims.sub, "user_123");
+        assert_eq!(claims.aud, "project_456");
+        assert_eq!(claims.email, Some("test@example.com".to_string()));
+        assert_eq!(claims.first_name, Some("Test".to_string()));
+        assert_eq!(claims.org_id, Some("org_1".to_string()));
+        assert_eq!(claims.org_role, Some("admin".to_string()));
+        assert_eq!(
+            claims.org_permissions,
+            Some(vec!["read".to_string(), "write".to_string()])
+        );
+
+        // Roundtrip
+        let serialized = serde_json::to_value(&claims).unwrap();
+        assert_eq!(serialized["sub"], "user_123");
+    }
+
+    #[test]
+    fn claims_missing_optional_fields() {
+        let json = serde_json::json!({
+            "sub": "user_1",
+            "iss": "https://test.com",
+            "aud": "proj_1",
+            "exp": 1700000000u64,
+            "iat": 1699996400u64
+        });
+
+        let claims: NucleusClaims = serde_json::from_value(json).unwrap();
+        assert_eq!(claims.user_id(), "user_1");
+        assert!(claims.email.is_none());
+        assert!(claims.org_id.is_none());
+        assert!(claims.org_permissions.is_none());
+        assert!(claims.metadata.is_none());
+    }
+
+    #[test]
+    fn nucleus_error_display() {
+        let err = NucleusError::InvalidToken("test error".into());
+        assert!(err.to_string().contains("invalid token"));
+
+        let err = NucleusError::KeyNotFound("kid-123".into());
+        assert!(err.to_string().contains("kid-123"));
+
+        let err = NucleusError::JwksFetch("timeout".into());
+        assert!(err.to_string().contains("JWKS"));
+    }
+}

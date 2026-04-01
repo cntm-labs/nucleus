@@ -11,8 +11,8 @@ class NucleusClient:
         self.users = UsersApi(self._client)
         self.orgs = OrgsApi(self._client)
 
-    def verify_token(self, token: str) -> NucleusClaims:
-        return verify_token(token, self.base_url)
+    def verify_token(self, token: str, audience: str | None = None) -> NucleusClaims:
+        return verify_token(token, self.base_url, audience=audience)
 
     async def close(self):
         await self._client.aclose()

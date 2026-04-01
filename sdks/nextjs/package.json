@@ -2,7 +2,14 @@
   "name": "@cntm-labs/nextjs",
   "version": "0.1.0-dev.1",
   "description": "Nucleus authentication SDK for Next.js.",
-  "keywords": ["authentication", "auth", "nucleus", "sdk", "nextjs", "server-components"],
+  "keywords": [
+    "authentication",
+    "auth",
+    "nucleus",
+    "sdk",
+    "nextjs",
+    "server-components"
+  ],
   "license": "MIT",
   "author": "cntm-labs",
   "repository": {
@@ -52,6 +59,8 @@
     "react-dom": ">=18"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
     "@types/node": "^25.5.0",
     "@types/react": "^19.0.0",
     "jsdom": "^24.0.0",

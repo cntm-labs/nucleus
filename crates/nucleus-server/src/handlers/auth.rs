@@ -265,3 +265,82 @@ pub async fn handle_confirm_reset(
     nucleus_auth::handlers::password_reset::handle_confirm_reset(State(reset_state), Json(req))
         .await
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use nucleus_core::error::AuthError;
+
+    // Test the session_id and project_id parsing logic used by handlers.
+    // Full handler tests require AppState with PgPool/Redis (integration test scope).
+
+    #[test]
+    fn valid_uuid_parses_as_session_id() {
+        let valid = "550e8400-e29b-41d4-a716-446655440000";
+        let result: Result<SessionId, _> = valid.parse();
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn invalid_uuid_fails_session_id_parse() {
+        let invalid = "not-a-uuid";
+        let result: Result<SessionId, _> = invalid.parse();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn valid_uuid_parses_as_user_id() {
+        let valid = "550e8400-e29b-41d4-a716-446655440000";
+        let result: Result<UserId, _> = valid.parse();
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn invalid_uuid_fails_user_id_parse() {
+        let invalid = "not-a-uuid";
+        let result: Result<UserId, _> = invalid.parse();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn invalid_session_id_maps_to_session_expired() {
+        let bad_id = "not-a-uuid";
+        let result: Result<SessionId, AppError> = bad_id
+            .parse()
+            .map_err(|_| AppError::Auth(AuthError::SessionExpired));
+        assert!(matches!(
+            result,
+            Err(AppError::Auth(AuthError::SessionExpired))
+        ));
+    }
+
+    #[test]
+    fn invalid_user_id_maps_to_token_invalid() {
+        let bad_id = "not-a-uuid";
+        let result: Result<UserId, AppError> = bad_id
+            .parse()
+            .map_err(|_| AppError::Auth(AuthError::TokenInvalid));
+        assert!(matches!(
+            result,
+            Err(AppError::Auth(AuthError::TokenInvalid))
+        ));
+    }
+
+    #[test]
+    fn request_types_deserialize_correctly() {
+        let json = serde_json::json!({"session_id": "550e8400-e29b-41d4-a716-446655440000"});
+        let req: AuthRefreshRequest = serde_json::from_value(json).unwrap();
+        assert_eq!(req.session_id, "550e8400-e29b-41d4-a716-446655440000");
+
+        let json = serde_json::json!({"session_id": "550e8400-e29b-41d4-a716-446655440000"});
+        let req: AuthSignOutRequest = serde_json::from_value(json).unwrap();
+        assert_eq!(req.session_id, "550e8400-e29b-41d4-a716-446655440000");
+    }
+
+    #[test]
+    fn response_type_serializes_correctly() {
+        let resp = AuthSignOutAllResponse { revoked_count: 5 };
+        let json = serde_json::to_value(&resp).unwrap();
+        assert_eq!(json["revoked_count"], 5);
+    }
+}
