@@ -28,6 +28,7 @@ url = { workspace = true }
 urlencoding = { workspace = true }
 rsa = { workspace = true }
 rand = { workspace = true }
+quick-xml = { workspace = true }
 
 [lints]
 workspace = true

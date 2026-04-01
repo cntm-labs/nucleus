@@ -3,6 +3,7 @@ use std::sync::Arc;
 use axum::extract::State;
 use axum::Json;
 use nucleus_core::error::{AppError, AuthError};
+use nucleus_core::notification::NotificationService;
 use nucleus_core::types::{ProjectId, UserId};
 use nucleus_core::{crypto, validation};
 use nucleus_db::repos::credential_repo::CredentialRepository;
@@ -24,6 +25,8 @@ pub struct PasswordResetState {
     pub user_repo: Arc<dyn UserRepository>,
     pub credential_repo: Arc<dyn CredentialRepository>,
     pub session_service: Arc<SessionService>,
+    pub notification_service: Arc<dyn NotificationService>,
+    pub base_url: String,
 }
 
 // ---------------------------------------------------------------------------
@@ -70,11 +73,22 @@ pub async fn handle_request_reset(
             )
             .await?;
 
-        // TODO: Send email with reset link via email service
-        tracing::debug!(
-            email = %body.email,
-            "Password reset token generated (email delivery not yet wired)"
-        );
+        let reset_url = PasswordResetService::build_url(&state.base_url, &generated.token);
+        let _ = state
+            .notification_service
+            .send_email(
+                &body.email,
+                "Reset your password",
+                &format!(
+                    "<p>Click <a href=\"{}\">here</a> to reset your password. This link expires in 1 hour.</p>",
+                    reset_url
+                ),
+                &format!(
+                    "Reset your password: {} (expires in 1 hour)",
+                    reset_url
+                ),
+            )
+            .await;
     }
 
     Ok(Json(RequestResetResponse {

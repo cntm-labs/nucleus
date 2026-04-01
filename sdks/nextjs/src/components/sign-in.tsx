@@ -4,6 +4,7 @@ import { useSignIn } from '../hooks/use-sign-in'
 import { useOAuth } from '../hooks/use-oauth'
 import { useMfa } from '../hooks/use-mfa'
 import { useStyles, Divider } from './appearance'
+import { useTranslation } from '../i18n'
 import type { OAuthProvider } from '../client/types'
 
 export interface SignInProps {
@@ -22,6 +23,7 @@ export function SignIn({ afterSignInUrl = '/', onSignIn, oauthProviders = [] }: 
   const { signInWithOAuth, isLoading: oauthLoading, error: oauthError } = useOAuth()
   const { verifyTotp, isLoading: mfaLoading, error: mfaError } = useMfa()
   const s = useStyles()
+  const t = useTranslation()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -48,7 +50,7 @@ export function SignIn({ afterSignInUrl = '/', onSignIn, oauthProviders = [] }: 
 
   return (
     <div style={s.card}>
-      <h2 style={s.title}>Sign In</h2>
+      <h2 style={s.title}>{t('signIn.title')}</h2>
       {displayError && <div style={s.error}>{displayError}</div>}
 
       {step === 'credentials' && (
@@ -57,17 +59,17 @@ export function SignIn({ afterSignInUrl = '/', onSignIn, oauthProviders = [] }: 
             <>
               {oauthProviders.map(provider => (
                 <button key={provider} onClick={() => handleOAuth(provider)} disabled={oauthLoading} style={s.secondaryButton}>
-                  Continue with {provider.charAt(0).toUpperCase() + provider.slice(1)}
+                  {t('signIn.oauth', { provider: provider.charAt(0).toUpperCase() + provider.slice(1) })}
                 </button>
               ))}
               <Divider text="or" />
             </>
           )}
           <form onSubmit={handleSubmit}>
-            <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} style={s.input} required />
-            <input type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} style={{ ...s.input, marginBottom: 16 }} required />
+            <input type="email" placeholder={t('signIn.email')} value={email} onChange={e => setEmail(e.target.value)} style={s.input} required />
+            <input type="password" placeholder={t('signIn.password')} value={password} onChange={e => setPassword(e.target.value)} style={{ ...s.input, marginBottom: 16 }} required />
             <button type="submit" disabled={isLoading} style={{ ...s.button, opacity: isLoading ? 0.7 : 1 }}>
-              {isLoading ? 'Signing in...' : 'Sign In'}
+              {isLoading ? t('signIn.loading') : t('signIn.button')}
             </button>
           </form>
         </>
@@ -85,7 +87,7 @@ export function SignIn({ afterSignInUrl = '/', onSignIn, oauthProviders = [] }: 
           } catch { /* error tracked by useMfa hook */ }
         }}>
           <p style={{ fontSize: 14, marginBottom: 12, color: '#6b7280' }}>
-            Enter the verification code from your authenticator app
+            {t('signIn.mfa.prompt')}
           </p>
           <input
             type="text" placeholder="000000" value={mfaCode}
@@ -94,7 +96,7 @@ export function SignIn({ afterSignInUrl = '/', onSignIn, oauthProviders = [] }: 
             maxLength={6} required
           />
           <button type="submit" disabled={mfaLoading} style={{ ...s.button, marginTop: 8, opacity: mfaLoading ? 0.7 : 1 }}>
-            {mfaLoading ? 'Verifying...' : 'Verify'}
+            {mfaLoading ? t('signIn.mfa.loading') : t('signIn.mfa.button')}
           </button>
         </form>
       )}

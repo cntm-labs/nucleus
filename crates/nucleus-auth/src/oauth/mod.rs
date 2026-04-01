@@ -1,5 +1,10 @@
 pub mod apple;
+pub mod discord;
+pub mod facebook;
 pub mod github;
 pub mod google;
+pub mod linkedin;
 pub mod microsoft;
 pub mod provider;
+pub mod slack;
+pub mod twitter;

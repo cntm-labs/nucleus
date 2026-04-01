@@ -10,4 +10,5 @@ pub mod passkey;
 pub mod password;
 pub mod password_reset;
 pub mod pkce;
+pub mod saml;
 pub mod service;

@@ -3,6 +3,7 @@ use std::sync::Arc;
 use axum::extract::{Query, State};
 use axum::Json;
 use nucleus_core::error::{AppError, AuthError, UserError};
+use nucleus_core::notification::NotificationService;
 use nucleus_core::types::ProjectId;
 use nucleus_db::repos::user_repo::UserRepository;
 use nucleus_db::repos::verification_token_repo::VerificationTokenRepository;
@@ -23,6 +24,8 @@ pub struct MagicLinkState {
     pub user_repo: Arc<dyn UserRepository>,
     pub session_service: Arc<SessionService>,
     pub auth_service: Arc<AuthService>,
+    pub notification_service: Arc<dyn NotificationService>,
+    pub base_url: String,
 }
 
 // ---------------------------------------------------------------------------
@@ -71,11 +74,24 @@ pub async fn handle_send_magic_link(
             )
             .await?;
 
-        // TODO: Send email with magic link URL via email service
-        tracing::debug!(
-            email = %body.email,
-            "Magic link generated (email delivery not yet wired)"
-        );
+        let magic_url = MagicLinkService::build_url(
+            &state.base_url,
+            &generated.token,
+            &body.redirect_url,
+            &[],
+        )?;
+        let _ = state
+            .notification_service
+            .send_email(
+                &body.email,
+                "Sign in to Nucleus",
+                &format!(
+                    "<p>Click <a href=\"{}\">here</a> to sign in. This link expires in 15 minutes.</p>",
+                    magic_url
+                ),
+                &format!("Sign in: {} (expires in 15 minutes)", magic_url),
+            )
+            .await;
     }
 
     Ok(Json(SendMagicLinkResponse {

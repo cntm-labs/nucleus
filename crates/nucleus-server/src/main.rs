@@ -2,6 +2,7 @@ mod config;
 mod handlers;
 mod middleware;
 mod router;
+mod services;
 mod state;
 
 use std::sync::Arc;
@@ -13,6 +14,7 @@ use nucleus_auth::jwt::{JwtService, SigningKeyPair};
 use nucleus_auth::service::AuthService;
 use nucleus_core::clock::SystemClock;
 use nucleus_core::crypto;
+use nucleus_core::notification::NotificationService;
 use nucleus_db::pool::create_pg_pool;
 use nucleus_db::redis::create_redis_pool;
 use nucleus_db::repos::api_key_repo::PgApiKeyRepository;
@@ -134,6 +136,45 @@ async fn main() -> Result<()> {
     let org_repo = Arc::new(PgOrgRepository::new(db.clone()));
     let org_service = Arc::new(OrgService::new(org_repo));
 
+    // Initialize notification service (email + SMS)
+    let email_service: Arc<dyn NotificationService> = match &config.sendgrid_api_key {
+        Some(key) => {
+            tracing::info!("SendGrid API key configured — using SendGrid for email delivery");
+            Arc::new(services::email::SendGridService::new(
+                key.clone(),
+                config.from_email.clone(),
+                config.from_name.clone(),
+            ))
+        }
+        None => {
+            tracing::warn!("SENDGRID_API_KEY not set — using log-based email delivery");
+            Arc::new(services::email::LogNotificationService)
+        }
+    };
+
+    let twilio_service = match (
+        &config.twilio_account_sid,
+        &config.twilio_auth_token,
+        &config.twilio_from_number,
+    ) {
+        (Some(sid), Some(token), Some(from)) => {
+            tracing::info!("Twilio configured — SMS delivery enabled");
+            Some(Arc::new(services::sms::TwilioService::new(
+                sid.clone(),
+                token.clone(),
+                from.clone(),
+            )))
+        }
+        _ => {
+            tracing::info!("Twilio not configured — SMS delivery disabled");
+            None
+        }
+    };
+
+    let notification_service: Arc<dyn NotificationService> = Arc::new(
+        services::sms::CompositeNotificationService::new(email_service, twilio_service),
+    );
+
     // Capture bind address before moving config fields
     let bind_addr = config.bind_addr();
 
@@ -156,6 +197,7 @@ async fn main() -> Result<()> {
         audit_repo: audit_repo_dashboard,
         signing_key_repo,
         org_service,
+        notification_service,
         allowed_origins: config.allowed_origins,
         issuer_url: config.issuer_url,
         rp_name: config.rp_name,

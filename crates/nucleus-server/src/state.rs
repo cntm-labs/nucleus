@@ -3,6 +3,7 @@ use std::sync::Arc;
 use nucleus_auth::jwt::SigningKeyPair;
 use nucleus_auth::service::AuthService;
 use nucleus_core::clock::Clock;
+use nucleus_core::notification::NotificationService;
 use nucleus_db::repos::api_key_repo::ApiKeyRepository;
 use nucleus_db::repos::audit_repo::AuditRepository;
 use nucleus_db::repos::credential_repo::CredentialRepository;
@@ -35,6 +36,7 @@ pub struct AppState {
     pub audit_repo: Arc<dyn AuditRepository>,
     pub signing_key_repo: Arc<dyn SigningKeyRepository>,
     pub org_service: Arc<OrgService>,
+    pub notification_service: Arc<dyn NotificationService>,
     pub allowed_origins: Vec<String>,
     pub issuer_url: String,
     pub rp_name: String,
@@ -48,6 +50,8 @@ impl AppState {
             user_repo: self.user_repo.clone(),
             session_service: self.session_service.clone(),
             auth_service: self.auth_service.clone(),
+            notification_service: self.notification_service.clone(),
+            base_url: self.issuer_url.clone(),
         }
     }
 
@@ -59,6 +63,8 @@ impl AppState {
             user_repo: self.user_repo.clone(),
             credential_repo: self.credential_repo.clone(),
             session_service: self.session_service.clone(),
+            notification_service: self.notification_service.clone(),
+            base_url: self.issuer_url.clone(),
         }
     }
 
@@ -68,6 +74,7 @@ impl AppState {
             user_repo: self.user_repo.clone(),
             session_service: self.session_service.clone(),
             auth_service: self.auth_service.clone(),
+            notification_service: self.notification_service.clone(),
         }
     }
 

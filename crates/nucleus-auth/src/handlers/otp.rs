@@ -4,6 +4,7 @@ use axum::extract::State;
 use axum::Json;
 use chrono::{DateTime, Utc};
 use nucleus_core::error::{AppError, AuthError, UserError};
+use nucleus_core::notification::NotificationService;
 use nucleus_core::types::ProjectId;
 use nucleus_db::repos::user_repo::UserRepository;
 use nucleus_session::session::{DeviceInfo, SessionService};
@@ -25,6 +26,7 @@ pub struct OtpState {
     pub user_repo: Arc<dyn UserRepository>,
     pub session_service: Arc<SessionService>,
     pub auth_service: Arc<AuthService>,
+    pub notification_service: Arc<dyn NotificationService>,
 }
 
 // ---------------------------------------------------------------------------
@@ -87,11 +89,31 @@ pub async fn handle_send_otp(
             .await
             .map_err(|e| AppError::Internal(e.into()))?;
 
-        // TODO: Send code via email/SMS service
-        tracing::debug!(
-            email = %body.email_or_phone,
-            "OTP generated (delivery not yet wired)"
-        );
+        if body.email_or_phone.contains('@') {
+            let _ = state
+                .notification_service
+                .send_email(
+                    &body.email_or_phone,
+                    "Your verification code",
+                    &format!(
+                        "<p>Your verification code is: <strong>{}</strong>. It expires in 5 minutes.</p>",
+                        generated.code
+                    ),
+                    &format!(
+                        "Your verification code is: {}. It expires in 5 minutes.",
+                        generated.code
+                    ),
+                )
+                .await;
+        } else {
+            let _ = state
+                .notification_service
+                .send_sms(
+                    &body.email_or_phone,
+                    &format!("Your Nucleus code: {}", generated.code),
+                )
+                .await;
+        }
     }
 
     Ok(Json(SendOtpResponse {
