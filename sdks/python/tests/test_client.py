@@ -27,15 +27,35 @@ class TestNucleusClientInit:
 
 class TestNucleusClientVerifyToken:
     def test_delegates_to_verify_token(self, jwks_response):
+        from nucleus.verify import _get_jwks
+        _get_jwks.cache_clear()
         client = NucleusClient(secret_key="sk_test", base_url="https://test.local")
         token = make_token(valid_claims())
         with patch("nucleus.verify._get_jwks", return_value=jwks_response):
-            from nucleus.verify import _get_jwks
-            _get_jwks.cache_clear()
             claims = client.verify_token(token)
 
         assert isinstance(claims, NucleusClaims)
         assert claims.user_id == "user_123"
+
+    def test_forwards_audience_parameter(self, jwks_response):
+        from nucleus.verify import _get_jwks
+        _get_jwks.cache_clear()
+        client = NucleusClient(secret_key="sk_test", base_url="https://test.local")
+        token = make_token(valid_claims(aud="project_456"))
+        with patch("nucleus.verify._get_jwks", return_value=jwks_response):
+            claims = client.verify_token(token, audience="project_456")
+
+        assert claims.project_id == "project_456"
+
+    def test_wrong_audience_via_client_raises(self, jwks_response):
+        import jwt as pyjwt
+        from nucleus.verify import _get_jwks
+        _get_jwks.cache_clear()
+        client = NucleusClient(secret_key="sk_test", base_url="https://test.local")
+        token = make_token(valid_claims(aud="project_456"))
+        with patch("nucleus.verify._get_jwks", return_value=jwks_response):
+            with pytest.raises(pyjwt.InvalidAudienceError):
+                client.verify_token(token, audience="wrong_project")
 
 
 class TestNucleusClaims:
