@@ -42,6 +42,9 @@ on:
         type: boolean
         default: false
 
+permissions:
+  contents: write
+
 jobs:
   # --- npm (4 packages) ---
   npm:
