@@ -9,7 +9,7 @@ Pod::Spec.new do |s|
   s.ios.deployment_target = '16.0'
   s.osx.deployment_target = '13.0'
   s.swift_version = '5.9'
-  s.source_files = 'Sources/NucleusSwift/**/*.swift'
+  s.source_files = 'sdks/swift/Sources/NucleusSwift/**/*.swift'
   s.frameworks = 'Foundation', 'Security'
   s.weak_frameworks = 'SwiftUI', 'Combine', 'AuthenticationServices'
 end
