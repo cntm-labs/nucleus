@@ -1,0 +1,11 @@
+services:
+  playwright:
+    build: .
+    volumes:
+      - ../sdks:/app/../sdks:ro
+      - ./tests:/app/tests:ro
+      - ./app:/app/app:ro
+      - ./playwright.config.ts:/app/playwright.config.ts:ro
+      - ./playwright-report:/app/playwright-report
+    environment:
+      - CI=true

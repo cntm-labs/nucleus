@@ -76,4 +76,4 @@ export interface NucleusAuthResponse {
   session: NucleusSession
 }
 
-export type OAuthProvider = 'google' | 'github' | 'apple' | 'microsoft' | 'discord' | 'slack'
+export type OAuthProvider = 'google' | 'github' | 'apple' | 'microsoft' | 'facebook' | 'discord' | 'twitter' | 'linkedin' | 'slack'

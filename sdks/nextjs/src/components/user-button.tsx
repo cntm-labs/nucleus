@@ -1,6 +1,7 @@
 'use client'
 import React, { useState } from 'react'
 import { useNucleus } from '../provider'
+import { useTranslation } from '../i18n'
 
 export interface UserButtonProps {
   afterSignOutUrl?: string
@@ -9,6 +10,7 @@ export interface UserButtonProps {
 export function UserButton({ afterSignOutUrl = '/' }: UserButtonProps) {
   const { user, isSignedIn, signOut } = useNucleus()
   const [menuOpen, setMenuOpen] = useState(false)
+  const t = useTranslation()
 
   if (!isSignedIn || !user) return null
 
@@ -41,7 +43,7 @@ export function UserButton({ afterSignOutUrl = '/' }: UserButtonProps) {
           }} style={{
             width: '100%', padding: '8px 12px', border: 'none', background: 'none',
             textAlign: 'left', cursor: 'pointer', borderRadius: 4, fontSize: 14, color: '#dc2626',
-          }}>Sign Out</button>
+          }}>{t('userButton.signOut')}</button>
         </div>
       )}
     </div>

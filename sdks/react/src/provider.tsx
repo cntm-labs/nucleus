@@ -2,6 +2,8 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import type { NucleusUser, NucleusSession, NucleusOrganization, AppearanceConfig } from './client/types'
 import { NucleusApi } from './client/api'
 import { SessionManager } from './client/session'
+import { I18nContext, type Locale } from './i18n'
+import { en } from './i18n/locales/en'
 
 export interface NucleusContextValue {
   user: NucleusUser | null
@@ -29,10 +31,11 @@ export interface NucleusProviderProps {
   publishableKey: string
   baseUrl?: string
   appearance?: AppearanceConfig
+  locale?: Locale
   children: ReactNode
 }
 
-export function NucleusProvider({ publishableKey, baseUrl, appearance, children }: NucleusProviderProps) {
+export function NucleusProvider({ publishableKey, baseUrl, appearance, locale, children }: NucleusProviderProps) {
   const [user, setUser] = useState<NucleusUser | null>(null)
   const [session, setSession] = useState<NucleusSession | null>(null)
   const [organization, setOrganization] = useState<NucleusOrganization | null>(null)
@@ -95,6 +98,8 @@ export function NucleusProvider({ publishableKey, baseUrl, appearance, children 
       }, {})
     : undefined
 
+  const content = cssVars ? <div style={cssVars as React.CSSProperties}>{children}</div> : children
+
   return (
     <NucleusContext.Provider
       value={{
@@ -105,7 +110,9 @@ export function NucleusProvider({ publishableKey, baseUrl, appearance, children 
         _setUser: setUser, _setSession: setSession, _setOrganization: setOrganization,
       }}
     >
-      {cssVars ? <div style={cssVars as React.CSSProperties}>{children}</div> : children}
+      <I18nContext.Provider value={locale ?? en}>
+        {content}
+      </I18nContext.Provider>
     </NucleusContext.Provider>
   )
 }

@@ -1,0 +1,22 @@
+{
+  "name": "nucleus-e2e",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite app",
+    "build": "vite build app",
+    "test": "playwright test",
+    "test:docker": "docker compose up --build --abort-on-container-exit --exit-code-from playwright"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.52.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-router-dom": "^7.6.0",
+    "typescript": "~5.7.0",
+    "vite": "^6.0.0",
+    "@vitejs/plugin-react": "^4.0.0"
+  }
+}

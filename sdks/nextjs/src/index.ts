@@ -43,6 +43,12 @@ export type { OrgSwitcherProps } from './components/org-switcher'
 export { OrgProfile } from './components/org-profile'
 export type { OrgProfileProps } from './components/org-profile'
 
+// i18n
+export { useTranslation, I18nContext } from './i18n'
+export type { Locale } from './i18n'
+export { en } from './i18n/locales/en'
+export { th } from './i18n/locales/th'
+
 // Client utilities
 export { NucleusApi } from './client/api'
 export { getSessionToken, getRefreshToken, getExpiresAt, setSessionTokens, clearSessionTokens } from './client/session'

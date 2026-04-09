@@ -3,6 +3,8 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import type { NucleusUser, NucleusSession, NucleusOrganization } from './client/types'
 import { NucleusApi } from './client/api'
 import { getSessionToken, getRefreshToken, getExpiresAt, setSessionTokens, clearSessionTokens, autoRefresh } from './client/session'
+import { I18nContext, type Locale } from './i18n'
+import { en } from './i18n/locales/en'
 
 export interface NucleusContextValue {
   user: NucleusUser | null
@@ -27,10 +29,11 @@ const NucleusContext = createContext<NucleusContextValue | null>(null)
 export interface NucleusProviderProps {
   publishableKey: string
   baseUrl?: string
+  locale?: Locale
   children: ReactNode
 }
 
-export function NucleusProvider({ publishableKey, baseUrl, children }: NucleusProviderProps) {
+export function NucleusProvider({ publishableKey, baseUrl, locale, children }: NucleusProviderProps) {
   const [user, setUser] = useState<NucleusUser | null>(null)
   const [session, setSession] = useState<NucleusSession | null>(null)
   const [organization, setOrganization] = useState<NucleusOrganization | null>(null)
@@ -112,7 +115,9 @@ export function NucleusProvider({ publishableKey, baseUrl, children }: NucleusPr
         _setUser: setUser, _setSession: setSession, _setOrganization: setOrganization,
       }}
     >
-      {children}
+      <I18nContext.Provider value={locale ?? en}>
+        {children}
+      </I18nContext.Provider>
     </NucleusContext.Provider>
   )
 }

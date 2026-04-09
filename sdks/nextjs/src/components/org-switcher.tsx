@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react'
 import { useOrganizationList } from '../hooks/use-organization-list'
 import { useNucleus } from '../provider'
 import { useStyles } from './appearance'
+import { useTranslation } from '../i18n'
 
 export interface OrgSwitcherProps {
   afterCreateUrl?: string
@@ -16,6 +17,7 @@ export function OrgSwitcher(_props: OrgSwitcherProps) {
   const [newName, setNewName] = useState('')
   const [newSlug, setNewSlug] = useState('')
   const s = useStyles()
+  const t = useTranslation()
 
   useEffect(() => { if (isOpen) fetchOrganizations().catch(() => {}) }, [isOpen, fetchOrganizations])
 
@@ -33,14 +35,14 @@ export function OrgSwitcher(_props: OrgSwitcherProps) {
       <button onClick={() => setIsOpen(!isOpen)} style={{
         padding: '8px 16px', border: '1px solid var(--nucleus-border, #d1d5db)',
         borderRadius: 'var(--nucleus-radius, 6px)', background: 'white', cursor: 'pointer', fontSize: 14, fontWeight: 500,
-      }}>{organization?.name ?? 'Select Organization'}</button>
+      }}>{organization?.name ?? t('orgSwitcher.select')}</button>
       {isOpen && (
         <div style={{
           position: 'absolute', top: 44, left: 0, background: 'white',
           border: '1px solid #e5e7eb', borderRadius: 8, padding: 4, minWidth: 220,
           boxShadow: '0 4px 12px rgba(0,0,0,0.1)', zIndex: 50,
         }}>
-          {isLoading && <div style={{ padding: '8px 12px', color: '#9ca3af', fontSize: 13 }}>Loading...</div>}
+          {isLoading && <div style={{ padding: '8px 12px', color: '#9ca3af', fontSize: 13 }}>{t('orgSwitcher.loading')}</div>}
           {!showCreate && organizations.map(org => (
             <button key={org.id} onClick={() => { setActiveOrganization(org); setIsOpen(false) }} style={{
               width: '100%', padding: '8px 12px', border: 'none',
@@ -55,18 +57,18 @@ export function OrgSwitcher(_props: OrgSwitcherProps) {
                 width: '100%', padding: '8px 12px', border: 'none', background: 'none',
                 textAlign: 'left', cursor: 'pointer', borderRadius: 4, fontSize: 14,
                 color: 'var(--nucleus-primary, #4c6ef5)',
-              }}>+ Create Organization</button>
+              }}>{t('orgSwitcher.create')}</button>
             </>
           )}
           {showCreate && (
             <form onSubmit={handleCreate} style={{ padding: 8 }}>
-              <input type="text" placeholder="Name" value={newName}
+              <input type="text" placeholder={t('orgSwitcher.name')} value={newName}
                 onChange={e => { setNewName(e.target.value); setNewSlug(e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, '-')) }}
                 style={{ ...s.input, fontSize: 13 }} required />
-              <input type="text" placeholder="Slug" value={newSlug} onChange={e => setNewSlug(e.target.value)} style={{ ...s.input, fontSize: 13, marginBottom: 8 }} required />
+              <input type="text" placeholder={t('orgSwitcher.slug')} value={newSlug} onChange={e => setNewSlug(e.target.value)} style={{ ...s.input, fontSize: 13, marginBottom: 8 }} required />
               <div style={{ display: 'flex', gap: 4 }}>
-                <button type="button" onClick={() => setShowCreate(false)} style={{ ...s.secondaryButton, flex: 1, fontSize: 13 }}>Cancel</button>
-                <button type="submit" style={{ ...s.button, flex: 1, fontSize: 13 }}>Create</button>
+                <button type="button" onClick={() => setShowCreate(false)} style={{ ...s.secondaryButton, flex: 1, fontSize: 13 }}>{t('orgSwitcher.cancel')}</button>
+                <button type="submit" style={{ ...s.button, flex: 1, fontSize: 13 }}>{t('orgSwitcher.createButton')}</button>
               </div>
             </form>
           )}

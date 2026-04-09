@@ -49,6 +49,9 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 metrics = "0.24"
 metrics-exporter-prometheus = "0.16"
 
+# HTTP client
+reqwest = { version = "0.12", features = ["json"] }
+
 # Config
 dotenvy = "0.15"
 
@@ -60,6 +63,7 @@ uuid = { version = "1", features = ["v4", "serde"] }
 thiserror = "2"
 anyhow = "1"
 url = "2"
+quick-xml = { version = "0.37", features = ["serialize"] }
 urlencoding = "2"
 base64 = "0.22"
 rand = "0.8"

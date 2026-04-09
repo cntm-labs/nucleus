@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useNucleus } from '../provider'
 import { useSessionList } from '../hooks/use-session-list'
 import { useStyles } from './appearance'
+import { useTranslation } from '../i18n'
 
 export interface UserButtonProps {
   afterSignOutUrl?: string
@@ -13,6 +14,7 @@ export function UserButton({ afterSignOutUrl = '/', showSessions = false }: User
   const { sessions, fetchSessions, switchSession } = useSessionList()
   const [menuOpen, setMenuOpen] = useState(false)
   const s = useStyles()
+  const t = useTranslation()
 
   useEffect(() => {
     if (menuOpen && showSessions) {
@@ -53,7 +55,7 @@ export function UserButton({ afterSignOutUrl = '/', showSessions = false }: User
 
           {showSessions && sessions.length > 1 && (
             <div style={{ borderBottom: '1px solid #f3f4f6', marginBottom: 4, paddingBottom: 4 }}>
-              <div style={{ fontSize: 11, color: '#9ca3af', padding: '4px 12px', textTransform: 'uppercase' }}>Sessions</div>
+              <div style={{ fontSize: 11, color: '#9ca3af', padding: '4px 12px', textTransform: 'uppercase' }}>{t('userButton.sessions')}</div>
               {sessions.map(sess => (
                 <button
                   key={sess.id}
@@ -81,7 +83,7 @@ export function UserButton({ afterSignOutUrl = '/', showSessions = false }: User
               color: '#dc2626',
             }}
           >
-            Sign Out
+            {t('userButton.signOut')}
           </button>
         </div>
       )}

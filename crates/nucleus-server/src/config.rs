@@ -16,6 +16,12 @@ pub struct Config {
     pub rate_limit_auth_window_secs: u64,
     pub rate_limit_api_max: u32,
     pub rate_limit_api_window_secs: u64,
+    pub sendgrid_api_key: Option<String>,
+    pub from_email: String,
+    pub from_name: String,
+    pub twilio_account_sid: Option<String>,
+    pub twilio_auth_token: Option<String>,
+    pub twilio_from_number: Option<String>,
 }
 
 impl Config {
@@ -72,6 +78,14 @@ impl Config {
             .and_then(|v| v.parse().ok())
             .unwrap_or(60);
 
+        let sendgrid_api_key = std::env::var("SENDGRID_API_KEY").ok();
+        let from_email =
+            std::env::var("FROM_EMAIL").unwrap_or_else(|_| "noreply@nucleus.dev".to_string());
+        let from_name = std::env::var("FROM_NAME").unwrap_or_else(|_| "Nucleus".to_string());
+        let twilio_account_sid = std::env::var("TWILIO_ACCOUNT_SID").ok();
+        let twilio_auth_token = std::env::var("TWILIO_AUTH_TOKEN").ok();
+        let twilio_from_number = std::env::var("TWILIO_FROM_NUMBER").ok();
+
         if master_encryption_key.iter().all(|&b| b == 0) {
             anyhow::bail!("MASTER_ENCRYPTION_KEY must not be all zeros");
         }
@@ -92,6 +106,12 @@ impl Config {
             rate_limit_auth_window_secs,
             rate_limit_api_max,
             rate_limit_api_window_secs,
+            sendgrid_api_key,
+            from_email,
+            from_name,
+            twilio_account_sid,
+            twilio_auth_token,
+            twilio_from_number,
         })
     }
 
