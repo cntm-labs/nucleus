@@ -1,4 +1,4 @@
-# nucleus-rs
+# cntm-nucleus
 
 > **Warning: DEV PREVIEW** — This crate is under active development
 > and is NOT ready for production use. APIs may change without notice.
@@ -9,13 +9,13 @@ Nucleus authentication SDK for Rust.
 ## Installation
 
 ```bash
-cargo add nucleus-rs@0.1.0-dev.1
+cargo add cntm-nucleus@0.1.0
 ```
 
 ## Quick Start
 
 ```rust
-use nucleus_rs::NucleusClient;
+use cntm_nucleus::NucleusClient;
 
 let client = NucleusClient::new("sk_...");
 let claims = client.verify_session(&token).await?;

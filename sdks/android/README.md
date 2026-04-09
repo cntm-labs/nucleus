@@ -9,7 +9,7 @@ Nucleus authentication SDK for Android (Kotlin + Jetpack Compose).
 ## Installation
 
 ```groovy
-implementation 'io.github.cntm-labs:nucleus-android:0.1.0-dev.1'
+implementation 'io.github.cntm-labs:nucleus-android:0.1.0'
 ```
 
 ## Quick Start

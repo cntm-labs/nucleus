@@ -1,4 +1,4 @@
-# cntm-labs-nucleus
+# cntm-nucleus
 
 > **Warning: DEV PREVIEW** — This package is under active development
 > and is NOT ready for production use. APIs may change without notice.
@@ -9,7 +9,7 @@ Nucleus authentication SDK for Python.
 ## Installation
 
 ```bash
-pip install cntm-labs-nucleus==0.1.0.dev1
+pip install cntm-nucleus==0.1.0
 ```
 
 ## Quick Start

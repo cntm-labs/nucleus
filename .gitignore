@@ -1,6 +1,7 @@
 /target
 dashboard/node_modules
 node_modules/
+/docs
 
 # Secrets & credentials — NEVER commit these
 .env

@@ -1,4 +1,4 @@
-# nucleus_flutter
+# cntm_nucleus
 
 > **Warning: DEV PREVIEW** — This package is under active development
 > and is NOT ready for production use. APIs may change without notice.
@@ -9,13 +9,13 @@ Nucleus authentication SDK for Flutter.
 ## Installation
 
 ```bash
-flutter pub add nucleus_flutter:0.1.0-dev.1
+flutter pub add cntm_nucleus:0.1.0
 ```
 
 ## Quick Start
 
 ```dart
-import 'package:nucleus_flutter/nucleus_flutter.dart';
+import 'package:cntm_nucleus/cntm_nucleus.dart';
 
 final nucleus = NucleusClient(publishableKey: 'pk_...');
 final session = await nucleus.getSession();

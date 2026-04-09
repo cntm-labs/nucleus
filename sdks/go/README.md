@@ -1,4 +1,4 @@
-# nucleus-go
+# cntm-nucleus-go
 
 > **Warning: DEV PREVIEW** — This module is under active development
 > and is NOT ready for production use. APIs may change without notice.
@@ -9,7 +9,7 @@ Nucleus authentication SDK for Go.
 ## Installation
 
 ```bash
-go get github.com/cntm-labs/nucleus/sdks/go@v0.1.0-dev.1
+go get github.com/cntm-labs/nucleus/sdks/go@v0.1.0
 ```
 
 ## Quick Start

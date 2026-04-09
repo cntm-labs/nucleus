@@ -61,6 +61,6 @@ jobs:
     uses: ./.github/workflows/sdk-publish.yml
     with:
       sdk: all
-      version: ''
+      version: '0.2.0'
       dry_run: false
     secrets: inherit
