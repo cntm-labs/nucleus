@@ -1176,7 +1176,7 @@ dependencies = [
 
 [[package]]
 name = "nucleus-rs"
-version = "0.1.0-dev.1"
+version = "0.2.0"
 dependencies = [
  "actix-service",
  "actix-web",
