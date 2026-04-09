@@ -285,10 +285,10 @@ jobs:
           ORG_GRADLE_PROJECT_ossrhPassword: ${{ secrets.MAVEN_PASSWORD }}
           ORG_GRADLE_PROJECT_signingKeyId: ${{ secrets.MAVEN_GPG_KEY_ID }}
           ORG_GRADLE_PROJECT_signingPassword: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
-        run: cd ${{ matrix.path }} && gradle publishReleasePublicationToMavenCentralRepository --info
+        run: cd ${{ matrix.path }} && ./gradlew publishReleasePublicationToMavenCentralRepository --info
       - name: Dry run
         if: inputs.dry_run == true
-        run: cd ${{ matrix.path }} && gradle assembleRelease
+        run: cd ${{ matrix.path }} && ./gradlew assembleRelease
 
   # --- Swift (CocoaPods) ---
   swift:
@@ -320,22 +320,24 @@ jobs:
           go-version: '1.21'
       - name: Verify module
         run: cd sdks/go && go vet ./...
-      - name: Trigger pkg.go.dev indexing
+      - name: Create Go module tag and trigger indexing
         if: inputs.dry_run == false
         env:
           SDK_VERSION: ${{ inputs.version }}
         run: |
-          echo "Checking if Go module tag exists..."
-          if git tag -l | grep -q "cntm-nucleus-go-v${SDK_VERSION}"; then
-            echo "Tag cntm-nucleus-go-v${SDK_VERSION} exists"
+          GO_TAG="sdks/go/v${SDK_VERSION}"
+          echo "Go module tag must be: ${GO_TAG}"
+          if git tag -l | grep -qx "${GO_TAG}"; then
+            echo "Tag ${GO_TAG} already exists"
           else
-            echo "ERROR: Tag cntm-nucleus-go-v${SDK_VERSION} does not exist!"
-            echo "Go modules are published via git tags. Create the tag first."
-            exit 1
+            echo "Creating tag ${GO_TAG}..."
+            git tag "${GO_TAG}"
+            git push origin "${GO_TAG}"
           fi
           echo "Triggering pkg.go.dev fetch..."
+          sleep 10
           curl -sf "https://proxy.golang.org/github.com/cntm-labs/nucleus/sdks/go/@v/v${SDK_VERSION}.info" \
-            || { echo "ERROR: pkg.go.dev could not index module"; exit 1; }
+            || echo "WARN: pkg.go.dev may take a few minutes to index"
       - name: Dry run
         if: inputs.dry_run == true
         env:
