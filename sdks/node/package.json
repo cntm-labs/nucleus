@@ -1,8 +1,16 @@
 {
   "name": "@cntm-labs/nucleus-node",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Nucleus authentication SDK for Node.js.",
-  "keywords": ["authentication", "auth", "nucleus", "sdk", "node", "express", "fastify"],
+  "keywords": [
+    "authentication",
+    "auth",
+    "nucleus",
+    "sdk",
+    "node",
+    "express",
+    "fastify"
+  ],
   "license": "MIT",
   "author": "cntm-labs",
   "repository": {
@@ -11,7 +19,9 @@
     "directory": "sdks/node"
   },
   "homepage": "https://github.com/cntm-labs/nucleus",
-  "publishConfig": { "access": "public" },
+  "publishConfig": {
+    "access": "public"
+  },
   "sideEffects": false,
   "type": "module",
   "main": "./dist/cjs/index.js",
@@ -39,7 +49,11 @@
       "types": "./dist/hono.d.ts"
     }
   },
-  "files": ["dist", "LICENSE", "README.md"],
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
@@ -56,9 +70,15 @@
     "hono": ">=4"
   },
   "peerDependenciesMeta": {
-    "express": { "optional": true },
-    "fastify": { "optional": true },
-    "hono": { "optional": true }
+    "express": {
+      "optional": true
+    },
+    "fastify": {
+      "optional": true
+    },
+    "hono": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "typescript": "~5.7.0",
@@ -67,5 +87,7 @@
     "@types/node": "^22.0.0",
     "vitest": "^3.0.0"
   },
-  "engines": { "node": ">=18" }
+  "engines": {
+    "node": ">=18"
+  }
 }
