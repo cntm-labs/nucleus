@@ -167,7 +167,7 @@ public class ApiClient {
         async(cb, () -> NucleusSession.fromJson(post("/v1/sessions/refresh", new JSONObject().put("refresh_token", refreshToken))));
     }
 
-    public NucleusSession refreshSessionSync(String refreshToken) throws NucleusException {
+    public NucleusSession refreshSessionSync(String refreshToken) throws NucleusException, org.json.JSONException {
         return NucleusSession.fromJson(post("/v1/sessions/refresh", new JSONObject().put("refresh_token", refreshToken)));
     }
 
