@@ -1,8 +1,15 @@
 {
   "name": "@cntm-labs/nucleus-react",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Nucleus authentication SDK for React.",
-  "keywords": ["authentication", "auth", "nucleus", "sdk", "react", "hooks"],
+  "keywords": [
+    "authentication",
+    "auth",
+    "nucleus",
+    "sdk",
+    "react",
+    "hooks"
+  ],
   "license": "MIT",
   "author": "cntm-labs",
   "repository": {
