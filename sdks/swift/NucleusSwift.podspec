@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
-  s.name         = 'NucleusSwift'
-  s.version      = '0.1.0.dev1'
+  s.name         = 'CntmNucleus'
+  s.version      = '0.1.0'
   s.summary      = 'Nucleus authentication SDK for iOS/macOS.'
   s.homepage     = 'https://github.com/cntm-labs/nucleus'
   s.license      = { :type => 'MIT', :file => 'LICENSE' }
@@ -9,5 +9,5 @@ Pod::Spec.new do |s|
   s.ios.deployment_target = '16.0'
   s.osx.deployment_target = '13.0'
   s.swift_version = '5.9'
-  s.source_files = 'Sources/NucleusSwift/**/*.swift'
+  s.source_files = 'Sources/CntmNucleus/**/*.swift'
 end

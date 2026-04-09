@@ -19,9 +19,9 @@ on:
           - swift
           - go
       version:
-        description: 'Version to publish (e.g. 0.1.0-dev.2)'
+        description: 'Version to publish (e.g. 0.2.0)'
         required: true
-        default: '0.1.0-dev.1'
+        default: '0.1.0'
       dry_run:
         description: 'Dry run (do not actually publish)'
         required: false

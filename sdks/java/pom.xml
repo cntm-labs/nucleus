@@ -3,9 +3,9 @@
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <groupId>io.github.cntm-labs</groupId>
-  <artifactId>nucleus-java</artifactId>
-  <version>0.1.0-dev.1</version>
-  <name>nucleus-java</name>
+  <artifactId>nucleus</artifactId>
+  <version>0.1.0</version>
+  <name>nucleus</name>
   <description>Nucleus authentication SDK for Java/Spring Boot.</description>
   <url>https://github.com/cntm-labs/nucleus</url>
 

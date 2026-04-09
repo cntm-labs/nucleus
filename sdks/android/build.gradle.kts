@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "io.github.cntm-labs"
-version = "0.1.0-dev.1"
+version = "0.1.0"
 
 android {
     namespace = "dev.nucleus"

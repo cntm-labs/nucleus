@@ -5,8 +5,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <RootNamespace>Nucleus</RootNamespace>
-    <PackageId>CntmLabs.Nucleus</PackageId>
-    <Version>0.1.0-dev.1</Version>
+    <PackageId>Cntm.Nucleus</PackageId>
+    <Version>0.1.0</Version>
     <Authors>cntm-labs</Authors>
     <Description>Nucleus authentication SDK for .NET.</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>

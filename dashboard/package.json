@@ -1,5 +1,5 @@
 {
-  "name": "@nucleus/dashboard",
+  "name": "@cntm-labs/nucleus-observation",
   "private": true,
   "version": "0.1.0",
   "type": "module",

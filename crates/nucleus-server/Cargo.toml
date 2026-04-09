@@ -1,5 +1,5 @@
 [package]
-name = "nucleus-server"
+name = "cntm-nucleus-server"
 version = "0.1.0"
 license = "MIT"
 edition = "2021"
