@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.1](https://github.com/cntm-labs/nucleus/compare/Cntm.Nucleus-v0.2.0...Cntm.Nucleus-v0.2.1) (2026-04-09)
+
+
+### Bug Fixes
+
+* resolve remaining SDK build failures for registry publish ([#62](https://github.com/cntm-labs/nucleus/issues/62)) ([9042feb](https://github.com/cntm-labs/nucleus/commit/9042febb25a8684a14d0aa4a3645cfbdf22aa49e))
+* resolve SDK build failures blocking registry publish ([#60](https://github.com/cntm-labs/nucleus/issues/60)) ([18559e0](https://github.com/cntm-labs/nucleus/commit/18559e03f672e9013603f6021d677c8ae5cf5be8))
+
 ## [0.2.0](https://github.com/cntm-labs/nucleus/compare/Cntm.Nucleus-v0.1.0...Cntm.Nucleus-v0.2.0) (2026-04-09)
 
 
