@@ -21,38 +21,57 @@ public struct NucleusOrgSwitcher: View {
 
     public var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            if organizations.isEmpty {
-                Text("No organizations")
-                    .foregroundStyle(.secondary)
-            } else {
-                ForEach(organizations, id: \.id) { org in
-                    Button {
-                        Task { await switchTo(org) }
-                    } label: {
-                        HStack {
-                            orgAvatar(org)
-                            Text(org.name)
-                                .lineLimit(1)
-                            Spacer()
-                            if auth.organization?.id == org.id {
-                                Image(systemName: "checkmark")
-                                    .foregroundStyle(.accentColor)
-                            }
-                        }
-                        .contentShape(Rectangle())
-                        .padding(.vertical, 6)
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(isLoading)
-                }
-            }
+            orgList
+            errorView
+        }
+    }
 
-            if let errorMessage {
-                Text(errorMessage)
-                    .foregroundStyle(.red)
-                    .font(.footnote)
+    // MARK: - Sub-views
+
+    @ViewBuilder
+    private var orgList: some View {
+        if organizations.isEmpty {
+            Text("No organizations")
+                .foregroundStyle(.secondary)
+        } else {
+            ForEach(organizations, id: \.id) { org in
+                orgRow(org)
             }
         }
+    }
+
+    @ViewBuilder
+    private var errorView: some View {
+        if let errorMessage {
+            Text(errorMessage)
+                .foregroundStyle(.red)
+                .font(.footnote)
+        }
+    }
+
+    private func orgRow(_ org: NucleusOrganization) -> some View {
+        Button {
+            Task { await switchTo(org) }
+        } label: {
+            orgRowLabel(org)
+        }
+        .buttonStyle(.plain)
+        .disabled(isLoading)
+    }
+
+    private func orgRowLabel(_ org: NucleusOrganization) -> some View {
+        HStack {
+            orgAvatar(org)
+            Text(org.name)
+                .lineLimit(1)
+            Spacer()
+            if auth.organization?.id == org.id {
+                Image(systemName: "checkmark")
+                    .foregroundStyle(Color.accentColor)
+            }
+        }
+        .contentShape(Rectangle())
+        .padding(.vertical, 6)
     }
 
     // MARK: - Private
