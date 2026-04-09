@@ -1,6 +1,6 @@
 {
-  "name": "@cntm-labs/js",
-  "version": "0.1.0-dev.1",
+  "name": "@cntm-labs/nucleus-js",
+  "version": "0.1.0",
   "description": "Nucleus authentication SDK for JavaScript.",
   "keywords": ["authentication", "auth", "nucleus", "sdk", "jwt", "oauth"],
   "license": "MIT",

@@ -15,10 +15,8 @@ public enum Nucleus {
     private static var warned = false
     static func printDevWarning() {
         guard !warned else { return }
-        let version = "0.1.0-dev.1"
-        if version.contains("dev") {
-            print("[Nucleus] WARNING: You are using a dev preview (\(version)). Do not use in production.")
-        }
+        let version = "0.1.0"
+        _ = version
         warned = true
     }
 

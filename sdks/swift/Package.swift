@@ -3,25 +3,25 @@
 import PackageDescription
 
 let package = Package(
-    name: "NucleusSwift",
+    name: "CntmNucleus",
     platforms: [
         .iOS(.v16),
         .macOS(.v13),
     ],
     products: [
         .library(
-            name: "NucleusSwift",
-            targets: ["NucleusSwift"]
+            name: "CntmNucleus",
+            targets: ["CntmNucleus"]
         ),
     ],
     targets: [
         .target(
-            name: "NucleusSwift",
-            path: "Sources/NucleusSwift"
+            name: "CntmNucleus",
+            path: "Sources/CntmNucleus"
         ),
         .testTarget(
-            name: "NucleusSwiftTests",
-            dependencies: ["NucleusSwift"]
+            name: "CntmNucleusTests",
+            dependencies: ["CntmNucleus"]
         ),
     ]
 )

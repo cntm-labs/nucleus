@@ -3,8 +3,8 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "cntm-labs-nucleus"
-version = "0.1.0.dev1"
+name = "cntm-nucleus"
+version = "0.1.0"
 description = "Nucleus authentication SDK for Python."
 license = {text = "MIT"}
 authors = [{name = "cntm-labs", email = "dev@cntm-labs.dev"}]

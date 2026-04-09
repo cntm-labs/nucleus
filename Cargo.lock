@@ -367,6 +367,40 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c8d4a3bb8b1e0c1050499d1815f5ab16d04f0959b233085fb31653fbfc9d98f9"
 
 [[package]]
+name = "cntm-nucleus-server"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "axum",
+ "base64",
+ "chrono",
+ "dotenvy",
+ "hex",
+ "jsonwebtoken",
+ "nucleus-admin-api",
+ "nucleus-auth",
+ "nucleus-core",
+ "nucleus-db",
+ "nucleus-identity",
+ "nucleus-migrate",
+ "nucleus-org",
+ "nucleus-session",
+ "nucleus-webhook",
+ "redis",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "sha2",
+ "sqlx",
+ "tokio",
+ "tower-http",
+ "tracing",
+ "tracing-subscriber",
+ "uuid",
+]
+
+[[package]]
 name = "combine"
 version = "4.6.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1688,40 +1722,6 @@ dependencies = [
  "thiserror",
  "tokio",
  "tracing",
- "uuid",
-]
-
-[[package]]
-name = "nucleus-server"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "axum",
- "base64",
- "chrono",
- "dotenvy",
- "hex",
- "jsonwebtoken",
- "nucleus-admin-api",
- "nucleus-auth",
- "nucleus-core",
- "nucleus-db",
- "nucleus-identity",
- "nucleus-migrate",
- "nucleus-org",
- "nucleus-session",
- "nucleus-webhook",
- "redis",
- "reqwest",
- "serde",
- "serde_json",
- "sha2",
- "sqlx",
- "tokio",
- "tower-http",
- "tracing",
- "tracing-subscriber",
  "uuid",
 ]
 

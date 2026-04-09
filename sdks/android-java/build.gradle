@@ -4,7 +4,7 @@ plugins {
 }
 
 group = 'io.github.cntm-labs'
-version = '0.1.0-dev.1'
+version = '0.1.0'
 android {
     namespace 'dev.nucleus.java'
     compileSdk 34
@@ -30,7 +30,7 @@ afterEvaluate {
             release(MavenPublication) {
                 from components.release
                 groupId = 'io.github.cntm-labs'
-                artifactId = 'nucleus-android-java'
+                artifactId = 'nucleus-java'
                 version = project.version
 
                 pom {

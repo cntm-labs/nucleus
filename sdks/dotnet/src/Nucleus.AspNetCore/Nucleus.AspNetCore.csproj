@@ -5,8 +5,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <RootNamespace>Nucleus.AspNetCore</RootNamespace>
-    <PackageId>CntmLabs.Nucleus.AspNetCore</PackageId>
-    <Version>0.1.0-dev.1</Version>
+    <PackageId>Cntm.Nucleus.AspNetCore</PackageId>
+    <Version>0.1.0</Version>
     <Authors>cntm-labs</Authors>
     <Description>Nucleus authentication middleware for ASP.NET Core.</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>

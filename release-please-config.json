@@ -4,77 +4,77 @@
   "packages": {
     "crates/nucleus-server": {
       "release-type": "rust",
-      "component": "nucleus-server",
+      "component": "cntm-nucleus-server",
       "changelog-path": "CHANGELOG.md"
     },
     "sdks/js": {
       "release-type": "node",
-      "component": "@cntm-labs/js",
+      "component": "@cntm-labs/nucleus-js",
       "changelog-path": "CHANGELOG.md"
     },
     "sdks/node": {
       "release-type": "node",
-      "component": "@cntm-labs/node",
+      "component": "@cntm-labs/nucleus-node",
       "changelog-path": "CHANGELOG.md"
     },
     "sdks/react": {
       "release-type": "node",
-      "component": "@cntm-labs/react",
+      "component": "@cntm-labs/nucleus-react",
       "changelog-path": "CHANGELOG.md"
     },
     "sdks/nextjs": {
       "release-type": "node",
-      "component": "@cntm-labs/nextjs",
+      "component": "@cntm-labs/nucleus-nextjs",
       "changelog-path": "CHANGELOG.md"
     },
     "sdks/python": {
       "release-type": "python",
-      "component": "cntm-labs-nucleus",
+      "component": "cntm-nucleus-python",
       "changelog-path": "CHANGELOG.md"
     },
     "sdks/rust": {
       "release-type": "rust",
-      "component": "nucleus-rs",
+      "component": "cntm-nucleus",
       "changelog-path": "CHANGELOG.md"
     },
     "sdks/flutter": {
       "release-type": "dart",
-      "component": "nucleus_flutter",
+      "component": "cntm-nucleus-flutter",
       "changelog-path": "CHANGELOG.md"
     },
     "sdks/dotnet": {
       "release-type": "simple",
-      "component": "CntmLabs.Nucleus",
+      "component": "Cntm.Nucleus",
       "changelog-path": "CHANGELOG.md"
     },
     "sdks/java": {
       "release-type": "maven",
-      "component": "nucleus-java",
+      "component": "cntm-nucleus-java",
       "changelog-path": "CHANGELOG.md"
     },
     "sdks/android": {
       "release-type": "simple",
-      "component": "nucleus-android",
+      "component": "cntm-nucleus-android",
       "changelog-path": "CHANGELOG.md"
     },
     "sdks/android-java": {
       "release-type": "simple",
-      "component": "nucleus-android-java",
+      "component": "cntm-nucleus-android-java",
       "changelog-path": "CHANGELOG.md"
     },
     "sdks/swift": {
       "release-type": "simple",
-      "component": "NucleusSwift",
+      "component": "CntmNucleus",
       "changelog-path": "CHANGELOG.md"
     },
     "sdks/go": {
       "release-type": "go",
-      "component": "nucleus-go",
+      "component": "cntm-nucleus-go",
       "changelog-path": "CHANGELOG.md"
     },
     "dashboard": {
       "release-type": "node",
-      "component": "nucleus-dashboard",
+      "component": "@cntm-labs/nucleus-observation",
       "changelog-path": "CHANGELOG.md"
     }
   }
