@@ -2,6 +2,8 @@
 name = "cntm-nucleus-server"
 version = "0.1.0"
 license = "MIT"
+description = "Nucleus authentication server — production-grade auth SaaS"
+repository = "https://github.com/cntm-labs/nucleus"
 edition = "2021"
 
 [dependencies]

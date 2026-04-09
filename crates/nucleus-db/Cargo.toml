@@ -2,6 +2,8 @@
 name = "nucleus-db"
 version = "0.1.0"
 license = "MIT"
+description = "Database repository traits and implementations for Nucleus"
+repository = "https://github.com/cntm-labs/nucleus"
 edition = "2021"
 
 [dependencies]

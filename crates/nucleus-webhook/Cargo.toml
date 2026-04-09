@@ -2,6 +2,8 @@
 name = "nucleus-webhook"
 version = "0.1.0"
 license = "MIT"
+description = "Webhook HMAC signing and delivery for Nucleus"
+repository = "https://github.com/cntm-labs/nucleus"
 edition = "2021"
 
 [dependencies]
