@@ -13,5 +13,5 @@
   "sdks/android-java": "0.2.0",
   "sdks/swift": "0.1.0",
   "sdks/go": "0.1.0",
-  "dashboard": "0.1.0"
+  "dashboard": "0.2.0"
 }
