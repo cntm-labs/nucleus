@@ -1,6 +1,6 @@
 name: nucleus_flutter
 description: "Nucleus authentication SDK for Flutter."
-version: 0.1.0-dev.1
+version: 0.2.0+-dev.1
 homepage: https://github.com/cntm-labs/nucleus
 topics:
   - authentication
