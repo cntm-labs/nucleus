@@ -9,5 +9,5 @@ Pod::Spec.new do |s|
   s.ios.deployment_target = '16.0'
   s.osx.deployment_target = '13.0'
   s.swift_version = '5.9'
-  s.source_files = 'Sources/CntmNucleus/**/*.swift'
+  s.source_files = 'Sources/NucleusSwift/**/*.swift'
 end

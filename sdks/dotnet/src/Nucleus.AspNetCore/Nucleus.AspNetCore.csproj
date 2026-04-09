@@ -4,6 +4,7 @@
     <TargetFrameworks>net6.0;net8.0</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
     <RootNamespace>Nucleus.AspNetCore</RootNamespace>
     <PackageId>Cntm.Nucleus.AspNetCore</PackageId>
     <Version>0.1.0</Version>
