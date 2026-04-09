@@ -297,7 +297,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Validate podspec
-        run: cd sdks/swift && pod lib lint CntmNucleus.podspec --allow-warnings
+        run: cd sdks/swift && pod lib lint CntmNucleus.podspec --allow-warnings --platforms=ios
       - name: Publish
         if: inputs.dry_run == false
         run: cd sdks/swift && pod trunk push CntmNucleus.podspec --allow-warnings
