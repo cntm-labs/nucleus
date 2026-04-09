@@ -1,6 +1,6 @@
 {
   "name": "@cntm-labs/nextjs",
-  "version": "0.1.0-dev.1",
+  "version": "0.2.0",
   "description": "Nucleus authentication SDK for Next.js.",
   "keywords": [
     "authentication",
