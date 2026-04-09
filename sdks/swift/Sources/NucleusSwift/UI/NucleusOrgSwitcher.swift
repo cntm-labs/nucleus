@@ -25,7 +25,7 @@ public struct NucleusOrgSwitcher: View {
                 Text("No organizations")
                     .foregroundStyle(.secondary)
             } else {
-                ForEach(organizations) { org in
+                ForEach(organizations, id: \.id) { org in
                     Button {
                         Task { await switchTo(org) }
                     } label: {

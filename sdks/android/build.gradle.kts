@@ -88,6 +88,16 @@ dependencies {
 
 afterEvaluate {
     publishing {
+        repositories {
+            maven {
+                name = "MavenCentral"
+                url = uri("https://central.sonatype.com/repository/maven-releases/")
+                credentials {
+                    username = System.getenv("MAVEN_USERNAME") ?: ""
+                    password = System.getenv("MAVEN_PASSWORD") ?: ""
+                }
+            }
+        }
         publications {
             create<MavenPublication>("release") {
                 from(components["release"])
