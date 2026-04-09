@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/cntm-labs/nucleus/compare/cntm-nucleus-java-v0.2.0...cntm-nucleus-java-v0.2.1) (2026-04-09)
+
+
+### Bug Fixes
+
+* resolve remaining SDK build failures for registry publish ([#62](https://github.com/cntm-labs/nucleus/issues/62)) ([9042feb](https://github.com/cntm-labs/nucleus/commit/9042febb25a8684a14d0aa4a3645cfbdf22aa49e))
+
 ## [0.2.0](https://github.com/cntm-labs/nucleus/compare/cntm-nucleus-java-v0.1.0...cntm-nucleus-java-v0.2.0) (2026-04-09)
 
 

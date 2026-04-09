@@ -8,7 +8,7 @@
   "sdks/rust": "0.2.0",
   "sdks/flutter": "0.2.0",
   "sdks/dotnet": "0.2.0",
-  "sdks/java": "0.2.0",
+  "sdks/java": "0.2.1",
   "sdks/android": "0.2.0",
   "sdks/android-java": "0.2.1",
   "sdks/swift": "0.1.0",
