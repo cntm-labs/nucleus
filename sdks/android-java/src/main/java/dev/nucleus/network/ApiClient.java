@@ -74,11 +74,12 @@ public class ApiClient {
         executor.execute(() -> {
             try { T result = task.run(); cb.onSuccess(result); }
             catch (NucleusException e) { cb.onError(e); }
+            catch (org.json.JSONException e) { cb.onError(new NucleusException("JSON parse error: " + e.getMessage(), e)); }
         });
     }
 
     @FunctionalInterface
-    interface AsyncTask<T> { T run() throws NucleusException; }
+    interface AsyncTask<T> { T run() throws NucleusException, org.json.JSONException; }
 
     // --- Auth ---
     public void signIn(String email, String password, NucleusCallback<AuthResult> cb) {
