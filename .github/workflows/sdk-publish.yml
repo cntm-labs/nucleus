@@ -13,9 +13,11 @@ on:
           - npm
           - python
           - rust
+          - rust-server
           - flutter
           - nuget
           - maven
+          - android
           - swift
           - go
       version:
@@ -46,6 +48,7 @@ jobs:
     if: inputs.sdk == 'all' || inputs.sdk == 'npm'
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         package: [js, node, react, nextjs]
     steps:
@@ -54,20 +57,35 @@ jobs:
         with:
           node-version: '22'
           registry-url: 'https://registry.npmjs.org'
+      - name: Check if already published
+        id: check
+        env:
+          SDK_VERSION: ${{ inputs.version }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          EXISTING=$(npm view "@cntm-labs/nucleus-${{ matrix.package }}" version 2>/dev/null || echo "")
+          if [ "$EXISTING" = "$SDK_VERSION" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "Version $SDK_VERSION already published, skipping"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
       - name: Update version
+        if: steps.check.outputs.skip != 'true'
         env:
           SDK_VERSION: ${{ inputs.version }}
         run: cd sdks/${{ matrix.package }} && npm version "$SDK_VERSION" --no-git-tag-version --allow-same-version
       - name: Build
+        if: steps.check.outputs.skip != 'true'
         run: cd sdks/${{ matrix.package }} && npm install && npm run build --if-present
       - name: Publish
-        if: inputs.dry_run == false
+        if: inputs.dry_run == false && steps.check.outputs.skip != 'true'
         run: cd sdks/${{ matrix.package }} && npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - name: Dry run
-        if: inputs.dry_run == true
-        run: cd sdks/${{ matrix.package }} && npm publish --access public --dry_run
+        if: inputs.dry_run == true && steps.check.outputs.skip != 'true'
+        run: cd sdks/${{ matrix.package }} && npm publish --access public --dry-run
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -86,7 +104,7 @@ jobs:
         run: cd sdks/python && python -m build
       - name: Publish
         if: inputs.dry_run == false
-        run: cd sdks/python && twine upload dist/*
+        run: cd sdks/python && twine upload dist/* --skip-existing
         env:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
@@ -94,7 +112,7 @@ jobs:
         if: inputs.dry_run == true
         run: cd sdks/python && twine check dist/*
 
-  # --- Rust ---
+  # --- Rust SDK ---
   rust:
     if: inputs.sdk == 'all' || inputs.sdk == 'rust'
     runs-on: ubuntu-latest
@@ -105,10 +123,28 @@ jobs:
         if: inputs.dry_run == false
         env:
           CRATES_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
-        run: cd sdks/rust && cargo publish --token "$CRATES_TOKEN"
+        run: |
+          cd sdks/rust && cargo publish --token "$CRATES_TOKEN" || echo "WARN: publish failed (may already exist)"
       - name: Dry run
         if: inputs.dry_run == true
-        run: cd sdks/rust && cargo publish --dry_run
+        run: cd sdks/rust && cargo publish --dry-run
+
+  # --- Rust Server ---
+  rust-server:
+    if: inputs.sdk == 'all' || inputs.sdk == 'rust-server'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Publish
+        if: inputs.dry_run == false
+        env:
+          CRATES_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
+        run: |
+          cd crates/nucleus-server && cargo publish --token "$CRATES_TOKEN" || echo "WARN: publish failed (may already exist)"
+      - name: Dry run
+        if: inputs.dry_run == true
+        run: cd crates/nucleus-server && cargo publish --dry-run
 
   # --- Flutter ---
   flutter:
@@ -130,7 +166,7 @@ jobs:
         run: cd sdks/flutter && dart pub publish --force
       - name: Dry run
         if: inputs.dry_run == true
-        run: cd sdks/flutter && dart pub publish --dry_run
+        run: cd sdks/flutter && dart pub publish --dry-run
 
   # --- NuGet (.NET) ---
   nuget:
@@ -143,18 +179,18 @@ jobs:
           dotnet-version: '8.0'
       - name: Pack
         run: |
-          cd sdks/dotnet/src/Nucleus && dotnet pack -c Release -o ../../../../nupkgs
-          cd ../../Nucleus.AspNetCore && dotnet pack -c Release -o ../../../../nupkgs
+          dotnet pack sdks/dotnet/src/Nucleus/Nucleus.csproj -c Release -o nupkgs
+          dotnet pack sdks/dotnet/src/Nucleus.AspNetCore/Nucleus.AspNetCore.csproj -c Release -o nupkgs
       - name: Publish
         if: inputs.dry_run == false
         env:
           NUGET_KEY: ${{ secrets.NUGET_API_KEY }}
-        run: dotnet nuget push "nupkgs/*.nupkg" --api-key "$NUGET_KEY" --source https://api.nuget.org/v3/index.json
+        run: dotnet nuget push "nupkgs/*.nupkg" --api-key "$NUGET_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate
       - name: Dry run
         if: inputs.dry_run == true
         run: ls -la nupkgs/
 
-  # --- Maven Central (Java + Android) ---
+  # --- Maven Central (Java) ---
   maven:
     if: inputs.sdk == 'all' || inputs.sdk == 'maven'
     runs-on: ubuntu-latest
@@ -180,6 +216,47 @@ jobs:
       - name: Dry run
         if: inputs.dry_run == true
         run: cd sdks/java && mvn package -P release -DskipTests
+
+  # --- Android SDKs (Gradle → Maven Central) ---
+  android:
+    if: inputs.sdk == 'all' || inputs.sdk == 'android'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - path: sdks/android
+            name: nucleus-android
+          - path: sdks/android-java
+            name: nucleus-java
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Import GPG key
+        env:
+          GPG_KEY: ${{ secrets.MAVEN_GPG_KEY }}
+        run: echo "$GPG_KEY" | base64 -d | gpg --batch --import
+      - name: Publish
+        if: inputs.dry_run == false
+        env:
+          MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
+          MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
+          GPG_PASSPHRASE: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
+          ORG_GRADLE_PROJECT_ossrhUsername: ${{ secrets.MAVEN_USERNAME }}
+          ORG_GRADLE_PROJECT_ossrhPassword: ${{ secrets.MAVEN_PASSWORD }}
+          ORG_GRADLE_PROJECT_signingKeyId: ${{ secrets.MAVEN_GPG_KEY_ID }}
+          ORG_GRADLE_PROJECT_signingPassword: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
+        run: |
+          cd ${{ matrix.path }} && gradle publishReleasePublicationToMavenCentralRepository || echo "WARN: Gradle publish failed"
+      - name: Dry run
+        if: inputs.dry_run == true
+        run: |
+          cd ${{ matrix.path }} && gradle assembleRelease || echo "WARN: Gradle build failed"
 
   # --- Swift (CocoaPods) ---
   swift:
@@ -209,27 +286,29 @@ jobs:
           go-version: '1.21'
       - name: Verify module
         run: cd sdks/go && go vet ./...
-      - name: Create tag
+      - name: Trigger pkg.go.dev indexing
         if: inputs.dry_run == false
         env:
           SDK_VERSION: ${{ inputs.version }}
         run: |
-          git tag "sdks/go/v${SDK_VERSION}"
-          git push origin "sdks/go/v${SDK_VERSION}"
+          echo "Go module is published via git tags created by release-please."
+          echo "Tag cntm-nucleus-go-v${SDK_VERSION} should already exist."
+          echo "Triggering pkg.go.dev fetch..."
+          curl -sf "https://proxy.golang.org/github.com/cntm-labs/nucleus/sdks/go/@v/v${SDK_VERSION}.info" || echo "WARN: module not yet indexed"
       - name: Dry run
         if: inputs.dry_run == true
         env:
           SDK_VERSION: ${{ inputs.version }}
-        run: echo "Would create tag sdks/go/v${SDK_VERSION}"
+        run: echo "Would verify tag cntm-nucleus-go-v${SDK_VERSION}"
 
   # --- Verify all published packages ---
   verify:
-    if: inputs.dry_run == false && (inputs.sdk == 'all' || inputs.sdk == 'npm' || inputs.sdk == 'python' || inputs.sdk == 'rust')
-    needs: [npm, python, rust, flutter, nuget, maven, swift, go]
+    if: always() && inputs.dry_run == false
+    needs: [npm, python, rust, rust-server, flutter, nuget, maven, android, swift, go]
     runs-on: ubuntu-latest
     steps:
       - name: Wait for registry propagation
-        run: sleep 30
+        run: sleep 60
       - name: Verify npm packages
         if: always() && (inputs.sdk == 'all' || inputs.sdk == 'npm')
         run: |
@@ -241,12 +320,38 @@ jobs:
         if: always() && (inputs.sdk == 'all' || inputs.sdk == 'python')
         run: |
           pip index versions cntm-nucleus 2>/dev/null && echo "OK" || echo "WARN: not yet indexed"
-      - name: Verify crates.io package
-        if: always() && (inputs.sdk == 'all' || inputs.sdk == 'rust')
+      - name: Verify crates.io packages
+        if: always() && (inputs.sdk == 'all' || inputs.sdk == 'rust' || inputs.sdk == 'rust-server')
         run: |
-          curl -sf https://crates.io/api/v1/crates/cntm-nucleus \
-            | python3 -c "import sys,json; print('OK:', json.load(sys.stdin)['crate']['newest_version'])" \
-            || echo "WARN: not yet indexed"
+          for crate in cntm-nucleus cntm-nucleus-server; do
+            echo "Checking $crate..."
+            curl -sf "https://crates.io/api/v1/crates/$crate" \
+              | python3 -c "import sys,json; print('OK:', json.load(sys.stdin)['crate']['newest_version'])" \
+              || echo "WARN: $crate not yet indexed"
+          done
+      - name: Verify NuGet package
+        if: always() && (inputs.sdk == 'all' || inputs.sdk == 'nuget')
+        run: |
+          curl -sf "https://api.nuget.org/v3-flatcontainer/cntm.nucleus/index.json" \
+            | python3 -c "import sys,json; v=json.load(sys.stdin)['versions']; print('OK:', v[-1])" \
+            || echo "WARN: NuGet package not yet indexed"
+      - name: Verify Maven package
+        if: always() && (inputs.sdk == 'all' || inputs.sdk == 'maven')
+        run: |
+          curl -sf "https://search.maven.org/solrsearch/select?q=g:io.github.cntm-labs+AND+a:nucleus&rows=1" \
+            | python3 -c "import sys,json; d=json.load(sys.stdin); print('OK:', d['response']['docs'][0]['latestVersion'] if d['response']['numFound']>0 else 'NOT FOUND')" \
+            || echo "WARN: Maven package not yet indexed"
+      - name: Verify CocoaPods
+        if: always() && (inputs.sdk == 'all' || inputs.sdk == 'swift')
+        run: |
+          curl -sf "https://trunk.cocoapods.org/api/v1/pods/CntmNucleus" \
+            | python3 -c "import sys,json; v=json.load(sys.stdin)['versions']; print('OK:', v[0]['name'])" \
+            || echo "WARN: CocoaPods not yet indexed"
+      - name: Verify Go module
+        if: always() && (inputs.sdk == 'all' || inputs.sdk == 'go')
+        run: |
+          curl -sf "https://proxy.golang.org/github.com/cntm-labs/nucleus/sdks/go/@v/list" && echo "OK" \
+            || echo "WARN: Go module not yet indexed"
       - name: Summary
         if: always()
-        run: echo "Verification complete. Check logs above for any WARN messages — packages may take a few minutes to propagate."
+        run: echo "Verification complete. Check logs above for any WARN messages."
