@@ -4,7 +4,7 @@
   "sdks/node": "0.1.0",
   "sdks/react": "0.2.0",
   "sdks/nextjs": "0.1.0",
-  "sdks/python": "0.1.0",
+  "sdks/python": "0.2.0",
   "sdks/rust": "0.2.0",
   "sdks/flutter": "0.2.0",
   "sdks/dotnet": "0.2.0",
