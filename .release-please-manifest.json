@@ -1,6 +1,6 @@
 {
   "crates/nucleus-server": "0.1.0",
-  "sdks/js": "0.1.0",
+  "sdks/js": "0.2.0",
   "sdks/node": "0.1.0",
   "sdks/react": "0.1.0",
   "sdks/nextjs": "0.1.0",
@@ -9,7 +9,7 @@
   "sdks/flutter": "0.1.0",
   "sdks/dotnet": "0.1.0",
   "sdks/java": "0.1.0",
-  "sdks/android": "0.2.0",
+  "sdks/android": "0.1.0",
   "sdks/android-java": "0.2.0",
   "sdks/swift": "0.1.0",
   "sdks/go": "0.2.0",
