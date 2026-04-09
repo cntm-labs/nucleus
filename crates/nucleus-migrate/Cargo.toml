@@ -2,6 +2,8 @@
 name = "nucleus-migrate"
 version = "0.1.0"
 license = "MIT"
+description = "Database migrations for the Nucleus auth platform"
+repository = "https://github.com/cntm-labs/nucleus"
 edition = "2021"
 
 [dependencies]

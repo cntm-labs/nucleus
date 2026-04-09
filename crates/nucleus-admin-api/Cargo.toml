@@ -2,6 +2,8 @@
 name = "nucleus-admin-api"
 version = "0.1.0"
 license = "MIT"
+description = "Admin dashboard API for Nucleus project management"
+repository = "https://github.com/cntm-labs/nucleus"
 edition = "2021"
 
 [dependencies]

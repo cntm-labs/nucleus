@@ -2,6 +2,8 @@
 name = "nucleus-session"
 version = "0.1.0"
 license = "MIT"
+description = "Redis-backed session management for Nucleus"
+repository = "https://github.com/cntm-labs/nucleus"
 edition = "2021"
 
 [dependencies]
