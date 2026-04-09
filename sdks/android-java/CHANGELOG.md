@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/cntm-labs/nucleus/compare/cntm-nucleus-android-java-v0.2.0...cntm-nucleus-android-java-v0.2.1) (2026-04-09)
+
+
+### Bug Fixes
+
+* update all remaining old package name references ([#40](https://github.com/cntm-labs/nucleus/issues/40)) ([6b47ea9](https://github.com/cntm-labs/nucleus/commit/6b47ea9589c00cb0a6280d580a1343c9ef2d14fb))
+
 ## [0.2.0](https://github.com/cntm-labs/nucleus/compare/cntm-nucleus-android-java-v0.1.0...cntm-nucleus-android-java-v0.2.0) (2026-04-09)
 
 
