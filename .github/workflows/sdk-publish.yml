@@ -285,7 +285,7 @@ jobs:
           ORG_GRADLE_PROJECT_ossrhPassword: ${{ secrets.MAVEN_PASSWORD }}
           ORG_GRADLE_PROJECT_signingKeyId: ${{ secrets.MAVEN_GPG_KEY_ID }}
           ORG_GRADLE_PROJECT_signingPassword: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
-        run: cd ${{ matrix.path }} && gradle publishReleasePublicationToMavenCentralRepository
+        run: cd ${{ matrix.path }} && gradle publishReleasePublicationToMavenCentralRepository --info
       - name: Dry run
         if: inputs.dry_run == true
         run: cd ${{ matrix.path }} && gradle assembleRelease
