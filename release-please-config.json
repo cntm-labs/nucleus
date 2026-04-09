@@ -2,11 +2,6 @@
   "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
   "separate-pull-requests": true,
   "packages": {
-    "crates/nucleus-server": {
-      "release-type": "rust",
-      "component": "cntm-nucleus-server",
-      "changelog-path": "CHANGELOG.md"
-    },
     "sdks/js": {
       "release-type": "node",
       "component": "@cntm-labs/nucleus-js",
@@ -70,11 +65,6 @@
     "sdks/go": {
       "release-type": "go",
       "component": "cntm-nucleus-go",
-      "changelog-path": "CHANGELOG.md"
-    },
-    "dashboard": {
-      "release-type": "node",
-      "component": "@cntm-labs/nucleus-observation",
       "changelog-path": "CHANGELOG.md"
     }
   }

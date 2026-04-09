@@ -1,5 +1,4 @@
 {
-  "crates/nucleus-server": "0.1.0",
   "sdks/js": "0.2.0",
   "sdks/node": "0.1.0",
   "sdks/react": "0.2.0",
@@ -12,6 +11,5 @@
   "sdks/android": "0.2.0",
   "sdks/android-java": "0.2.1",
   "sdks/swift": "0.1.0",
-  "sdks/go": "0.2.0",
-  "dashboard": "0.1.0"
+  "sdks/go": "0.2.0"
 }

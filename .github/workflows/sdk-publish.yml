@@ -13,7 +13,6 @@ on:
           - npm
           - python
           - rust
-          - rust-server
           - flutter
           - nuget
           - maven
@@ -138,24 +137,6 @@ jobs:
       - name: Dry run
         if: inputs.dry_run == true
         run: cd sdks/rust && cargo publish --dry-run
-
-  # --- Rust Server ---
-  # NOTE: Requires all internal crates (nucleus-core, nucleus-db, etc.)
-  # to be published to crates.io first. Skip in 'all' mode.
-  rust-server:
-    if: inputs.sdk == 'rust-server'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - name: Publish
-        if: inputs.dry_run == false
-        env:
-          CRATES_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
-        run: cd crates/nucleus-server && cargo publish --token "$CRATES_TOKEN"
-      - name: Dry run
-        if: inputs.dry_run == true
-        run: cd crates/nucleus-server && cargo publish --dry-run
 
   # --- Flutter ---
   flutter:
