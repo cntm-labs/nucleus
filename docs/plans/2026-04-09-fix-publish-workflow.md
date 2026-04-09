@@ -6,6 +6,37 @@
 
 **Root cause:** The sdk-publish.yml workflow had bugs (empty version string, old package names) and release-please created v0.2.0 releases before v0.1.0 existed on some registries.
 
+## Task 0: Clean Up Orphan Tags and Failed Releases (DO THIS FIRST)
+
+### Orphan/broken tags to delete
+```
+sdks/go/v       ← broken empty tag (Go publish with empty version)
+sdks/go/v0.2.0  ← orphan tag (no matching release, wrong format)
+```
+
+### Duplicate release to clean
+```
+cntm-nucleus-android-java-v0.2.0  ← superseded by v0.2.1, delete this release + tag
+```
+
+### Steps
+```bash
+# Delete broken tags
+gh api -X DELETE repos/cntm-labs/nucleus/git/refs/tags/sdks/go/v
+gh api -X DELETE repos/cntm-labs/nucleus/git/refs/tags/sdks/go/v0.2.0
+
+# Delete superseded release + tag
+gh release delete cntm-nucleus-android-java-v0.2.0 --yes
+gh api -X DELETE repos/cntm-labs/nucleus/git/refs/tags/cntm-nucleus-android-java-v0.2.0
+```
+
+### After cleanup, expected state
+- **10 tags** (one per successfully created release)
+- **9 releases** (removed the duplicate v0.2.0)
+- **0 stale branches** (already cleaned)
+
+---
+
 ## Current State (as of 2026-04-09)
 
 ### Published ✅
