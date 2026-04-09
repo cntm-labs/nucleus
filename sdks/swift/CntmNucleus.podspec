@@ -5,7 +5,7 @@ Pod::Spec.new do |s|
   s.homepage     = 'https://github.com/cntm-labs/nucleus'
   s.license      = { :type => 'MIT', :file => 'LICENSE' }
   s.author       = { 'cntm-labs' => 'dev@cntm-labs.dev' }
-  s.source       = { :git => 'https://github.com/cntm-labs/nucleus.git', :tag => "cntm-nucleus-v0.2.0" }
+  s.source       = { :git => 'https://github.com/cntm-labs/nucleus.git', :tag => "CntmNucleus-v#{s.version}" }
   s.ios.deployment_target = '16.0'
   s.osx.deployment_target = '13.0'
   s.swift_version = '5.9'
