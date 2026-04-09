@@ -44,6 +44,12 @@ android {
     kotlinOptions {
         jvmTarget = "17"
     }
+
+    publishing {
+        singleVariant("release") {
+            withSourcesJar()
+        }
+    }
 }
 
 dependencies {
@@ -91,7 +97,7 @@ afterEvaluate {
         repositories {
             maven {
                 name = "MavenCentral"
-                url = uri("https://central.sonatype.com/repository/maven-releases/")
+                url = uri("https://ossrh-staging-api.central.sonatype.com/service/local/staging/deploy/maven2/")
                 credentials {
                     username = System.getenv("MAVEN_USERNAME") ?: ""
                     password = System.getenv("MAVEN_PASSWORD") ?: ""
