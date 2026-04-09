@@ -1,4 +1,4 @@
-library nucleus_flutter;
+library cntm_nucleus;
 
 // Core
 export 'src/config.dart';

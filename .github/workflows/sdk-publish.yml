@@ -188,10 +188,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Validate podspec
-        run: cd sdks/swift && pod lib lint NucleusSwift.podspec --allow-warnings
+        run: cd sdks/swift && pod lib lint CntmNucleus.podspec --allow-warnings
       - name: Publish
         if: inputs.dry_run == false
-        run: cd sdks/swift && pod trunk push NucleusSwift.podspec --allow-warnings
+        run: cd sdks/swift && pod trunk push CntmNucleus.podspec --allow-warnings
         env:
           COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_TOKEN }}
       - name: Dry run
@@ -234,17 +234,17 @@ jobs:
         if: always() && (inputs.sdk == 'all' || inputs.sdk == 'npm')
         run: |
           for pkg in js node react nextjs; do
-            echo "Checking @cntm-labs/$pkg..."
-            npm view "@cntm-labs/$pkg" version && echo "  OK" || echo "  WARN: not yet available"
+            echo "Checking @cntm-labs/nucleus-$pkg..."
+            npm view "@cntm-labs/nucleus-$pkg" version && echo "  OK" || echo "  WARN: not yet available"
           done
       - name: Verify PyPI package
         if: always() && (inputs.sdk == 'all' || inputs.sdk == 'python')
         run: |
-          pip index versions cntm-labs-nucleus 2>/dev/null && echo "OK" || echo "WARN: not yet indexed"
+          pip index versions cntm-nucleus 2>/dev/null && echo "OK" || echo "WARN: not yet indexed"
       - name: Verify crates.io package
         if: always() && (inputs.sdk == 'all' || inputs.sdk == 'rust')
         run: |
-          curl -sf https://crates.io/api/v1/crates/nucleus-rs \
+          curl -sf https://crates.io/api/v1/crates/cntm-nucleus \
             | python3 -c "import sys,json; print('OK:', json.load(sys.stdin)['crate']['newest_version'])" \
             || echo "WARN: not yet indexed"
       - name: Summary

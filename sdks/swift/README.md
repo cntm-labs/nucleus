@@ -1,4 +1,4 @@
-# NucleusSwift
+# CntmNucleus
 
 > **Warning: DEV PREVIEW** — This package is under active development
 > and is NOT ready for production use. APIs may change without notice.
@@ -13,19 +13,19 @@ Nucleus authentication SDK for iOS/macOS.
 Add to your `Package.swift`:
 
 ```swift
-.package(url: "https://github.com/cntm-labs/nucleus.git", from: "0.1.0-dev.1")
+.package(url: "https://github.com/cntm-labs/nucleus.git", from: "0.1.0")
 ```
 
 ### CocoaPods
 
 ```ruby
-pod 'NucleusSwift', '~> 0.1.0-dev.1'
+pod 'CntmNucleus', '~> 0.1.0'
 ```
 
 ## Quick Start
 
 ```swift
-import NucleusSwift
+import CntmNucleus
 
 let nucleus = Nucleus(publishableKey: "pk_...")
 let session = try await nucleus.getSession()

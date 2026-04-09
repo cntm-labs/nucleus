@@ -1,4 +1,4 @@
-# @cntm-labs/nextjs
+# @cntm-labs/nucleus-nextjs
 
 > **Warning: DEV PREVIEW** — This package is under active development
 > and is NOT ready for production use. APIs may change without notice.
@@ -9,14 +9,14 @@ Nucleus authentication SDK for Next.js.
 ## Installation
 
 ```bash
-npm i @cntm-labs/nextjs@0.1.0-dev.1
+npm i @cntm-labs/nucleus-nextjs@0.1.0
 ```
 
 ## Quick Start
 
 ```tsx
 // app/layout.tsx
-import { NucleusProvider } from '@cntm-labs/nextjs';
+import { NucleusProvider } from '@cntm-labs/nucleus-nextjs';
 
 export default function RootLayout({ children }) {
   return (

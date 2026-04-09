@@ -1,4 +1,4 @@
-# CntmLabs.Nucleus
+# Cntm.Nucleus
 
 > **Warning: DEV PREVIEW** — This package is under active development
 > and is NOT ready for production use. APIs may change without notice.
@@ -9,7 +9,7 @@ Nucleus authentication SDK for .NET.
 ## Installation
 
 ```bash
-dotnet add package CntmLabs.Nucleus --version 0.1.0-dev.1
+dotnet add package Cntm.Nucleus --version 0.1.0
 ```
 
 ## Quick Start

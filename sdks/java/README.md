@@ -1,4 +1,4 @@
-# nucleus-java
+# nucleus
 
 > **Warning: DEV PREVIEW** — This package is under active development
 > and is NOT ready for production use. APIs may change without notice.
@@ -13,15 +13,15 @@ Nucleus authentication SDK for Java/Spring Boot.
 ```xml
 <dependency>
   <groupId>io.github.cntm-labs</groupId>
-  <artifactId>nucleus-java</artifactId>
-  <version>0.1.0-dev.1</version>
+  <artifactId>nucleus</artifactId>
+  <version>0.1.0</version>
 </dependency>
 ```
 
 ### Gradle
 
 ```groovy
-implementation 'io.github.cntm-labs:nucleus-java:0.1.0-dev.1'
+implementation 'io.github.cntm-labs:nucleus:0.1.0'
 ```
 
 ## Quick Start

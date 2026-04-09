@@ -1,4 +1,4 @@
-# @cntm-labs/js
+# @cntm-labs/nucleus-js
 
 > **Warning: DEV PREVIEW** — This package is under active development
 > and is NOT ready for production use. APIs may change without notice.
@@ -9,13 +9,13 @@ Nucleus authentication SDK for vanilla JavaScript.
 ## Installation
 
 ```bash
-npm i @cntm-labs/js@0.1.0-dev.1
+npm i @cntm-labs/nucleus-js@0.1.0
 ```
 
 ## Quick Start
 
 ```javascript
-import { Nucleus } from '@cntm-labs/js';
+import { Nucleus } from '@cntm-labs/nucleus-js';
 
 const nucleus = new Nucleus({ publishableKey: 'pk_...' });
 const session = await nucleus.getSession();

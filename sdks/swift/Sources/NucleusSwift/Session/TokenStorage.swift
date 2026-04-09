@@ -79,7 +79,7 @@ final class TokenStorage: Sendable {
 
     private func logKeychainError(_ operation: String, key: String, status: OSStatus) {
         #if DEBUG
-        print("[NucleusSwift] Keychain \(operation) failed for \"\(key)\": OSStatus \(status)")
+        print("[CntmNucleus] Keychain \(operation) failed for \"\(key)\": OSStatus \(status)")
         #endif
     }
 }

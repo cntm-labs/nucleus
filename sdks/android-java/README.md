@@ -9,7 +9,7 @@ Nucleus authentication SDK for Android (Java).
 ## Installation
 
 ```groovy
-implementation 'io.github.cntm-labs:nucleus-android-java:0.1.0-dev.1'
+implementation 'io.github.cntm-labs:nucleus-java:0.1.0'
 ```
 
 ## Quick Start

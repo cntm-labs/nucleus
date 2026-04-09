@@ -1,6 +1,6 @@
 import Foundation
 
-/// Main entry point for the NucleusSwift SDK.
+/// Main entry point for the CntmNucleus SDK.
 ///
 /// Call ``configure(baseURL:publishableKey:)`` once at app launch before using
 /// any other Nucleus API.

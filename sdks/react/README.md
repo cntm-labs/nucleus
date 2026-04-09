@@ -1,4 +1,4 @@
-# @cntm-labs/react
+# @cntm-labs/nucleus-react
 
 > **Warning: DEV PREVIEW** — This package is under active development
 > and is NOT ready for production use. APIs may change without notice.
@@ -9,13 +9,13 @@ Nucleus authentication SDK for React SPAs.
 ## Installation
 
 ```bash
-npm i @cntm-labs/react@0.1.0-dev.1
+npm i @cntm-labs/nucleus-react@0.1.0
 ```
 
 ## Quick Start
 
 ```tsx
-import { NucleusProvider, useAuth } from '@cntm-labs/react';
+import { NucleusProvider, useAuth } from '@cntm-labs/nucleus-react';
 
 function App() {
   return (

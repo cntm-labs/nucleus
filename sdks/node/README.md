@@ -1,4 +1,4 @@
-# @cntm-labs/node
+# @cntm-labs/nucleus-node
 
 > **Warning: DEV PREVIEW** — This package is under active development
 > and is NOT ready for production use. APIs may change without notice.
@@ -9,13 +9,13 @@ Nucleus authentication SDK for Node.js backends.
 ## Installation
 
 ```bash
-npm i @cntm-labs/node@0.1.0-dev.1
+npm i @cntm-labs/nucleus-node@0.1.0
 ```
 
 ## Quick Start
 
 ```typescript
-import { createNucleus } from '@cntm-labs/node';
+import { createNucleus } from '@cntm-labs/nucleus-node';
 
 const nucleus = createNucleus({ secretKey: 'sk_...' });
 const { userId } = await nucleus.verifySession(token);
