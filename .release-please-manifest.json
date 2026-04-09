@@ -1,5 +1,5 @@
 {
-  "crates/nucleus-server": "0.1.0",
+  "crates/nucleus-server": "0.2.0",
   "sdks/js": "0.1.0",
   "sdks/node": "0.1.0",
   "sdks/react": "0.1.0",
