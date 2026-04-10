@@ -13,24 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       releases_created: ${{ steps.release.outputs.releases_created }}
-      paths_released: ${{ steps.release.outputs.paths_released }}
-      # Per-component outputs for version extraction
-      sdks-js--release_created: ${{ steps.release.outputs['sdks--js--release_created'] }}
-      sdks-js--version: ${{ steps.release.outputs['sdks--js--version'] }}
-      sdks-rust--release_created: ${{ steps.release.outputs['sdks--rust--release_created'] }}
-      sdks-rust--version: ${{ steps.release.outputs['sdks--rust--version'] }}
-      sdks-flutter--release_created: ${{ steps.release.outputs['sdks--flutter--release_created'] }}
-      sdks-flutter--version: ${{ steps.release.outputs['sdks--flutter--version'] }}
-      sdks-python--release_created: ${{ steps.release.outputs['sdks--python--release_created'] }}
-      sdks-python--version: ${{ steps.release.outputs['sdks--python--version'] }}
-      sdks-dotnet--release_created: ${{ steps.release.outputs['sdks--dotnet--release_created'] }}
-      sdks-dotnet--version: ${{ steps.release.outputs['sdks--dotnet--version'] }}
-      sdks-java--release_created: ${{ steps.release.outputs['sdks--java--release_created'] }}
-      sdks-java--version: ${{ steps.release.outputs['sdks--java--version'] }}
-      sdks-go--release_created: ${{ steps.release.outputs['sdks--go--release_created'] }}
-      sdks-go--version: ${{ steps.release.outputs['sdks--go--version'] }}
-      sdks-swift--release_created: ${{ steps.release.outputs['sdks--swift--release_created'] }}
-      sdks-swift--version: ${{ steps.release.outputs['sdks--swift--version'] }}
+      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: googleapis/release-please-action@v4
         id: release
@@ -39,40 +22,29 @@ jobs:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
-  # Determine the publish version from whatever was released
-  resolve-version:
-    needs: release-please
-    if: needs.release-please.outputs.releases_created == 'true'
-    runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.pick.outputs.version }}
-    steps:
-      - name: Pick version from released components
-        id: pick
+      - name: Extract unified version
+        id: version
+        if: steps.release.outputs.releases_created == 'true'
         env:
-          JS_VER: ${{ needs.release-please.outputs['sdks-js--version'] }}
-          RUST_VER: ${{ needs.release-please.outputs['sdks-rust--version'] }}
-          FLUTTER_VER: ${{ needs.release-please.outputs['sdks-flutter--version'] }}
-          PYTHON_VER: ${{ needs.release-please.outputs['sdks-python--version'] }}
-          DOTNET_VER: ${{ needs.release-please.outputs['sdks-dotnet--version'] }}
-          JAVA_VER: ${{ needs.release-please.outputs['sdks-java--version'] }}
-          GO_VER: ${{ needs.release-please.outputs['sdks-go--version'] }}
-          SWIFT_VER: ${{ needs.release-please.outputs['sdks-swift--version'] }}
+          RELEASE_OUTPUTS: ${{ toJSON(steps.release.outputs) }}
         run: |
-          # Use first non-empty version found
-          for v in "$JS_VER" "$RUST_VER" "$FLUTTER_VER" "$PYTHON_VER" "$DOTNET_VER" "$JAVA_VER" "$GO_VER" "$SWIFT_VER"; do
-            if [ -n "$v" ]; then
-              echo "version=$v" >> "$GITHUB_OUTPUT"
-              echo "Resolved publish version: $v"
-              exit 0
-            fi
-          done
-          echo "ERROR: No version found in release-please outputs"
-          exit 1
+          # With linked-versions plugin, all components share the same version.
+          # Extract from the first released component found in outputs.
+          VERSION=$(echo "$RELEASE_OUTPUTS" | python3 -c "
+          import sys, json
+          outputs = json.load(sys.stdin)
+          for key, val in outputs.items():
+              if key.endswith('--version') and val:
+                  print(val)
+                  sys.exit(0)
+          sys.exit(1)
+          ")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Unified release version: $VERSION"
 
   # Gate: CI must pass before any publishing
   ci-gate:
-    needs: [release-please, resolve-version]
+    needs: release-please
     if: needs.release-please.outputs.releases_created == 'true'
     runs-on: ubuntu-latest
     services:
@@ -104,11 +76,11 @@ jobs:
 
   # Auto-publish only after CI passes
   publish:
-    needs: [release-please, resolve-version, ci-gate]
+    needs: [release-please, ci-gate]
     if: needs.release-please.outputs.releases_created == 'true'
     uses: ./.github/workflows/sdk-publish.yml
     with:
       sdk: all
-      version: ${{ needs.resolve-version.outputs.version }}
+      version: ${{ needs.release-please.outputs.version }}
       dry_run: false
     secrets: inherit

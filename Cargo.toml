@@ -1,16 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
-    "crates/nucleus-server",
-    "crates/nucleus-core",
-    "crates/nucleus-db",
-    "crates/nucleus-auth",
-    "crates/nucleus-identity",
-    "crates/nucleus-org",
-    "crates/nucleus-session",
-    "crates/nucleus-webhook",
-    "crates/nucleus-admin-api",
-    "crates/nucleus-migrate",
+    "server",
 ]
 
 [workspace.dependencies]
