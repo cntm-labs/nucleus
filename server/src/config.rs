@@ -16,6 +16,7 @@ pub struct Config {
     pub rate_limit_auth_window_secs: u64,
     pub rate_limit_api_max: u32,
     pub rate_limit_api_window_secs: u64,
+    pub trusted_proxies: Vec<String>,
     pub sendgrid_api_key: Option<String>,
     pub from_email: String,
     pub from_name: String,
@@ -78,6 +79,13 @@ impl Config {
             .and_then(|v| v.parse().ok())
             .unwrap_or(60);
 
+        let trusted_proxies = std::env::var("TRUSTED_PROXIES")
+            .unwrap_or_default()
+            .split(',')
+            .filter(|s| !s.is_empty())
+            .map(|s| s.trim().to_string())
+            .collect();
+
         let sendgrid_api_key = std::env::var("SENDGRID_API_KEY").ok();
         let from_email =
             std::env::var("FROM_EMAIL").unwrap_or_else(|_| "noreply@nucleus.dev".to_string());
@@ -106,6 +114,7 @@ impl Config {
             rate_limit_auth_window_secs,
             rate_limit_api_max,
             rate_limit_api_window_secs,
+            trusted_proxies,
             sendgrid_api_key,
             from_email,
             from_name,

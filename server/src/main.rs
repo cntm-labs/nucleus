@@ -29,7 +29,7 @@ use cntm_nucleus_server::session::SessionService;
 use uuid::Uuid;
 
 use cntm_nucleus_server::config::Config;
-use cntm_nucleus_server::middleware::rate_limit::RateLimitConfig;
+use cntm_nucleus_server::middleware::rate_limit::{RateLimitConfig, TrustedProxies};
 use cntm_nucleus_server::router::create_router;
 use cntm_nucleus_server::services;
 use cntm_nucleus_server::state::AppState;
@@ -208,7 +208,8 @@ async fn main() -> Result<()> {
         max_requests: config.rate_limit_api_max,
         window_secs: config.rate_limit_api_window_secs,
     };
-    let app = create_router(state, auth_rate_limit, api_rate_limit);
+    let trusted_proxies = Arc::new(TrustedProxies::from_cidrs(&config.trusted_proxies));
+    let app = create_router(state, auth_rate_limit, api_rate_limit, trusted_proxies);
     let listener = tokio::net::TcpListener::bind(&bind_addr).await?;
     tracing::info!("Nucleus server listening on {}", bind_addr);
 

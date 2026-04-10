@@ -22,7 +22,7 @@ use crate::handlers::webhook;
 use crate::handlers::well_known;
 use crate::middleware::auth::PublicKeyPem;
 use crate::middleware::metrics::{handle_metrics, METRICS_ENDPOINT};
-use crate::middleware::rate_limit::{make_rate_limit_layer, RateLimitConfig};
+use crate::middleware::rate_limit::{make_rate_limit_layer, RateLimitConfig, TrustedProxies};
 use crate::middleware::request_id::request_id_middleware;
 use crate::state::AppState;
 
@@ -30,15 +30,18 @@ pub fn create_router(
     state: Arc<AppState>,
     auth_rate_limit: RateLimitConfig,
     api_rate_limit: RateLimitConfig,
+    trusted_proxies: Arc<TrustedProxies>,
 ) -> Router {
     let auth_rate_limiter = make_rate_limit_layer(
         Arc::new(state.redis.clone()),
         auth_rate_limit,
+        trusted_proxies.clone(),
         "auth".to_string(),
     );
     let api_rate_limiter = make_rate_limit_layer(
         Arc::new(state.redis.clone()),
         api_rate_limit,
+        trusted_proxies,
         "api".to_string(),
     );
 
