@@ -84,3 +84,19 @@ jobs:
       version: ${{ needs.release-please.outputs.version }}
       dry_run: false
     secrets: inherit
+
+  # Create unified v* tag after publish to trigger Docker build (release.yml)
+  create-unified-tag:
+    needs: [release-please, publish]
+    if: needs.release-please.outputs.releases_created == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create unified release tag
+        env:
+          VERSION: ${{ needs.release-please.outputs.version }}
+        run: |
+          TAG="v${VERSION}"
+          echo "Creating unified tag: $TAG"
+          git tag "$TAG"
+          git push origin "$TAG"
