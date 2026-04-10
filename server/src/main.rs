@@ -208,7 +208,12 @@ async fn main() -> Result<()> {
         max_requests: config.rate_limit_api_max,
         window_secs: config.rate_limit_api_window_secs,
     };
-    let app = create_router(state, auth_rate_limit, api_rate_limit);
+    let app = create_router(
+        state,
+        auth_rate_limit,
+        api_rate_limit,
+        config.trusted_proxies,
+    );
     let listener = tokio::net::TcpListener::bind(&bind_addr).await?;
     tracing::info!("Nucleus server listening on {}", bind_addr);
 

@@ -1,3 +1,5 @@
+use std::net::IpAddr;
+
 use anyhow::{Context, Result};
 
 pub struct Config {
@@ -8,6 +10,7 @@ pub struct Config {
     pub port: u16,
     pub rust_log: String,
     pub allowed_origins: Vec<String>,
+    pub trusted_proxies: Vec<IpAddr>,
     pub issuer_url: String,
     pub jwt_lifetime_secs: i64,
     pub rp_name: String,
@@ -51,6 +54,12 @@ impl Config {
             .split(',')
             .filter(|s| !s.is_empty())
             .map(|s| s.trim().to_string())
+            .collect();
+        let trusted_proxies: Vec<IpAddr> = std::env::var("TRUSTED_PROXIES")
+            .unwrap_or_default()
+            .split(',')
+            .filter(|s| !s.trim().is_empty())
+            .filter_map(|s| s.trim().parse::<IpAddr>().ok())
             .collect();
 
         let issuer_url =
@@ -98,6 +107,7 @@ impl Config {
             port,
             rust_log,
             allowed_origins,
+            trusted_proxies,
             issuer_url,
             jwt_lifetime_secs,
             rp_name,

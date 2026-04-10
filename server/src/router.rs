@@ -30,15 +30,19 @@ pub fn create_router(
     state: Arc<AppState>,
     auth_rate_limit: RateLimitConfig,
     api_rate_limit: RateLimitConfig,
+    trusted_proxies: Vec<std::net::IpAddr>,
 ) -> Router {
+    let trusted_proxies = Arc::new(trusted_proxies);
     let auth_rate_limiter = make_rate_limit_layer(
         Arc::new(state.redis.clone()),
         auth_rate_limit,
+        trusted_proxies.clone(),
         "auth".to_string(),
     );
     let api_rate_limiter = make_rate_limit_layer(
         Arc::new(state.redis.clone()),
         api_rate_limit,
+        trusted_proxies,
         "api".to_string(),
     );
 
