@@ -50,6 +50,12 @@ pub trait MfaEnrollmentRepository: Send + Sync {
         mfa_type: &str,
     ) -> Result<Option<MfaEnrollment>, AppError>;
 
+    async fn find_unverified_by_user(
+        &self,
+        user_id: Uuid,
+        mfa_type: &str,
+    ) -> Result<Option<MfaEnrollment>, AppError>;
+
     async fn mark_verified(&self, id: Uuid) -> Result<(), AppError>;
 
     async fn update_backup_codes(&self, id: Uuid, backup_codes_enc: &str) -> Result<(), AppError>;
@@ -106,6 +112,32 @@ impl MfaEnrollmentRepository for PgMfaEnrollmentRepository {
             SELECT id, user_id, mfa_type::text, secret_enc, phone, backup_codes_enc, verified, last_used_at, created_at, updated_at
             FROM mfa_enrollments
             WHERE user_id = $1 AND mfa_type = $2::mfa_type AND verified = true
+            "#,
+        )
+        .bind(user_id)
+        .bind(mfa_type)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| AppError::Internal(e.into()))?;
+
+        match row {
+            Some(r) => Ok(Some(
+                enrollment_from_row(&r).map_err(|e| AppError::Internal(e.into()))?,
+            )),
+            None => Ok(None),
+        }
+    }
+
+    async fn find_unverified_by_user(
+        &self,
+        user_id: Uuid,
+        mfa_type: &str,
+    ) -> Result<Option<MfaEnrollment>, AppError> {
+        let row = sqlx::query(
+            r#"
+            SELECT id, user_id, mfa_type::text, secret_enc, phone, backup_codes_enc, verified, last_used_at, created_at, updated_at
+            FROM mfa_enrollments
+            WHERE user_id = $1 AND mfa_type = $2::mfa_type AND verified = false
             "#,
         )
         .bind(user_id)

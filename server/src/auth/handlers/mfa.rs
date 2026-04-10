@@ -107,21 +107,12 @@ pub async fn handle_mfa_totp_verify(
     user_id: UserId,
     Json(req): Json<TotpVerifyRequest>,
 ) -> Result<Json<TotpVerifyResponse>, AppError> {
-    // Find pending (unverified) enrollment
-    // For TOTP verify during enrollment, we look for any enrollment for this user
+    // Find the pending (unverified) enrollment created during enroll step
     let enrollment = state
         .mfa_repo
-        .find_active_by_user(user_id.0, "totp")
-        .await?;
-
-    // If no verified enrollment, check for unverified one
-    // For simplicity, we check if there's any enrollment and verify against it
-    let enrollment = match enrollment {
-        Some(e) => e,
-        None => {
-            return Err(AppError::Auth(AuthError::MfaInvalidCode));
-        }
-    };
+        .find_unverified_by_user(user_id.0, "totp")
+        .await?
+        .ok_or(AppError::Auth(AuthError::MfaInvalidCode))?;
 
     let secret_enc = enrollment
         .secret_enc
@@ -131,7 +122,7 @@ pub async fn handle_mfa_totp_verify(
     let valid = MfaService::verify_totp(&req.code, secret_enc, &state.master_key)?;
 
     if valid {
-        state.mfa_repo.update_last_used(enrollment.id).await?;
+        state.mfa_repo.mark_verified(enrollment.id).await?;
     }
 
     Ok(Json(TotpVerifyResponse { verified: valid }))
