@@ -13,7 +13,7 @@ Nucleus is a production-grade authentication SaaS platform (like Clerk) built in
 ## Build Commands
 ```sh
 cargo check --workspace          # Type check
-cargo test --workspace           # Run all tests (215)
+cargo test --workspace           # Run all tests (278)
 cargo clippy --workspace -- -D warnings  # Lint
 cargo fmt --all                  # Format
 cargo deny check                 # License + advisory check
@@ -21,31 +21,39 @@ cargo deny check                 # License + advisory check
 
 ## Project Structure
 ```
-crates/
-├── nucleus-server     # Binary: Axum router, middleware, config
-├── nucleus-core       # Shared: errors, types, crypto, validation
-├── nucleus-auth       # Auth: password, JWT, OAuth, MFA, passkeys
-├── nucleus-identity   # Users: CRUD, ban/unban
-├── nucleus-org        # Orgs: RBAC, invitations
-├── nucleus-session    # Sessions: Redis-backed
-├── nucleus-webhook    # Webhooks: HMAC signing, delivery
-├── nucleus-admin-api  # Dashboard API: project management
-├── nucleus-db         # DB: repository traits + implementations
-└── nucleus-migrate    # Migrations: 13 SQL files, 28+ tables
+server/                    # Single binary crate (modular monolith)
+└── src/
+    ├── main.rs            # Entry point
+    ├── lib.rs             # Module declarations
+    ├── core/              # Errors, types, crypto, validation
+    ├── db/                # Repository traits + implementations
+    ├── auth/              # Password, JWT, OAuth, MFA, passkeys
+    ├── identity/          # User CRUD, ban/unban
+    ├── org/               # Orgs, RBAC, invitations
+    ├── session/           # Redis-backed sessions
+    ├── webhook/           # HMAC signing, delivery
+    ├── api/               # Dashboard API, project management
+    ├── migrate/           # SQL migrations (15 files, 28+ tables)
+    ├── config.rs          # Environment config
+    ├── state.rs           # AppState composition
+    ├── router.rs          # Axum route definitions
+    ├── middleware/         # Auth, rate limiting, metrics
+    ├── handlers/          # HTTP handler wrappers
+    └── services/          # Email, SMS integrations
 ```
 
-## Dependency Rules (STRICT)
-- nucleus-core → external deps only (leaf crate)
-- nucleus-db → nucleus-core only
-- Feature crates → nucleus-core + nucleus-db only
+## Module Boundaries
+- `core` → external deps only (leaf module)
+- `db` → `core` only
+- Feature modules (auth, identity, org, session, webhook, admin_api) → `core` + `db` only
 - No cross-feature deps (auth ↛ org, identity ↛ auth)
-- nucleus-server → all crates (composition root)
+- `main.rs` + `router` + `handlers` → all modules (composition root)
 
 ## Key Design Decisions
 - **Hybrid sessions:** Short-lived JWT (5 min) + Redis sessions for revocation
 - **Multi-tenancy:** Shared schema with project_id isolation
 - **Data sovereignty:** Centralized (data in Nucleus) or Federated (data in project's DB)
-- **Modular monolith:** Single binary, module boundaries = crate boundaries
+- **Modular monolith:** Single binary, module boundaries = Rust modules within one crate
 
 ## Conventions
 - All errors use AppError enum with code/status/message
