@@ -131,6 +131,9 @@ pub async fn handle_mfa_totp_verify(
     let valid = MfaService::verify_totp(&req.code, secret_enc, &state.master_key)?;
 
     if valid {
+        if !enrollment.verified {
+            state.mfa_repo.mark_verified(enrollment.id).await?;
+        }
         state.mfa_repo.update_last_used(enrollment.id).await?;
     }
 
