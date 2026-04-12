@@ -131,6 +131,9 @@ pub async fn handle_mfa_totp_verify(
     let valid = MfaService::verify_totp(&req.code, secret_enc, &state.master_key)?;
 
     if valid {
+        if !enrollment.verified {
+            state.mfa_repo.mark_verified(enrollment.id).await?;
+        }
         state.mfa_repo.update_last_used(enrollment.id).await?;
     }
 
@@ -223,12 +226,7 @@ pub async fn handle_mfa_verify(
         _ => unreachable!(),
     }
 
-    // 4. Delete MFA challenge from Redis
-    conn.del::<_, ()>(&challenge_key)
-        .await
-        .map_err(|e| AppError::Internal(e.into()))?;
-
-    // 5. Complete sign-in: find user, create session, issue JWT
+    // 4. Complete sign-in: find user, create session, issue JWT
     let user_id = UserId::from_uuid(challenge.user_id);
     let project_id = ProjectId::from_uuid(challenge.project_id);
 
@@ -244,6 +242,11 @@ pub async fn handle_mfa_verify(
         .await?;
 
     let jwt = state.auth_service.issue_jwt_for_user(&user, &project_id)?;
+
+    // 5. Delete MFA challenge from Redis — only after session + JWT succeed
+    conn.del::<_, ()>(&challenge_key)
+        .await
+        .map_err(|e| AppError::Internal(e.into()))?;
 
     Ok(Json(MfaVerifyResponse {
         user: serde_json::to_value(&user)

@@ -24,26 +24,33 @@ pub struct RateLimitConfig {
 // Client IP extraction
 // ---------------------------------------------------------------------------
 
-/// Best-effort extraction of the client IP address.
+/// Extract the client IP address, only trusting `X-Forwarded-For` when the
+/// connecting peer is in the `trusted_proxies` allowlist.
 ///
-/// Checks `X-Forwarded-For` first (takes the left-most / originating IP),
-/// then falls back to the peer address on the connection.
-pub fn extract_client_ip(req: &Request) -> Option<IpAddr> {
-    // 1. Try X-Forwarded-For
-    if let Some(forwarded) = req.headers().get("x-forwarded-for") {
-        if let Ok(val) = forwarded.to_str() {
-            if let Some(first) = val.split(',').next() {
-                if let Ok(ip) = first.trim().parse::<IpAddr>() {
-                    return Some(ip);
+/// When `trusted_proxies` is empty, the header is never consulted — this is
+/// the secure default ("don't trust anyone").
+pub fn extract_client_ip(req: &Request, trusted_proxies: &[IpAddr]) -> Option<IpAddr> {
+    let peer_ip = req
+        .extensions()
+        .get::<axum::extract::ConnectInfo<std::net::SocketAddr>>()
+        .map(|ci| ci.0.ip());
+
+    // Only trust X-Forwarded-For from known proxies
+    if let Some(peer) = peer_ip {
+        if trusted_proxies.contains(&peer) {
+            if let Some(forwarded) = req.headers().get("x-forwarded-for") {
+                if let Ok(val) = forwarded.to_str() {
+                    if let Some(first) = val.split(',').next() {
+                        if let Ok(ip) = first.trim().parse::<IpAddr>() {
+                            return Some(ip);
+                        }
+                    }
                 }
             }
         }
     }
 
-    // 2. Fall back to the connected peer address stored in extensions by Axum/Hyper
-    req.extensions()
-        .get::<axum::extract::ConnectInfo<std::net::SocketAddr>>()
-        .map(|ci| ci.0.ip())
+    peer_ip
 }
 
 // ---------------------------------------------------------------------------
@@ -76,12 +83,13 @@ pub fn build_rate_limit_key(project_id: &str, ip: &str, endpoint_group: &str) ->
 pub async fn rate_limit_middleware(
     redis: Arc<ConnectionManager>,
     config: RateLimitConfig,
+    trusted_proxies: Arc<Vec<IpAddr>>,
     project_id: String,
     endpoint_group: String,
     req: Request,
     next: Next,
 ) -> Response {
-    let ip = extract_client_ip(&req)
+    let ip = extract_client_ip(&req, &trusted_proxies)
         .map(|ip| ip.to_string())
         .unwrap_or_else(|| "unknown".to_string());
 
@@ -161,6 +169,7 @@ async fn check_rate_limit(
 pub fn make_rate_limit_layer(
     redis: Arc<ConnectionManager>,
     config: RateLimitConfig,
+    trusted_proxies: Arc<Vec<IpAddr>>,
     endpoint_group: String,
 ) -> impl Fn(Request, Next) -> std::pin::Pin<Box<dyn std::future::Future<Output = Response> + Send>>
        + Clone
@@ -168,11 +177,13 @@ pub fn make_rate_limit_layer(
     move |req: Request, next: Next| {
         let redis = redis.clone();
         let config = config.clone();
+        let trusted_proxies = trusted_proxies.clone();
         let endpoint_group = endpoint_group.clone();
         Box::pin(async move {
             rate_limit_middleware(
                 redis,
                 config,
+                trusted_proxies,
                 "default".to_string(),
                 endpoint_group,
                 req,
@@ -207,17 +218,11 @@ mod tests {
     }
 
     #[test]
-    fn extract_client_ip_from_x_forwarded_for() {
+    fn extract_client_ip_ignores_forwarded_for_without_trusted_proxy() {
+        // No trusted proxies → X-Forwarded-For is ignored, falls back to peer (None here)
         let req = make_request_with_forwarded_for("203.0.113.50, 70.41.3.18, 150.172.238.178");
-        let ip = extract_client_ip(&req);
-        assert_eq!(ip, Some("203.0.113.50".parse().unwrap()));
-    }
-
-    #[test]
-    fn extract_client_ip_single_forwarded_for() {
-        let req = make_request_with_forwarded_for("10.0.0.1");
-        let ip = extract_client_ip(&req);
-        assert_eq!(ip, Some("10.0.0.1".parse().unwrap()));
+        let ip = extract_client_ip(&req, &[]);
+        assert!(ip.is_none());
     }
 
     #[test]
@@ -227,15 +232,48 @@ mod tests {
             .uri("/test")
             .body(axum::body::Body::empty())
             .unwrap();
-        let ip = extract_client_ip(&req);
+        let ip = extract_client_ip(&req, &[]);
         assert!(ip.is_none());
     }
 
     #[test]
     fn extract_client_ip_invalid_forwarded_for_falls_through() {
         let req = make_request_with_forwarded_for("not-an-ip, also-not");
-        let ip = extract_client_ip(&req);
+        let ip = extract_client_ip(&req, &[]);
         assert!(ip.is_none());
+    }
+
+    #[test]
+    fn untrusted_proxy_ignores_forwarded_for() {
+        // Request with X-Forwarded-For but no ConnectInfo and empty trusted list → None
+        let req = make_request_with_forwarded_for("203.0.113.50");
+        let ip = extract_client_ip(&req, &[]);
+        assert!(ip.is_none());
+    }
+
+    #[test]
+    fn trusted_proxy_uses_forwarded_for() {
+        // Simulate trusted proxy by injecting ConnectInfo
+        let mut req = make_request_with_forwarded_for("203.0.113.50, 10.0.0.1");
+        let proxy_ip: IpAddr = "10.0.0.1".parse().unwrap();
+        let sock_addr: std::net::SocketAddr = "10.0.0.1:12345".parse().unwrap();
+        req.extensions_mut()
+            .insert(axum::extract::ConnectInfo(sock_addr));
+
+        let ip = extract_client_ip(&req, &[proxy_ip]);
+        assert_eq!(ip, Some("203.0.113.50".parse().unwrap()));
+    }
+
+    #[test]
+    fn no_proxies_configured_uses_peer_ip() {
+        // ConnectInfo present but no trusted proxies → use peer IP directly
+        let mut req = make_request_with_forwarded_for("203.0.113.50");
+        let sock_addr: std::net::SocketAddr = "192.168.1.1:54321".parse().unwrap();
+        req.extensions_mut()
+            .insert(axum::extract::ConnectInfo(sock_addr));
+
+        let ip = extract_client_ip(&req, &[]);
+        assert_eq!(ip, Some("192.168.1.1".parse().unwrap()));
     }
 
     // -- Rate limit key format --

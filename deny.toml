@@ -8,6 +8,7 @@ ignore = [
     "RUSTSEC-2023-0071",  # rsa crate — pending migration to ring-only
     "RUSTSEC-2024-0421",  # idna — transitive dep, low risk
     "RUSTSEC-2024-0370",  # proc-macro-error — unmaintained, pulled via validator_derive, no alternative yet
+    "RUSTSEC-2026-0097",  # rand 0.8.5 unsound — transitive via sqlx/rsa, Nucleus does not use custom logger with rand::rng()
 ]
 
 [licenses]
