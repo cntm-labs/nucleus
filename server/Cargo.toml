@@ -59,8 +59,7 @@ url = { workspace = true }
 quick-xml = { workspace = true }
 urlencoding = { workspace = true }
 base64 = { workspace = true }
-rand = { workspace = true }
-rsa = { workspace = true }
+p256 = { workspace = true }
 hex = { workspace = true }
 async-trait = { workspace = true }
 

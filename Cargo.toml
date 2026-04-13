@@ -57,8 +57,7 @@ url = "2"
 quick-xml = { version = "0.37", features = ["serialize"] }
 urlencoding = "2"
 base64 = "0.22"
-rand = "0.8"
-rsa = { version = "0.9", features = ["pem"] }
+p256 = { version = "0.13", features = ["ecdsa", "pem"] }
 hex = "0.4"
 async-trait = "0.1"
 

@@ -1,6 +1,7 @@
 use crate::core::error::{AppError, AuthError};
 use crate::core::types::*;
 use base64::Engine;
+use ring::rand::SecureRandom;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -100,7 +101,12 @@ impl PasskeyService {
         user_email: &str,
         user_display_name: &str,
     ) -> Result<(RegistrationOptions, PasskeyChallenge), AppError> {
-        let challenge_bytes: Vec<u8> = (0..32).map(|_| rand::random::<u8>()).collect();
+        let challenge_bytes: Vec<u8> = {
+            let rng = ring::rand::SystemRandom::new();
+            let mut bytes = vec![0u8; 32];
+            rng.fill(&mut bytes).expect("system random failed");
+            bytes
+        };
         let challenge_b64 =
             base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&challenge_bytes);
 
@@ -151,7 +157,12 @@ impl PasskeyService {
         &self,
         credentials: &[PasskeyCredential],
     ) -> Result<(AuthenticationOptions, PasskeyChallenge), AppError> {
-        let challenge_bytes: Vec<u8> = (0..32).map(|_| rand::random::<u8>()).collect();
+        let challenge_bytes: Vec<u8> = {
+            let rng = ring::rand::SystemRandom::new();
+            let mut bytes = vec![0u8; 32];
+            rng.fill(&mut bytes).expect("system random failed");
+            bytes
+        };
         let challenge_b64 =
             base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&challenge_bytes);
 

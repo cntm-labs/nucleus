@@ -35,7 +35,7 @@ pub async fn handle_openid_configuration(State(state): State<Arc<AppState>>) -> 
         "jwks_uri": format!("{}/.well-known/jwks.json", issuer),
         "response_types_supported": ["code"],
         "subject_types_supported": ["public"],
-        "id_token_signing_alg_values_supported": ["RS256"],
+        "id_token_signing_alg_values_supported": ["ES256"],
         "scopes_supported": ["openid", "email", "profile"],
         "token_endpoint_auth_methods_supported": ["client_secret_post"],
         "claims_supported": [
@@ -66,12 +66,13 @@ mod tests {
 
         assert_eq!(jwks.keys.len(), 1);
         let key = &jwks.keys[0];
-        assert_eq!(key.kty, "RSA");
+        assert_eq!(key.kty, "EC");
         assert_eq!(key.kid, "test-kid-1");
-        assert_eq!(key.alg, "RS256");
+        assert_eq!(key.alg, "ES256");
         assert_eq!(key.use_, "sig");
-        assert!(!key.n.is_empty(), "modulus n must be populated");
-        assert!(!key.e.is_empty(), "exponent e must be populated");
+        assert_eq!(key.crv, "P-256");
+        assert!(!key.x.is_empty(), "EC x coordinate must be populated");
+        assert!(!key.y.is_empty(), "EC y coordinate must be populated");
     }
 
     #[test]
@@ -81,13 +82,13 @@ mod tests {
         let kp = JwtService::generate_key_pair("kid-b64").unwrap();
         let entry = kp.to_jwk_entry().unwrap();
 
-        // Verify n and e are valid base64url
+        // Verify x and y are valid base64url
         base64::engine::general_purpose::URL_SAFE_NO_PAD
-            .decode(&entry.n)
-            .expect("n should be valid base64url");
+            .decode(&entry.x)
+            .expect("x should be valid base64url");
         base64::engine::general_purpose::URL_SAFE_NO_PAD
-            .decode(&entry.e)
-            .expect("e should be valid base64url");
+            .decode(&entry.y)
+            .expect("y should be valid base64url");
     }
 
     #[test]
@@ -113,7 +114,7 @@ mod tests {
             "jwks_uri": format!("{}/.well-known/jwks.json", issuer),
             "response_types_supported": ["code"],
             "subject_types_supported": ["public"],
-            "id_token_signing_alg_values_supported": ["RS256"],
+            "id_token_signing_alg_values_supported": ["ES256"],
             "scopes_supported": ["openid", "email", "profile"],
             "token_endpoint_auth_methods_supported": ["client_secret_post"],
             "claims_supported": [

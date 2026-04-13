@@ -6,7 +6,6 @@ use argon2::{Algorithm, Argon2, Params, PasswordHash, PasswordHasher, PasswordVe
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine;
 use hmac::{Hmac, Mac};
-use rand::rngs::OsRng;
 use ring::rand::{SecureRandom, SystemRandom};
 use sha2::{Digest, Sha256};
 
@@ -16,7 +15,7 @@ use sha2::{Digest, Sha256};
 
 /// Hash a password using Argon2id (19MB memory, 2 iterations, parallelism 1)
 pub fn hash_password(password: &str) -> Result<String, AppError> {
-    let salt = SaltString::generate(&mut OsRng);
+    let salt = SaltString::generate(&mut argon2::password_hash::rand_core::OsRng);
     let params = Params::new(19456, 2, 1, None)
         .map_err(|e| anyhow::anyhow!("argon2 params error: {}", e))?;
     let argon2 = Argon2::new(Algorithm::Argon2id, Version::V0x13, params);

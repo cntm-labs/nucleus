@@ -80,7 +80,7 @@ async fn main() -> Result<()> {
                     kid: row.id.to_string(),
                     private_key_pem: private_pem,
                     public_key_pem: row.public_key.as_bytes().to_vec(),
-                    algorithm: jsonwebtoken::Algorithm::RS256,
+                    algorithm: jsonwebtoken::Algorithm::ES256,
                 }
             }
             None => {
@@ -92,7 +92,7 @@ async fn main() -> Result<()> {
                 let public_pem = String::from_utf8(key.public_key_pem.clone())
                     .map_err(|e| anyhow::anyhow!("utf8 error: {}", e))?;
                 signing_key_repo_instance
-                    .create(&default_project_id, "RS256", &public_pem, &encrypted)
+                    .create(&default_project_id, "ES256", &public_pem, &encrypted)
                     .await?;
                 tracing::info!("Generated and persisted new signing key");
                 key
@@ -208,7 +208,12 @@ async fn main() -> Result<()> {
         max_requests: config.rate_limit_api_max,
         window_secs: config.rate_limit_api_window_secs,
     };
-    let app = create_router(state, auth_rate_limit, api_rate_limit);
+    let app = create_router(
+        state,
+        auth_rate_limit,
+        api_rate_limit,
+        config.trusted_proxies,
+    );
     let listener = tokio::net::TcpListener::bind(&bind_addr).await?;
     tracing::info!("Nucleus server listening on {}", bind_addr);
 
