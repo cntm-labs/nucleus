@@ -278,18 +278,22 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Create release tag if missing
+      - name: Set version and create tag
         if: inputs.dry_run == false
         env:
           SDK_VERSION: ${{ inputs.version }}
         run: |
+          cd sdks/swift
+          sed -i '' "s/s.version      = '.*'/s.version      = '${SDK_VERSION}'/" CntmNucleus.podspec
+          cd ../..
           TAG="CntmNucleus-v${SDK_VERSION}"
           if git tag -l | grep -qx "$TAG"; then
             echo "Tag $TAG already exists"
           else
-            echo "Creating tag $TAG..."
+            git add sdks/swift/CntmNucleus.podspec
+            git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "chore: bump CntmNucleus podspec to ${SDK_VERSION}"
             git tag "$TAG"
-            git push origin "$TAG"
+            git push origin HEAD "$TAG"
           fi
       - name: Publish
         if: inputs.dry_run == false
