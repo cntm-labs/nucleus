@@ -141,8 +141,8 @@ afterEvaluate {
     }
 
     signing {
-        val signingKey = System.getenv("GPG_PRIVATE_KEY")
-        val signingPassword = System.getenv("GPG_PASSPHRASE")
+        val signingKey = System.getenv("MAVEN_GPG_KEY")
+        val signingPassword = System.getenv("MAVEN_GPG_PASSPHRASE")
         if (!signingKey.isNullOrBlank()) {
             useInMemoryPgpKeys(signingKey, signingPassword)
             sign(publishing.publications["release"])
