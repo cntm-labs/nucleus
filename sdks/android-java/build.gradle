@@ -1,7 +1,6 @@
 plugins {
     id 'com.android.library'
-    id 'maven-publish'
-    id 'signing'
+    id 'com.vanniktech.maven.publish' version '0.30.0'
 }
 
 group = 'io.github.cntm-labs'
@@ -14,12 +13,6 @@ android {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
-    publishing {
-        singleVariant('release') {
-            withSourcesJar()
-            withJavadocJar()
-        }
-    }
 }
 dependencies {
     implementation 'androidx.appcompat:appcompat:1.7.0'
@@ -31,58 +24,32 @@ dependencies {
     testImplementation 'org.json:json:20240303'
 }
 
-afterEvaluate {
-    publishing {
-        repositories {
-            maven {
-                name = 'MavenCentral'
-                url = uri('https://central.sonatype.com/api/v1/publisher/deployments/download/')
-                credentials {
-                    username = System.getenv('MAVEN_USERNAME') ?: ''
-                    password = System.getenv('MAVEN_PASSWORD') ?: ''
-                }
+mavenPublishing {
+    publishToMavenCentral(com.vanniktech.maven.publish.SonatypeHost.CENTRAL_PORTAL)
+    signAllPublications()
+    coordinates('io.github.cntm-labs', 'nucleus-java', project.version.toString())
+
+    pom {
+        name = 'Nucleus Android Java SDK'
+        description = 'Nucleus authentication SDK for Android (Java).'
+        url = 'https://github.com/cntm-labs/nucleus'
+        licenses {
+            license {
+                name = 'MIT'
+                url = 'https://opensource.org/licenses/MIT'
             }
         }
-        publications {
-            release(MavenPublication) {
-                from components.release
-                groupId = 'io.github.cntm-labs'
-                artifactId = 'nucleus-java'
-                version = project.version
-
-                pom {
-                    name = 'Nucleus Android Java SDK'
-                    description = 'Nucleus authentication SDK for Android (Java).'
-                    url = 'https://github.com/cntm-labs/nucleus'
-                    licenses {
-                        license {
-                            name = 'MIT'
-                            url = 'https://opensource.org/licenses/MIT'
-                        }
-                    }
-                    developers {
-                        developer {
-                            id = 'cntm-labs'
-                            name = 'cntm-labs'
-                            url = 'https://github.com/cntm-labs'
-                        }
-                    }
-                    scm {
-                        connection = 'scm:git:git://github.com/cntm-labs/nucleus.git'
-                        developerConnection = 'scm:git:ssh://github.com/cntm-labs/nucleus.git'
-                        url = 'https://github.com/cntm-labs/nucleus'
-                    }
-                }
+        developers {
+            developer {
+                id = 'cntm-labs'
+                name = 'cntm-labs'
+                url = 'https://github.com/cntm-labs'
             }
         }
-    }
-
-    signing {
-        def signingKey = System.getenv('MAVEN_GPG_KEY')
-        def signingPassword = System.getenv('MAVEN_GPG_PASSPHRASE')
-        if (signingKey != null && !signingKey.isEmpty()) {
-            useInMemoryPgpKeys(signingKey, signingPassword)
-            sign publishing.publications.release
+        scm {
+            connection = 'scm:git:git://github.com/cntm-labs/nucleus.git'
+            developerConnection = 'scm:git:ssh://github.com/cntm-labs/nucleus.git'
+            url = 'https://github.com/cntm-labs/nucleus'
         }
     }
 }
