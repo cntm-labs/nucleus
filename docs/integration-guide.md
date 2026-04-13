@@ -11,7 +11,7 @@ This guide explains how to integrate Nucleus authentication into your applicatio
 
 ## 2. JWT Verification
 
-Nucleus issues short-lived RS256 JWTs (default: 5 minutes). Your backend must verify these tokens on every authenticated request.
+Nucleus issues short-lived ES256 (ECDSA P-256) JWTs (default: 5 minutes). Your backend must verify these tokens on every authenticated request.
 
 ### Fetch Public Keys
 
@@ -27,12 +27,13 @@ Response:
 {
   "keys": [
     {
-      "kty": "RSA",
+      "kty": "EC",
       "kid": "<key-id>",
-      "alg": "RS256",
+      "alg": "ES256",
       "use": "sig",
-      "n": "<modulus-base64url>",
-      "e": "<exponent-base64url>"
+      "crv": "P-256",
+      "x": "<x-coordinate-base64url>",
+      "y": "<y-coordinate-base64url>"
     }
   ]
 }
@@ -46,7 +47,7 @@ When verifying a JWT:
 
 1. Decode the header to get the `kid`
 2. Look up the matching key from your cached JWKS
-3. Verify the RS256 signature
+3. Verify the ES256 signature
 4. Validate standard claims: `exp` (not expired), `iss` (matches your Nucleus URL), `aud` (matches your project ID)
 
 ## 3. Claims Reference
@@ -105,7 +106,7 @@ Key fields:
 | `token_endpoint` | `{issuer}/api/v1/auth/token/refresh` |
 | `userinfo_endpoint` | `{issuer}/api/v1/users/me` |
 | `jwks_uri` | `{issuer}/.well-known/jwks.json` |
-| `id_token_signing_alg_values_supported` | `["RS256"]` |
+| `id_token_signing_alg_values_supported` | `["ES256"]` |
 | `scopes_supported` | `["openid", "email", "profile"]` |
 
 ## 5. Middleware Examples
@@ -136,10 +137,10 @@ async fn auth_middleware(mut req: Request, next: Next) -> Result<Response, Statu
         .ok_or(StatusCode::UNAUTHORIZED)?;
 
     // Load your public key from JWKS (cache this!)
-    let decoding_key = DecodingKey::from_rsa_pem(PUBLIC_KEY_PEM)
+    let decoding_key = DecodingKey::from_ec_pem(PUBLIC_KEY_PEM)
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    let mut validation = Validation::new(Algorithm::RS256);
+    let mut validation = Validation::new(Algorithm::ES256);
     validation.set_audience(&["<your-project-id>"]);
     validation.set_issuer(&["https://<your-nucleus-host>"]);
 
@@ -182,7 +183,7 @@ function authMiddleware(req, res, next) {
     token,
     getKey,
     {
-      algorithms: ["RS256"],
+      algorithms: ["ES256"],
       audience: "<your-project-id>",
       issuer: "https://<your-nucleus-host>",
     },

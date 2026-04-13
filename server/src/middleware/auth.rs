@@ -25,8 +25,8 @@ pub struct PublicKeyPem(pub Vec<u8>);
 
 /// Extracts and verifies a JWT from the `Authorization: Bearer <token>` header.
 ///
-/// The token is verified against the RSA public key that a prior middleware
-/// placed in [`PublicKeyPem`] request extensions.  Only RS256 is accepted
+/// The token is verified against the EC public key that a prior middleware
+/// placed in [`PublicKeyPem`] request extensions.  Only ES256 is accepted
 /// (enforced by [`JwtService::verify`]).
 pub struct JwtAuth(pub NucleusClaims);
 
@@ -61,7 +61,7 @@ where
             .get::<ProjectId>()
             .ok_or(AppError::Auth(AuthError::TokenInvalid))?;
 
-        // 5. Verify JWT (RS256 only, audience = project_id)
+        // 5. Verify JWT (ES256 only, audience = project_id)
         let claims = JwtService::verify(token, &public_key.0, &project_id.to_string())?;
 
         // 6. Check JWT revocation list

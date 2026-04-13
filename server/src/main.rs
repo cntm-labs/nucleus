@@ -80,7 +80,7 @@ async fn main() -> Result<()> {
                     kid: row.id.to_string(),
                     private_key_pem: private_pem,
                     public_key_pem: row.public_key.as_bytes().to_vec(),
-                    algorithm: jsonwebtoken::Algorithm::RS256,
+                    algorithm: jsonwebtoken::Algorithm::ES256,
                 }
             }
             None => {
@@ -92,7 +92,7 @@ async fn main() -> Result<()> {
                 let public_pem = String::from_utf8(key.public_key_pem.clone())
                     .map_err(|e| anyhow::anyhow!("utf8 error: {}", e))?;
                 signing_key_repo_instance
-                    .create(&default_project_id, "RS256", &public_pem, &encrypted)
+                    .create(&default_project_id, "ES256", &public_pem, &encrypted)
                     .await?;
                 tracing::info!("Generated and persisted new signing key");
                 key

@@ -52,7 +52,7 @@ pub struct SigningKeyPair {
     pub algorithm: Algorithm,
 }
 
-/// JWKS entry for public key exposure
+/// JWKS entry for public key exposure (EC key format)
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct JwkEntry {
     pub kty: String,
@@ -60,8 +60,9 @@ pub struct JwkEntry {
     pub alg: String,
     #[serde(rename = "use")]
     pub use_: String,
-    pub n: String, // RSA modulus
-    pub e: String, // RSA exponent
+    pub crv: String, // EC curve name
+    pub x: String,   // EC x coordinate (base64url)
+    pub y: String,   // EC y coordinate (base64url)
 }
 
 /// JWKS (JSON Web Key Set)
@@ -72,33 +73,38 @@ pub struct Jwks {
 
 impl SigningKeyPair {
     /// Build a JwkEntry from this key pair's public key.
-    /// Parses the RSA public key PEM to extract the modulus (n) and exponent (e),
+    /// Parses the EC public key PEM to extract the x and y coordinates,
     /// encoding them as base64url as required by the JWK spec (RFC 7517).
     pub fn to_jwk_entry(&self) -> Result<JwkEntry, AppError> {
         use base64::Engine;
-        use rsa::pkcs8::DecodePublicKey;
-        use rsa::traits::PublicKeyParts;
-        use rsa::RsaPublicKey;
+        use p256::elliptic_curve::sec1::ToEncodedPoint;
+        use p256::pkcs8::DecodePublicKey;
 
-        let public_key = RsaPublicKey::from_public_key_pem(
+        let public_key = p256::PublicKey::from_public_key_pem(
             std::str::from_utf8(&self.public_key_pem)
                 .map_err(|e| AppError::Internal(anyhow::anyhow!("Invalid PEM encoding: {}", e)))?,
         )
         .map_err(|e| AppError::Internal(anyhow::anyhow!("Failed to parse public key: {}", e)))?;
 
-        let n_bytes = public_key.n().to_bytes_be();
-        let e_bytes = public_key.e().to_bytes_be();
+        let point = public_key.to_encoded_point(false);
+        let x_bytes = point
+            .x()
+            .ok_or_else(|| AppError::Internal(anyhow::anyhow!("Missing EC x coordinate")))?;
+        let y_bytes = point
+            .y()
+            .ok_or_else(|| AppError::Internal(anyhow::anyhow!("Missing EC y coordinate")))?;
 
-        let n = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&n_bytes);
-        let e = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&e_bytes);
+        let x = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(x_bytes);
+        let y = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(y_bytes);
 
         Ok(JwkEntry {
-            kty: "RSA".to_string(),
+            kty: "EC".to_string(),
             kid: self.kid.clone(),
-            alg: "RS256".to_string(),
+            alg: "ES256".to_string(),
             use_: "sig".to_string(),
-            n,
-            e,
+            crv: "P-256".to_string(),
+            x,
+            y,
         })
     }
 
@@ -113,27 +119,22 @@ impl SigningKeyPair {
 pub struct JwtService;
 
 impl JwtService {
-    /// Generate a new RSA 2048-bit key pair for JWT signing
+    /// Generate a new ECDSA P-256 key pair for JWT signing
     pub fn generate_key_pair(kid: &str) -> Result<SigningKeyPair, AppError> {
-        use rand::rngs::OsRng;
-        use rsa::pkcs8::EncodePrivateKey;
-        use rsa::pkcs8::EncodePublicKey;
-        use rsa::RsaPrivateKey;
+        use p256::ecdsa::SigningKey;
+        use p256::pkcs8::{EncodePrivateKey, EncodePublicKey};
 
-        let mut rng = OsRng;
-        let private_key = RsaPrivateKey::new(&mut rng, 2048).map_err(|e| {
-            AppError::Internal(anyhow::anyhow!("Failed to generate RSA key: {}", e))
-        })?;
+        let signing_key = SigningKey::random(&mut p256::elliptic_curve::rand_core::OsRng);
 
-        let private_key_pem = private_key
-            .to_pkcs8_pem(rsa::pkcs8::LineEnding::LF)
+        let private_key_pem = signing_key
+            .to_pkcs8_pem(p256::pkcs8::LineEnding::LF)
             .map_err(|e| {
                 AppError::Internal(anyhow::anyhow!("Failed to encode private key: {}", e))
             })?;
 
-        let public_key_pem = private_key
-            .to_public_key()
-            .to_public_key_pem(rsa::pkcs8::LineEnding::LF)
+        let public_key_pem = signing_key
+            .verifying_key()
+            .to_public_key_pem(p256::pkcs8::LineEnding::LF)
             .map_err(|e| {
                 AppError::Internal(anyhow::anyhow!("Failed to encode public key: {}", e))
             })?;
@@ -142,7 +143,7 @@ impl JwtService {
             kid: kid.to_string(),
             private_key_pem: private_key_pem.as_bytes().to_vec(),
             public_key_pem: public_key_pem.into_bytes(),
-            algorithm: Algorithm::RS256,
+            algorithm: Algorithm::ES256,
         })
     }
 
@@ -151,7 +152,7 @@ impl JwtService {
         let mut header = Header::new(key.algorithm);
         header.kid = Some(key.kid.clone());
 
-        let encoding_key = EncodingKey::from_rsa_pem(&key.private_key_pem)
+        let encoding_key = EncodingKey::from_ec_pem(&key.private_key_pem)
             .map_err(|e| AppError::Internal(anyhow::anyhow!("Invalid signing key: {}", e)))?;
 
         encode(&header, claims, &encoding_key)
@@ -159,24 +160,24 @@ impl JwtService {
     }
 
     /// Verify a JWT and return the claims
-    /// SECURITY: Only accepts RS256 algorithm (rejects none, HS256, etc.)
+    /// SECURITY: Only accepts ES256 algorithm (rejects none, HS256, RS256, etc.)
     /// SECURITY: Validates audience (project_id) to prevent cross-project token reuse
     pub fn verify(
         token: &str,
         public_key_pem: &[u8],
         expected_audience: &str,
     ) -> Result<NucleusClaims, AppError> {
-        let decoding_key = DecodingKey::from_rsa_pem(public_key_pem)
+        let decoding_key = DecodingKey::from_ec_pem(public_key_pem)
             .map_err(|_| AppError::Auth(AuthError::TokenInvalid))?;
 
-        let mut validation = Validation::new(Algorithm::RS256);
+        let mut validation = Validation::new(Algorithm::ES256);
         validation.validate_exp = true;
         validation.validate_aud = true;
         validation.set_audience(&[expected_audience]);
         validation.leeway = 0; // strict expiry checking, no grace period
-                               // SECURITY: algorithms list only contains RS256
+                               // SECURITY: algorithms list only contains ES256
                                // This prevents algorithm confusion attacks
-        validation.algorithms = vec![Algorithm::RS256];
+        validation.algorithms = vec![Algorithm::ES256];
 
         let token_data: TokenData<NucleusClaims> = decode(token, &decoding_key, &validation)
             .map_err(|e| match e.kind() {
@@ -351,7 +352,7 @@ mod tests {
             .unwrap();
         let header: serde_json::Value = serde_json::from_slice(&header_bytes).unwrap();
         assert_eq!(header["kid"], "test-kid-1");
-        assert_eq!(header["alg"], "RS256");
+        assert_eq!(header["alg"], "ES256");
     }
 
     #[test]
