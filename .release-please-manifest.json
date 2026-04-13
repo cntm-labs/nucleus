@@ -1,15 +1,15 @@
 {
-  "sdks/js": "0.2.1",
-  "sdks/node": "0.2.1",
-  "sdks/react": "0.2.1",
-  "sdks/nextjs": "0.2.1",
-  "sdks/python": "0.2.1",
-  "sdks/rust": "0.2.1",
-  "sdks/flutter": "0.2.1",
-  "sdks/dotnet": "0.2.1",
-  "sdks/java": "0.2.1",
-  "sdks/android": "0.2.1",
-  "sdks/android-java": "0.2.1",
-  "sdks/swift": "0.2.1",
-  "sdks/go": "0.2.1"
+  "sdks/js": "0.3.0",
+  "sdks/node": "0.3.0",
+  "sdks/react": "0.3.0",
+  "sdks/nextjs": "0.3.0",
+  "sdks/python": "0.3.0",
+  "sdks/rust": "0.3.0",
+  "sdks/flutter": "0.3.0",
+  "sdks/dotnet": "0.3.0",
+  "sdks/java": "0.3.0",
+  "sdks/android": "0.3.0",
+  "sdks/android-java": "0.3.0",
+  "sdks/swift": "0.3.0",
+  "sdks/go": "0.3.0"
 }

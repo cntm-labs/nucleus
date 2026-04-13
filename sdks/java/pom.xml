@@ -3,7 +3,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>io.github.cntm-labs</groupId>
   <artifactId>nucleus</artifactId>
-  <version>0.2.1-SNAPSHOT</version>
+  <version>0.3.0</version>
   <name>nucleus</name>
   <description>Nucleus authentication SDK for Java/Spring Boot.</description>
   <url>https://github.com/cntm-labs/nucleus</url>
