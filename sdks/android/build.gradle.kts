@@ -3,6 +3,7 @@ plugins {
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.serialization")
     id("maven-publish")
+    id("signing")
 }
 
 group = "io.github.cntm-labs"
@@ -48,6 +49,7 @@ android {
     publishing {
         singleVariant("release") {
             withSourcesJar()
+            withJavadocJar()
         }
     }
 }
@@ -97,7 +99,7 @@ afterEvaluate {
         repositories {
             maven {
                 name = "MavenCentral"
-                url = uri("https://ossrh-staging-api.central.sonatype.com/service/local/staging/deploy/maven2/")
+                url = uri("https://central.sonatype.com/api/v1/publisher/deployments/download/")
                 credentials {
                     username = System.getenv("MAVEN_USERNAME") ?: ""
                     password = System.getenv("MAVEN_PASSWORD") ?: ""
@@ -130,10 +132,20 @@ afterEvaluate {
                     }
                     scm {
                         connection.set("scm:git:git://github.com/cntm-labs/nucleus.git")
+                        developerConnection.set("scm:git:ssh://github.com/cntm-labs/nucleus.git")
                         url.set("https://github.com/cntm-labs/nucleus")
                     }
                 }
             }
+        }
+    }
+
+    signing {
+        val signingKey = System.getenv("GPG_PRIVATE_KEY")
+        val signingPassword = System.getenv("GPG_PASSPHRASE")
+        if (!signingKey.isNullOrBlank()) {
+            useInMemoryPgpKeys(signingKey, signingPassword)
+            sign(publishing.publications["release"])
         }
     }
 }

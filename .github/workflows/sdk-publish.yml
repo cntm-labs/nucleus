@@ -263,10 +263,12 @@ jobs:
         env:
           MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
           MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
-        run: cd ${{ matrix.path }} && gradle publishReleasePublicationToMavenCentralRepository
+          GPG_PRIVATE_KEY: ${{ secrets.MAVEN_GPG_KEY }}
+          GPG_PASSPHRASE: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
+        run: cd ${{ matrix.path }} && ./gradlew publishReleasePublicationToMavenCentralRepository
       - name: Dry run
         if: inputs.dry_run == true
-        run: cd ${{ matrix.path }} && gradle assembleRelease
+        run: cd ${{ matrix.path }} && ./gradlew assembleRelease
 
   # --- Swift (CocoaPods) ---
   swift:
