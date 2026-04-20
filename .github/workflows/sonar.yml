@@ -1,0 +1,26 @@
+name: SonarQube Scan
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  sonarqube:
+    name: SonarQube Scan
+    runs-on: self-hosted
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@master
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: "http://192.168.1.2:31000"
