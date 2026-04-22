@@ -11,7 +11,7 @@ on:
 jobs:
   sonarqube:
     name: SonarQube Scan
-    runs-on: self-hosted
+    runs-on: [self-hosted, internal-runner]
     
     steps:
       - name: Checkout Code
