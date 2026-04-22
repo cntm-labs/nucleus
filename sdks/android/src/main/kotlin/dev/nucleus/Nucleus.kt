@@ -20,30 +20,32 @@ import dev.nucleus.session.TokenStorage
  */
 object Nucleus {
 
+    private const val ERROR_NOT_CONFIGURED = "Nucleus has not been configured. Call Nucleus.configure() first."
+
     @Volatile
     private var _config: NucleusConfig? = null
     val config: NucleusConfig
-        get() = _config ?: error("Nucleus has not been configured. Call Nucleus.configure() first.")
+        get() = _config ?: error(ERROR_NOT_CONFIGURED)
 
     @Volatile
     private var _auth: NucleusAuth? = null
     val auth: NucleusAuth
-        get() = _auth ?: error("Nucleus has not been configured. Call Nucleus.configure() first.")
+        get() = _auth ?: error(ERROR_NOT_CONFIGURED)
 
     @Volatile
     private var _apiClient: ApiClient? = null
     val apiClient: ApiClient
-        get() = _apiClient ?: error("Nucleus has not been configured. Call Nucleus.configure() first.")
+        get() = _apiClient ?: error(ERROR_NOT_CONFIGURED)
 
     @Volatile
     private var _sessionManager: SessionManager? = null
     val sessionManager: SessionManager
-        get() = _sessionManager ?: error("Nucleus has not been configured. Call Nucleus.configure() first.")
+        get() = _sessionManager ?: error(ERROR_NOT_CONFIGURED)
 
     @Volatile
     private var _tokenStorage: TokenStorage? = null
     val tokenStorage: TokenStorage
-        get() = _tokenStorage ?: error("Nucleus has not been configured. Call Nucleus.configure() first.")
+        get() = _tokenStorage ?: error(ERROR_NOT_CONFIGURED)
 
     val isConfigured: Boolean
         get() = _config != null

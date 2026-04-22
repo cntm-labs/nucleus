@@ -86,13 +86,15 @@ func validClaims() jwt.MapClaims {
 	}
 }
 
+const testKeyID = "test-key-1"
+
 func TestVerifyToken_Valid(t *testing.T) {
 	resetJWKSCache()
 	key := generateTestKey(t)
-	server := startJWKSServer(t, key, "test-key-1")
+	server := startJWKSServer(t, key, testKeyID)
 	defer server.Close()
 
-	token := makeToken(t, key, validClaims(), "test-key-1")
+	token := makeToken(t, key, validClaims(), testKeyID)
 	cfg := &Config{BaseURL: server.URL}
 
 	claims, err := VerifyToken(token, cfg)
@@ -116,12 +118,12 @@ func TestVerifyToken_Valid(t *testing.T) {
 func TestVerifyToken_Expired(t *testing.T) {
 	resetJWKSCache()
 	key := generateTestKey(t)
-	server := startJWKSServer(t, key, "test-key-1")
+	server := startJWKSServer(t, key, testKeyID)
 	defer server.Close()
 
 	expired := validClaims()
 	expired["exp"] = time.Now().Add(-time.Hour).Unix()
-	token := makeToken(t, key, expired, "test-key-1")
+	token := makeToken(t, key, expired, testKeyID)
 	cfg := &Config{BaseURL: server.URL}
 
 	_, err := VerifyToken(token, cfg)
@@ -134,11 +136,11 @@ func TestVerifyToken_WrongKey(t *testing.T) {
 	resetJWKSCache()
 	key := generateTestKey(t)
 	wrongKey := generateTestKey(t)
-	server := startJWKSServer(t, key, "test-key-1") // Serves key's public key
+	server := startJWKSServer(t, key, testKeyID) // Serves key's public key
 	defer server.Close()
 
 	// Sign with wrongKey but use kid that maps to key's public key
-	token := makeToken(t, wrongKey, validClaims(), "test-key-1")
+	token := makeToken(t, wrongKey, validClaims(), testKeyID)
 	cfg := &Config{BaseURL: server.URL}
 
 	_, err := VerifyToken(token, cfg)
@@ -150,7 +152,7 @@ func TestVerifyToken_WrongKey(t *testing.T) {
 func TestVerifyToken_InvalidTokenString(t *testing.T) {
 	resetJWKSCache()
 	key := generateTestKey(t)
-	server := startJWKSServer(t, key, "test-key-1")
+	server := startJWKSServer(t, key, testKeyID)
 	defer server.Close()
 
 	cfg := &Config{BaseURL: server.URL}

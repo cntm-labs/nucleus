@@ -35,6 +35,15 @@ export function OrgProfile({ onInvite }: OrgProfileProps) {
     finally { setIsLoading(false) }
   }
 
+  const handleRemoveMember = async (memberId: string) => {
+    try {
+      await _api.removeMember(getToken()!, organization.id, memberId)
+      setMembers(prev => prev.filter(m => m.id !== memberId))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Remove failed')
+    }
+  }
+
   return (
     <div style={s.card}>
       <h2 style={s.title}>{organization.name}</h2>
@@ -47,10 +56,12 @@ export function OrgProfile({ onInvite }: OrgProfileProps) {
               <div style={{ fontSize: 14, fontWeight: 500 }}>{member.first_name} {member.last_name}</div>
               <div style={{ fontSize: 12, color: '#6b7280' }}>{member.email} &middot; {member.role}</div>
             </div>
-            <button onClick={async () => {
-              try { await _api.removeMember(getToken()!, organization.id, member.id); setMembers(prev => prev.filter(m => m.id !== member.id)) }
-              catch (err) { setError(err instanceof Error ? err.message : 'Remove failed') }
-            }} style={{ border: 'none', background: 'none', color: '#dc2626', cursor: 'pointer', fontSize: 13 }}>{t('orgProfile.remove')}</button>
+            <button
+              onClick={() => handleRemoveMember(member.id)}
+              style={{ border: 'none', background: 'none', color: '#dc2626', cursor: 'pointer', fontSize: 13 }}
+            >
+              {t('orgProfile.remove')}
+            </button>
           </div>
         ))}
       </div>

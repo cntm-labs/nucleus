@@ -7,6 +7,8 @@ import (
 	"testing"
 )
 
+const testProtectedPath = "/protected"
+
 func TestProtect_ValidToken(t *testing.T) {
 	resetJWKSCache()
 	key := generateTestKey(t)
@@ -22,7 +24,7 @@ func TestProtect_ValidToken(t *testing.T) {
 	}))
 
 	token := makeToken(t, key, validClaims(), "test-key-mw")
-	req := httptest.NewRequest("GET", "/protected", nil)
+	req := httptest.NewRequest("GET", testProtectedPath, nil)
 	req.Header.Set("Authorization", "Bearer "+token)
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
@@ -45,7 +47,7 @@ func TestProtect_MissingToken(t *testing.T) {
 		t.Fatal("handler should not be called without token")
 	}))
 
-	req := httptest.NewRequest("GET", "/protected", nil)
+	req := httptest.NewRequest("GET", testProtectedPath, nil)
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
 
@@ -66,7 +68,7 @@ func TestProtect_InvalidToken(t *testing.T) {
 		t.Fatal("handler should not be called with invalid token")
 	}))
 
-	req := httptest.NewRequest("GET", "/protected", nil)
+	req := httptest.NewRequest("GET", testProtectedPath, nil)
 	req.Header.Set("Authorization", "Bearer invalid.token.here")
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)

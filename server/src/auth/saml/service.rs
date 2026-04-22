@@ -62,61 +62,18 @@ impl SamlService {
         attribute_mapping: &AttributeMapping,
     ) -> Result<SamlUserInfo, AppError> {
         let mut reader = Reader::from_str(xml);
-
-        let mut name_id = None;
-        let mut attributes: HashMap<String, String> = HashMap::new();
-
-        // State tracking
-        let mut in_name_id = false;
-        let mut current_attr_name: Option<String> = None;
-        let mut in_attr_value = false;
+        let mut context = SamlParseContext::default();
 
         loop {
             match reader.read_event() {
                 Ok(Event::Start(ref e)) | Ok(Event::Empty(ref e)) => {
-                    let local_name = String::from_utf8_lossy(e.local_name().as_ref()).to_string();
-
-                    match local_name.as_str() {
-                        "NameID" => {
-                            in_name_id = true;
-                        }
-                        "Attribute" => {
-                            // Extract Name attribute
-                            for attr in e.attributes().flatten() {
-                                if attr.key.local_name().as_ref() == b"Name" {
-                                    current_attr_name =
-                                        Some(String::from_utf8_lossy(&attr.value).to_string());
-                                }
-                            }
-                        }
-                        "AttributeValue" => {
-                            if current_attr_name.is_some() {
-                                in_attr_value = true;
-                            }
-                        }
-                        _ => {}
-                    }
+                    Self::handle_start_event(e, &mut context);
                 }
                 Ok(Event::Text(ref e)) => {
-                    let text = e.unescape().unwrap_or_default().to_string();
-                    if in_name_id {
-                        name_id = Some(text);
-                        in_name_id = false;
-                    } else if in_attr_value {
-                        if let Some(ref name) = current_attr_name {
-                            attributes.insert(name.clone(), text);
-                        }
-                        in_attr_value = false;
-                    }
+                    Self::handle_text_event(e, &mut context);
                 }
                 Ok(Event::End(ref e)) => {
-                    let local_name = String::from_utf8_lossy(e.local_name().as_ref()).to_string();
-                    match local_name.as_str() {
-                        "NameID" => in_name_id = false,
-                        "Attribute" => current_attr_name = None,
-                        "AttributeValue" => in_attr_value = false,
-                        _ => {}
-                    }
+                    Self::handle_end_event(e, &mut context);
                 }
                 Ok(Event::Eof) => break,
                 Err(e) => {
@@ -129,16 +86,78 @@ impl SamlService {
             }
         }
 
-        let name_id = name_id.ok_or_else(|| {
+        let name_id = context.name_id.ok_or_else(|| {
             AppError::Internal(anyhow::anyhow!("No NameID found in SAML assertion"))
         })?;
 
         Ok(SamlUserInfo {
             name_id,
-            email: attributes.get(&attribute_mapping.email).cloned(),
-            first_name: attributes.get(&attribute_mapping.first_name).cloned(),
-            last_name: attributes.get(&attribute_mapping.last_name).cloned(),
+            email: context.attributes.get(&attribute_mapping.email).cloned(),
+            first_name: context.attributes.get(&attribute_mapping.first_name).cloned(),
+            last_name: context.attributes.get(&attribute_mapping.last_name).cloned(),
         })
+    }
+
+    fn handle_start_event(e: &quick_xml::events::BytesStart, ctx: &mut SamlParseContext) {
+        let local_name = String::from_utf8_lossy(e.local_name().as_ref()).to_string();
+
+        match local_name.as_str() {
+            "NameID" => {
+                ctx.state = SamlParserState::InNameId;
+            }
+            "Attribute" => {
+                for attr in e.attributes().flatten() {
+                    if attr.key.local_name().as_ref() == b"Name" {
+                        ctx.current_attr_name =
+                            Some(String::from_utf8_lossy(&attr.value).to_string());
+                    }
+                }
+            }
+            "AttributeValue" => {
+                if ctx.current_attr_name.is_some() {
+                    ctx.state = SamlParserState::InAttributeValue;
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn handle_text_event(e: &quick_xml::events::BytesText, ctx: &mut SamlParseContext) {
+        let text = e.unescape().unwrap_or_default().to_string();
+
+        match ctx.state {
+            SamlParserState::InNameId => {
+                ctx.name_id = Some(text);
+                ctx.state = SamlParserState::None;
+            }
+            SamlParserState::InAttributeValue => {
+                if let Some(ref name) = ctx.current_attr_name {
+                    ctx.attributes.insert(name.clone(), text);
+                }
+                ctx.state = SamlParserState::None;
+            }
+            SamlParserState::None => {}
+        }
+    }
+
+    fn handle_end_event(e: &quick_xml::events::BytesEnd, ctx: &mut SamlParseContext) {
+        let local_name = String::from_utf8_lossy(e.local_name().as_ref()).to_string();
+        match local_name.as_str() {
+            "NameID" => {
+                if matches!(ctx.state, SamlParserState::InNameId) {
+                    ctx.state = SamlParserState::None;
+                }
+            }
+            "Attribute" => {
+                ctx.current_attr_name = None;
+            }
+            "AttributeValue" => {
+                if matches!(ctx.state, SamlParserState::InAttributeValue) {
+                    ctx.state = SamlParserState::None;
+                }
+            }
+            _ => {}
+        }
     }
 
     /// Generate SP metadata XML for IdP configuration.
@@ -154,6 +173,22 @@ impl SamlService {
 </EntityDescriptor>"#
         )
     }
+}
+
+#[derive(Default)]
+struct SamlParseContext {
+    name_id: Option<String>,
+    attributes: HashMap<String, String>,
+    state: SamlParserState,
+    current_attr_name: Option<String>,
+}
+
+#[derive(Default)]
+enum SamlParserState {
+    #[default]
+    None,
+    InNameId,
+    InAttributeValue,
 }
 
 #[cfg(test)]
