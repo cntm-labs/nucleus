@@ -26,31 +26,32 @@ pub struct RateLimitConfig {
 
 /// Extract the client IP address, only trusting `X-Forwarded-For` when the
 /// connecting peer is in the `trusted_proxies` allowlist.
-///
-/// When `trusted_proxies` is empty, the header is never consulted — this is
-/// the secure default ("don't trust anyone").
 pub fn extract_client_ip(req: &Request, trusted_proxies: &[IpAddr]) -> Option<IpAddr> {
     let peer_ip = req
         .extensions()
         .get::<axum::extract::ConnectInfo<std::net::SocketAddr>>()
         .map(|ci| ci.0.ip());
 
-    // Only trust X-Forwarded-For from known proxies
     if let Some(peer) = peer_ip {
         if trusted_proxies.contains(&peer) {
-            if let Some(forwarded) = req.headers().get("x-forwarded-for") {
-                if let Ok(val) = forwarded.to_str() {
-                    if let Some(first) = val.split(',').next() {
-                        if let Ok(ip) = first.trim().parse::<IpAddr>() {
-                            return Some(ip);
-                        }
-                    }
-                }
+            if let Some(forwarded_ip) = parse_x_forwarded_for(req.headers().get("x-forwarded-for")) {
+                return Some(forwarded_ip);
             }
         }
     }
 
     peer_ip
+}
+
+fn parse_x_forwarded_for(header_value: Option<&axum::http::HeaderValue>) -> Option<IpAddr> {
+    header_value?
+        .to_str()
+        .ok()?
+        .split(',')
+        .next()?
+        .trim()
+        .parse::<IpAddr>()
+        .ok()
 }
 
 // ---------------------------------------------------------------------------
@@ -84,11 +85,16 @@ pub async fn rate_limit_middleware(
     redis: Arc<ConnectionManager>,
     config: RateLimitConfig,
     trusted_proxies: Arc<Vec<IpAddr>>,
-    project_id: String,
     endpoint_group: String,
     req: Request,
     next: Next,
 ) -> Response {
+    let project_id = req
+        .extensions()
+        .get::<crate::core::types::ProjectId>()
+        .map(|id| id.to_string())
+        .unwrap_or_else(|| "default".to_string());
+
     let ip = extract_client_ip(&req, &trusted_proxies)
         .map(|ip| ip.to_string())
         .unwrap_or_else(|| "unknown".to_string());
@@ -180,16 +186,7 @@ pub fn make_rate_limit_layer(
         let trusted_proxies = trusted_proxies.clone();
         let endpoint_group = endpoint_group.clone();
         Box::pin(async move {
-            rate_limit_middleware(
-                redis,
-                config,
-                trusted_proxies,
-                "default".to_string(),
-                endpoint_group,
-                req,
-                next,
-            )
-            .await
+            rate_limit_middleware(redis, config, trusted_proxies, endpoint_group, req, next).await
         })
     }
 }

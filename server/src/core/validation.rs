@@ -70,28 +70,36 @@ pub fn validate_webhook_url(url_str: &str) -> Result<Url, AppError> {
         return Err(anyhow::anyhow!("private/internal URLs are not allowed").into());
     }
 
-    // Try to parse as IP directly
+    let port = parsed.port().unwrap_or(match parsed.scheme() {
+        "https" => 443,
+        _ => 80,
+    });
+
+    resolve_and_check_ssrf(host, port)?;
+
+    Ok(parsed)
+}
+
+fn resolve_and_check_ssrf(host: &str, port: u16) -> Result<(), AppError> {
+    // 1. Try to parse as IP directly
     if let Ok(ip) = host.parse::<IpAddr>() {
         if is_private_ip(&ip) {
             return Err(anyhow::anyhow!("private/internal URLs are not allowed").into());
         }
-    } else {
-        // Resolve hostname and check all resolved IPs
-        use std::net::ToSocketAddrs;
-        let port = parsed.port().unwrap_or(match parsed.scheme() {
-            "https" => 443,
-            _ => 80,
-        });
-        if let Ok(addrs) = (host, port).to_socket_addrs() {
-            for addr in addrs {
-                if is_private_ip(&addr.ip()) {
-                    return Err(anyhow::anyhow!("private/internal URLs are not allowed").into());
-                }
+        return Ok(());
+    }
+
+    // 2. Resolve hostname and check all resolved IPs
+    use std::net::ToSocketAddrs;
+    if let Ok(addrs) = (host, port).to_socket_addrs() {
+        for addr in addrs {
+            if is_private_ip(&addr.ip()) {
+                return Err(anyhow::anyhow!("private/internal URLs are not allowed").into());
             }
         }
     }
 
-    Ok(parsed)
+    Ok(())
 }
 
 /// Validate a slug (lowercase alphanumeric + hyphens, 3-100 chars)

@@ -1,4 +1,4 @@
-use axum::{extract::State, http::StatusCode, Json};
+use axum::{extract::Extension, extract::State, http::StatusCode, Json};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
@@ -35,11 +35,9 @@ pub struct UserResponse {
 /// In production the project_id will come from API key middleware.
 pub async fn handle_sign_up(
     State(auth_service): State<Arc<AuthService>>,
+    Extension(project_id): Extension<ProjectId>,
     Json(req): Json<SignUpRequest>,
 ) -> Result<(StatusCode, Json<SignUpResponse>), AppError> {
-    // TODO: project_id will come from middleware (API key extraction)
-    let project_id = ProjectId::new();
-
     let (user, jwt) = auth_service
         .sign_up(
             &project_id,
@@ -211,7 +209,7 @@ mod tests {
             last_name: Some("Smith".to_string()),
         };
 
-        let result = handle_sign_up(State(service), Json(req)).await;
+        let result = handle_sign_up(State(service), Extension(ProjectId::new()), Json(req)).await;
         assert!(result.is_ok());
 
         let (status, Json(response)) = result.unwrap();
@@ -233,7 +231,7 @@ mod tests {
             last_name: None,
         };
 
-        let result = handle_sign_up(State(service), Json(req)).await;
+        let result = handle_sign_up(State(service), Extension(ProjectId::new()), Json(req)).await;
         assert!(result.is_err());
     }
 
@@ -248,7 +246,7 @@ mod tests {
             last_name: None,
         };
 
-        let result = handle_sign_up(State(service), Json(req)).await;
+        let result = handle_sign_up(State(service), Extension(ProjectId::new()), Json(req)).await;
         assert!(result.is_err());
     }
 
@@ -263,7 +261,7 @@ mod tests {
             last_name: None,
         };
 
-        let result = handle_sign_up(State(service), Json(req)).await;
+        let result = handle_sign_up(State(service), Extension(ProjectId::new()), Json(req)).await;
         assert!(result.is_err());
     }
 }

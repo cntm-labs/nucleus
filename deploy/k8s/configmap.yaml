@@ -6,6 +6,7 @@ metadata:
   labels:
     app.kubernetes.io/name: nucleus
 data:
-  DATABASE_URL: "postgres://nucleus:nucleus@postgres:5432/nucleus"
-  REDIS_URL: "redis://redis:6379"
-  RUST_LOG: "nucleus=info"
+  # DATABASE_URL: postgres://nucleus:$(POSTGRES_PASSWORD)@postgres:5432/nucleus
+  # Note: POSTGRES_PASSWORD should be provided via a Secret
+  REDIS_URL: redis://redis:6379
+  RUST_LOG: nucleus=info

@@ -1,4 +1,4 @@
-use axum::{extract::Query, extract::State, http::StatusCode, Json};
+use axum::{extract::Extension, extract::Query, extract::State, http::HeaderMap, http::StatusCode, Json};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
@@ -15,18 +15,30 @@ use crate::state::AppState;
 
 pub async fn handle_sign_up(
     State(state): State<Arc<AppState>>,
+    Extension(project_id): Extension<ProjectId>,
     Json(req): Json<SignUpRequest>,
 ) -> Result<(StatusCode, Json<SignUpResponse>), AppError> {
-    crate::auth::handlers::sign_up::handle_sign_up(State(state.auth_service.clone()), Json(req))
-        .await
+    crate::auth::handlers::sign_up::handle_sign_up(
+        State(state.auth_service.clone()),
+        Extension(project_id),
+        Json(req),
+    )
+    .await
 }
 
 pub async fn handle_sign_in(
     State(state): State<Arc<AppState>>,
+    Extension(project_id): Extension<ProjectId>,
+    headers: HeaderMap,
     Json(req): Json<SignInRequest>,
 ) -> Result<(StatusCode, Json<SignInResponse>), AppError> {
-    crate::auth::handlers::sign_in::handle_sign_in(State(state.auth_service.clone()), Json(req))
-        .await
+    crate::auth::handlers::sign_in::handle_sign_in(
+        State(state.auth_service.clone()),
+        Extension(project_id),
+        headers,
+        Json(req),
+    )
+    .await
 }
 
 #[derive(Debug, Deserialize)]

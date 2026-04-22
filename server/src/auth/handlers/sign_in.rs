@@ -1,4 +1,4 @@
-use axum::{extract::State, http::StatusCode, Json};
+use axum::{extract::Extension, extract::State, http::HeaderMap, http::StatusCode, Json};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
@@ -33,14 +33,22 @@ pub struct UserResponse {
 /// In production the project_id will come from API key middleware.
 pub async fn handle_sign_in(
     State(auth_service): State<Arc<AuthService>>,
+    Extension(project_id): Extension<ProjectId>,
+    headers: HeaderMap,
     Json(req): Json<SignInRequest>,
 ) -> Result<(StatusCode, Json<SignInResponse>), AppError> {
-    // TODO: project_id will come from middleware (API key extraction)
-    let project_id = ProjectId::new();
+    let ip = headers
+        .get("x-forwarded-for")
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.split(',').next().unwrap_or(s).trim().to_string());
 
-    // TODO: extract ip and user_agent from request headers via middleware
+    let user_agent = headers
+        .get("user-agent")
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.to_string());
+
     let (user, jwt) = auth_service
-        .sign_in(&project_id, &req.identifier, &req.password, None, None)
+        .sign_in(&project_id, &req.identifier, &req.password, ip, user_agent)
         .await?;
 
     let response = SignInResponse {
@@ -193,7 +201,7 @@ mod tests {
             password: "SecurePass123!".to_string(),
         };
 
-        let result = handle_sign_in(State(service), Json(req)).await;
+        let result = handle_sign_in(State(service), Extension(ProjectId::new()), HeaderMap::new(), Json(req)).await;
         assert!(result.is_ok());
 
         let (status, Json(response)) = result.unwrap();
@@ -212,7 +220,7 @@ mod tests {
             password: "SecurePass123!".to_string(),
         };
 
-        let result = handle_sign_in(State(service), Json(req)).await;
+        let result = handle_sign_in(State(service), Extension(ProjectId::new()), HeaderMap::new(), Json(req)).await;
         assert!(result.is_err());
     }
 
@@ -225,7 +233,7 @@ mod tests {
             password: "WrongPassword!".to_string(),
         };
 
-        let result = handle_sign_in(State(service), Json(req)).await;
+        let result = handle_sign_in(State(service), Extension(ProjectId::new()), HeaderMap::new(), Json(req)).await;
         assert!(result.is_err());
     }
 }

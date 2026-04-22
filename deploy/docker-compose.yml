@@ -4,7 +4,7 @@ services:
     image: ghcr.io/nucleus/nucleus-server:latest
     ports: ["3000:3000"]
     environment:
-      DATABASE_URL: postgres://nucleus:nucleus@postgres:5432/nucleus
+      DATABASE_URL: postgres://nucleus:${POSTGRES_PASSWORD:-nucleus}@postgres:5432/nucleus
       REDIS_URL: redis://redis:6379
       MASTER_ENCRYPTION_KEY: ${MASTER_ENCRYPTION_KEY}
       RUST_LOG: nucleus=info
@@ -16,7 +16,7 @@ services:
   postgres:
     image: postgres:16-alpine
     volumes: ["pgdata:/var/lib/postgresql/data"]
-    environment: { POSTGRES_DB: nucleus, POSTGRES_USER: nucleus, POSTGRES_PASSWORD: nucleus }
+    environment: { POSTGRES_DB: nucleus, POSTGRES_USER: nucleus, POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-nucleus} }
     healthcheck: { test: "pg_isready -U nucleus", interval: 5s, retries: 5 }
     restart: unless-stopped
 

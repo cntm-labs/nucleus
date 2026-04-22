@@ -3,8 +3,9 @@ use std::sync::Arc;
 use crate::core::types::ProjectId;
 use axum::{
     extract::{Request, State},
+    http::StatusCode,
     middleware::{self, Next},
-    response::Response,
+    response::{IntoResponse, Response},
     routing::{delete, get, patch, post},
     Json, Router,
 };
@@ -277,10 +278,23 @@ async fn inject_auth_context(
     mut req: Request,
     next: Next,
 ) -> Response {
+    // 1. Extract Project ID from header (required for all multi-tenant routes)
+    let project_id_str = match req.headers().get("x-nucleus-project-id") {
+        Some(v) => match v.to_str() {
+            Ok(s) => s,
+            Err(_) => return (StatusCode::BAD_REQUEST, "Invalid x-nucleus-project-id header").into_response(),
+        },
+        None => return (StatusCode::BAD_REQUEST, "Missing x-nucleus-project-id header").into_response(),
+    };
+
+    let project_id = match Uuid::parse_str(project_id_str) {
+        Ok(uuid) => ProjectId::from_uuid(uuid),
+        Err(_) => return (StatusCode::BAD_REQUEST, "Invalid x-nucleus-project-id format").into_response(),
+    };
+
     req.extensions_mut()
         .insert(PublicKeyPem(state.signing_key.public_key_pem.clone()));
-    req.extensions_mut()
-        .insert(ProjectId::from_uuid(Uuid::nil())); // System project
+    req.extensions_mut().insert(project_id);
     req.extensions_mut().insert(state.session_service.clone());
     next.run(req).await
 }
