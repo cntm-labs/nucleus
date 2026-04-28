@@ -420,4 +420,24 @@ mod tests {
         let sessions = svc.list_user_sessions(&user_id).await.unwrap();
         assert_eq!(sessions.len(), 2);
     }
+
+    #[tokio::test]
+    async fn revoke_session_records_jwt_in_revocation_list() {
+        let svc = test_service();
+        let user_id = UserId::new();
+        let (_, session) = svc
+            .create_session(&user_id, &ProjectId::new(), DeviceInfo::default(), 3600)
+            .await
+            .unwrap();
+
+        let jti = "jti_under_test";
+        svc.revoke_session(&session.id, &user_id, Some(jti), 300)
+            .await
+            .unwrap();
+
+        assert!(
+            svc.is_jwt_revoked(jti).await.unwrap(),
+            "jti should appear in the revocation list after revoke_session(.., Some(jti), ..)"
+        );
+    }
 }
