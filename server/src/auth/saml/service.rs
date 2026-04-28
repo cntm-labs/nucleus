@@ -113,10 +113,8 @@ impl SamlService {
                     }
                 }
             }
-            "AttributeValue" => {
-                if ctx.current_attr_name.is_some() {
-                    ctx.state = SamlParserState::InAttributeValue;
-                }
+            "AttributeValue" if ctx.current_attr_name.is_some() => {
+                ctx.state = SamlParserState::InAttributeValue;
             }
             _ => {}
         }
