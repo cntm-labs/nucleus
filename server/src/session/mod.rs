@@ -511,4 +511,27 @@ mod tests {
             "session A must reject session B's token, got: {result:?}"
         );
     }
+
+    #[tokio::test]
+    async fn device_info_round_trip_preserves_all_fields() {
+        let svc = test_service();
+
+        let device = DeviceInfo {
+            device_type: Some("mobile".to_string()),
+            device_name: Some("Pixel 9".to_string()),
+            browser: Some("Chrome 130".to_string()),
+            ip: Some("203.0.113.42".to_string()),
+        };
+
+        let (_, session) = svc
+            .create_session(&UserId::new(), &ProjectId::new(), device, 3600)
+            .await
+            .unwrap();
+
+        let fetched = svc.validate_session(&session.id).await.unwrap();
+        assert_eq!(fetched.device_type.as_deref(), Some("mobile"));
+        assert_eq!(fetched.device_name.as_deref(), Some("Pixel 9"));
+        assert_eq!(fetched.browser.as_deref(), Some("Chrome 130"));
+        assert_eq!(fetched.ip.as_deref(), Some("203.0.113.42"));
+    }
 }
