@@ -534,4 +534,18 @@ mod tests {
         assert_eq!(fetched.browser.as_deref(), Some("Chrome 130"));
         assert_eq!(fetched.ip.as_deref(), Some("203.0.113.42"));
     }
+
+    #[tokio::test]
+    async fn revoke_unknown_session_is_ok() {
+        let svc = test_service();
+
+        let result = svc
+            .revoke_session(&SessionId::new(), &UserId::new(), None, 0)
+            .await;
+
+        assert!(
+            result.is_ok(),
+            "revoking a session that doesn't exist must be a no-op, got: {result:?}"
+        );
+    }
 }
