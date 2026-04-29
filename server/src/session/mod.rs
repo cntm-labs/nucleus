@@ -487,4 +487,28 @@ mod tests {
             "revoke_all_sessions(user_a) must not delete user_b's sessions"
         );
     }
+
+    #[tokio::test]
+    async fn session_token_does_not_validate_other_session() {
+        let svc = test_service();
+        let project_id = ProjectId::new();
+
+        let (_token_a, session_a) = svc
+            .create_session(&UserId::new(), &project_id, DeviceInfo::default(), 3600)
+            .await
+            .unwrap();
+        let (token_b, _session_b) = svc
+            .create_session(&UserId::new(), &project_id, DeviceInfo::default(), 3600)
+            .await
+            .unwrap();
+
+        let result = svc
+            .validate_session_with_token(&session_a.id, &token_b)
+            .await;
+
+        assert!(
+            matches!(result, Err(AppError::Auth(AuthError::SessionInvalid))),
+            "session A must reject session B's token, got: {result:?}"
+        );
+    }
 }
