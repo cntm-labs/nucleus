@@ -459,4 +459,32 @@ mod tests {
             "no jti should be recorded when revoke_session is called with None"
         );
     }
+
+    #[tokio::test]
+    async fn revoke_all_sessions_only_affects_target_user() {
+        let svc = test_service();
+        let user_a = UserId::new();
+        let user_b = UserId::new();
+        let project_id = ProjectId::new();
+
+        svc.create_session(&user_a, &project_id, DeviceInfo::default(), 3600)
+            .await
+            .unwrap();
+        svc.create_session(&user_a, &project_id, DeviceInfo::default(), 3600)
+            .await
+            .unwrap();
+        svc.create_session(&user_b, &project_id, DeviceInfo::default(), 3600)
+            .await
+            .unwrap();
+
+        let revoked_count = svc.revoke_all_sessions(&user_a).await.unwrap();
+        assert_eq!(revoked_count, 2);
+
+        let user_b_sessions = svc.list_user_sessions(&user_b).await.unwrap();
+        assert_eq!(
+            user_b_sessions.len(),
+            1,
+            "revoke_all_sessions(user_a) must not delete user_b's sessions"
+        );
+    }
 }
