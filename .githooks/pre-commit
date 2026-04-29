@@ -1,0 +1,60 @@
+#!/bin/sh
+# Nucleus pre-commit hook (tracked).
+#
+# Activate once per clone:
+#   bash scripts/setup-hooks.sh
+# which runs `git config core.hooksPath .githooks`.
+
+set -e
+
+echo "🔍 Running pre-commit checks..."
+
+# 1. Rust formatting
+echo "  [1/5] cargo fmt..."
+if ! cargo fmt --all -- --check >/dev/null 2>&1; then
+    echo "❌ Formatting check failed. Run: cargo fmt --all"
+    exit 1
+fi
+
+# 2. Clippy lints
+echo "  [2/5] cargo clippy..."
+if ! cargo clippy --workspace --all-targets -- -D warnings >/dev/null 2>&1; then
+    echo "❌ Clippy found warnings. Run: cargo clippy --workspace --all-targets -- -D warnings"
+    exit 1
+fi
+
+# 3. Rust tests
+echo "  [3/5] cargo test..."
+if ! cargo test --workspace --quiet >/dev/null 2>&1; then
+    echo "❌ Tests failed. Run: cargo test --workspace"
+    exit 1
+fi
+
+# 4. Dashboard TypeScript (only when dashboard files are staged)
+DASHBOARD_CHANGED=$(git diff --cached --name-only | grep "^dashboard/" || true)
+if [ -n "$DASHBOARD_CHANGED" ]; then
+    if [ ! -d dashboard/node_modules ]; then
+        echo "❌ Dashboard files staged but dashboard/node_modules is missing. Run: (cd dashboard && npm ci)"
+        exit 1
+    fi
+    echo "  [4/5] dashboard tsc..."
+    if ! (cd dashboard && npx --no-install tsc --noEmit >/dev/null 2>&1); then
+        echo "❌ TypeScript check failed. Run: (cd dashboard && npx tsc --noEmit)"
+        exit 1
+    fi
+else
+    echo "  [4/5] dashboard tsc... (skipped, no dashboard changes)"
+fi
+
+# 5. SonarQube (only when SONAR_TOKEN is set and scanner is on PATH)
+if [ -n "$SONAR_TOKEN" ] && command -v sonar-scanner >/dev/null 2>&1; then
+    echo "  [5/5] sonar-scanner..."
+    if ! sonar-scanner -Dsonar.login="$SONAR_TOKEN" >/dev/null 2>&1; then
+        echo "❌ SonarQube scan failed. Run: sonar-scanner -Dsonar.login=\$SONAR_TOKEN"
+        exit 1
+    fi
+else
+    echo "  [5/5] sonar-scanner... (skipped, set SONAR_TOKEN and install sonar-scanner to enable)"
+fi
+
+echo "✅ All pre-commit checks passed!"
