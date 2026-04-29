@@ -409,7 +409,10 @@ mod tests {
 
         let result = svc.update_me(&project_id, &user_id, &update).await;
 
-        assert!(result.is_err(), "update_me must error when the user does not exist");
+        assert!(
+            result.is_err(),
+            "update_me must error when the user does not exist"
+        );
         assert_eq!(result.unwrap_err().code(), "user/not_found");
     }
 
@@ -433,13 +436,24 @@ mod tests {
 
         // PaginationParams has no Default impl in core/pagination.rs (verified
         // against server/src/core/pagination.rs:4). Construct directly.
-        let params = PaginationParams { limit: 20, cursor: None };
+        let params = PaginationParams {
+            limit: 20,
+            cursor: None,
+        };
 
         let page_a = svc.list_users(&project_a, &params).await.unwrap();
-        assert_eq!(page_a.data.len(), 3, "project A should see only its 3 users");
+        assert_eq!(
+            page_a.data.len(),
+            3,
+            "project A should see only its 3 users"
+        );
 
         let page_b = svc.list_users(&project_b, &params).await.unwrap();
-        assert_eq!(page_b.data.len(), 2, "project B should see only its 2 users");
+        assert_eq!(
+            page_b.data.len(),
+            2,
+            "project B should see only its 2 users"
+        );
     }
 
     #[tokio::test]
