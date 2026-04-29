@@ -389,4 +389,27 @@ mod tests {
         assert!(result.is_err());
         assert_eq!(result.unwrap_err().code(), "user/not_found");
     }
+
+    #[tokio::test]
+    async fn update_me_returns_not_found_when_user_missing() {
+        let project_id = ProjectId::new();
+        let user_id = UserId::new();
+        let repo = Arc::new(MockUserRepo::new());
+        let svc = UserService::new(repo);
+
+        let update = UpdateUser {
+            email: None,
+            username: None,
+            first_name: Some("Ghost".to_string()),
+            last_name: None,
+            avatar_url: None,
+            metadata: None,
+            private_metadata: None,
+        };
+
+        let result = svc.update_me(&project_id, &user_id, &update).await;
+
+        assert!(result.is_err(), "update_me must error when the user does not exist");
+        assert_eq!(result.unwrap_err().code(), "user/not_found");
+    }
 }
