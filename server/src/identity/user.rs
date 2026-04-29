@@ -441,4 +441,19 @@ mod tests {
         let page_b = svc.list_users(&project_b, &params).await.unwrap();
         assert_eq!(page_b.data.len(), 2, "project B should see only its 2 users");
     }
+
+    #[tokio::test]
+    async fn create_user_admin_persists_via_repo() {
+        use crate::test_support::fixtures::{fake_new_user, test_project_a, TEST_EMAIL};
+
+        let project_id = test_project_a();
+        let repo = Arc::new(MockUserRepo::new());
+        let svc = UserService::new(repo);
+
+        let new_user = fake_new_user();
+        let created = svc.create_user(&project_id, &new_user).await.unwrap();
+
+        assert_eq!(created.project_id, project_id);
+        assert_eq!(created.email, TEST_EMAIL);
+    }
 }
