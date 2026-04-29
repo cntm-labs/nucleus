@@ -440,4 +440,23 @@ mod tests {
             "jti should appear in the revocation list after revoke_session(.., Some(jti), ..)"
         );
     }
+
+    #[tokio::test]
+    async fn revoke_session_with_no_jti_does_not_touch_revocation_list() {
+        let svc = test_service();
+        let user_id = UserId::new();
+        let (_, session) = svc
+            .create_session(&user_id, &ProjectId::new(), DeviceInfo::default(), 3600)
+            .await
+            .unwrap();
+
+        svc.revoke_session(&session.id, &user_id, None, 300)
+            .await
+            .unwrap();
+
+        assert!(
+            !svc.is_jwt_revoked("any_jti").await.unwrap(),
+            "no jti should be recorded when revoke_session is called with None"
+        );
+    }
 }
