@@ -34,7 +34,8 @@ pub fn extract_client_ip(req: &Request, trusted_proxies: &[IpAddr]) -> Option<Ip
 
     if let Some(peer) = peer_ip {
         if trusted_proxies.contains(&peer) {
-            if let Some(forwarded_ip) = parse_x_forwarded_for(req.headers().get("x-forwarded-for")) {
+            if let Some(forwarded_ip) = parse_x_forwarded_for(req.headers().get("x-forwarded-for"))
+            {
                 return Some(forwarded_ip);
             }
         }

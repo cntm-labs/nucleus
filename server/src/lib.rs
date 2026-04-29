@@ -16,3 +16,6 @@ pub mod middleware;
 pub mod router;
 pub mod services;
 pub mod state;
+
+#[cfg(test)]
+pub mod test_support;

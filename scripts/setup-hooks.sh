@@ -1,12 +1,15 @@
 #!/bin/sh
-# Install git hooks for Nucleus development
+# Activate the tracked git hooks under .githooks/.
+#
+# Run once per clone. Re-running is safe and idempotent.
 set -e
 
-HOOKS_DIR="$(git rev-parse --show-toplevel)/.git/hooks"
-SCRIPTS_DIR="$(git rev-parse --show-toplevel)/scripts"
+ROOT="$(git rev-parse --show-toplevel)"
 
-cp "$SCRIPTS_DIR/pre-commit" "$HOOKS_DIR/pre-commit"
-chmod +x "$HOOKS_DIR/pre-commit"
+git -C "$ROOT" config core.hooksPath .githooks
+chmod +x "$ROOT"/.githooks/*
 
-echo "✅ Git hooks installed successfully!"
-echo "   pre-commit: fmt + clippy + test + typecheck"
+echo "✅ Git hooks activated (core.hooksPath = .githooks)"
+echo "   Active hooks: $(ls "$ROOT"/.githooks | tr '\n' ' ')"
+echo ""
+echo "Tip: set SONAR_TOKEN and install sonar-scanner to enable the SonarQube step."

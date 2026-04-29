@@ -93,8 +93,14 @@ impl SamlService {
         Ok(SamlUserInfo {
             name_id,
             email: context.attributes.get(&attribute_mapping.email).cloned(),
-            first_name: context.attributes.get(&attribute_mapping.first_name).cloned(),
-            last_name: context.attributes.get(&attribute_mapping.last_name).cloned(),
+            first_name: context
+                .attributes
+                .get(&attribute_mapping.first_name)
+                .cloned(),
+            last_name: context
+                .attributes
+                .get(&attribute_mapping.last_name)
+                .cloned(),
         })
     }
 
@@ -113,10 +119,8 @@ impl SamlService {
                     }
                 }
             }
-            "AttributeValue" => {
-                if ctx.current_attr_name.is_some() {
-                    ctx.state = SamlParserState::InAttributeValue;
-                }
+            "AttributeValue" if ctx.current_attr_name.is_some() => {
+                ctx.state = SamlParserState::InAttributeValue;
             }
             _ => {}
         }

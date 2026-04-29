@@ -420,4 +420,132 @@ mod tests {
         let sessions = svc.list_user_sessions(&user_id).await.unwrap();
         assert_eq!(sessions.len(), 2);
     }
+
+    #[tokio::test]
+    async fn revoke_session_records_jwt_in_revocation_list() {
+        let svc = test_service();
+        let user_id = UserId::new();
+        let (_, session) = svc
+            .create_session(&user_id, &ProjectId::new(), DeviceInfo::default(), 3600)
+            .await
+            .unwrap();
+
+        let jti = "jti_under_test";
+        svc.revoke_session(&session.id, &user_id, Some(jti), 300)
+            .await
+            .unwrap();
+
+        assert!(
+            svc.is_jwt_revoked(jti).await.unwrap(),
+            "jti should appear in the revocation list after revoke_session(.., Some(jti), ..)"
+        );
+    }
+
+    #[tokio::test]
+    async fn revoke_session_with_no_jti_does_not_touch_revocation_list() {
+        let svc = test_service();
+        let user_id = UserId::new();
+        let (_, session) = svc
+            .create_session(&user_id, &ProjectId::new(), DeviceInfo::default(), 3600)
+            .await
+            .unwrap();
+
+        svc.revoke_session(&session.id, &user_id, None, 300)
+            .await
+            .unwrap();
+
+        assert!(
+            !svc.is_jwt_revoked("any_jti").await.unwrap(),
+            "no jti should be recorded when revoke_session is called with None"
+        );
+    }
+
+    #[tokio::test]
+    async fn revoke_all_sessions_only_affects_target_user() {
+        let svc = test_service();
+        let user_a = UserId::new();
+        let user_b = UserId::new();
+        let project_id = ProjectId::new();
+
+        svc.create_session(&user_a, &project_id, DeviceInfo::default(), 3600)
+            .await
+            .unwrap();
+        svc.create_session(&user_a, &project_id, DeviceInfo::default(), 3600)
+            .await
+            .unwrap();
+        svc.create_session(&user_b, &project_id, DeviceInfo::default(), 3600)
+            .await
+            .unwrap();
+
+        let revoked_count = svc.revoke_all_sessions(&user_a).await.unwrap();
+        assert_eq!(revoked_count, 2);
+
+        let user_b_sessions = svc.list_user_sessions(&user_b).await.unwrap();
+        assert_eq!(
+            user_b_sessions.len(),
+            1,
+            "revoke_all_sessions(user_a) must not delete user_b's sessions"
+        );
+    }
+
+    #[tokio::test]
+    async fn session_token_does_not_validate_other_session() {
+        let svc = test_service();
+        let project_id = ProjectId::new();
+
+        let (_token_a, session_a) = svc
+            .create_session(&UserId::new(), &project_id, DeviceInfo::default(), 3600)
+            .await
+            .unwrap();
+        let (token_b, _session_b) = svc
+            .create_session(&UserId::new(), &project_id, DeviceInfo::default(), 3600)
+            .await
+            .unwrap();
+
+        let result = svc
+            .validate_session_with_token(&session_a.id, &token_b)
+            .await;
+
+        assert!(
+            matches!(result, Err(AppError::Auth(AuthError::SessionInvalid))),
+            "session A must reject session B's token, got: {result:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn device_info_round_trip_preserves_all_fields() {
+        let svc = test_service();
+
+        let device = DeviceInfo {
+            device_type: Some("mobile".to_string()),
+            device_name: Some("Pixel 9".to_string()),
+            browser: Some("Chrome 130".to_string()),
+            ip: Some("203.0.113.42".to_string()),
+        };
+
+        let (_, session) = svc
+            .create_session(&UserId::new(), &ProjectId::new(), device, 3600)
+            .await
+            .unwrap();
+
+        let fetched = svc.validate_session(&session.id).await.unwrap();
+        assert_eq!(fetched.device_type.as_deref(), Some("mobile"));
+        assert_eq!(fetched.device_name.as_deref(), Some("Pixel 9"));
+        assert_eq!(fetched.browser.as_deref(), Some("Chrome 130"));
+        assert_eq!(fetched.ip.as_deref(), Some("203.0.113.42"));
+    }
+
+    #[tokio::test]
+    async fn revoke_unknown_session_is_ok() {
+        let svc = test_service();
+
+        let result = svc
+            .revoke_session(&SessionId::new(), &UserId::new(), None, 0)
+            .await;
+
+        assert!(
+            result.is_ok(),
+            "revoking a session that doesn't exist must be a no-op, got: {result:?}"
+        );
+    }
 }

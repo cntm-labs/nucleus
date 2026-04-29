@@ -201,7 +201,13 @@ mod tests {
             password: "SecurePass123!".to_string(),
         };
 
-        let result = handle_sign_in(State(service), Extension(ProjectId::new()), HeaderMap::new(), Json(req)).await;
+        let result = handle_sign_in(
+            State(service),
+            Extension(ProjectId::new()),
+            HeaderMap::new(),
+            Json(req),
+        )
+        .await;
         assert!(result.is_ok());
 
         let (status, Json(response)) = result.unwrap();
@@ -220,7 +226,13 @@ mod tests {
             password: "SecurePass123!".to_string(),
         };
 
-        let result = handle_sign_in(State(service), Extension(ProjectId::new()), HeaderMap::new(), Json(req)).await;
+        let result = handle_sign_in(
+            State(service),
+            Extension(ProjectId::new()),
+            HeaderMap::new(),
+            Json(req),
+        )
+        .await;
         assert!(result.is_err());
     }
 
@@ -233,7 +245,13 @@ mod tests {
             password: "WrongPassword!".to_string(),
         };
 
-        let result = handle_sign_in(State(service), Extension(ProjectId::new()), HeaderMap::new(), Json(req)).await;
+        let result = handle_sign_in(
+            State(service),
+            Extension(ProjectId::new()),
+            HeaderMap::new(),
+            Json(req),
+        )
+        .await;
         assert!(result.is_err());
     }
 }

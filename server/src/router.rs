@@ -282,14 +282,32 @@ async fn inject_auth_context(
     let project_id_str = match req.headers().get("x-nucleus-project-id") {
         Some(v) => match v.to_str() {
             Ok(s) => s,
-            Err(_) => return (StatusCode::BAD_REQUEST, "Invalid x-nucleus-project-id header").into_response(),
+            Err(_) => {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    "Invalid x-nucleus-project-id header",
+                )
+                    .into_response()
+            }
         },
-        None => return (StatusCode::BAD_REQUEST, "Missing x-nucleus-project-id header").into_response(),
+        None => {
+            return (
+                StatusCode::BAD_REQUEST,
+                "Missing x-nucleus-project-id header",
+            )
+                .into_response()
+        }
     };
 
     let project_id = match Uuid::parse_str(project_id_str) {
         Ok(uuid) => ProjectId::from_uuid(uuid),
-        Err(_) => return (StatusCode::BAD_REQUEST, "Invalid x-nucleus-project-id format").into_response(),
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                "Invalid x-nucleus-project-id format",
+            )
+                .into_response()
+        }
     };
 
     req.extensions_mut()

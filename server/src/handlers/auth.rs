@@ -1,4 +1,6 @@
-use axum::{extract::Extension, extract::Query, extract::State, http::HeaderMap, http::StatusCode, Json};
+use axum::{
+    extract::Extension, extract::Query, extract::State, http::HeaderMap, http::StatusCode, Json,
+};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 

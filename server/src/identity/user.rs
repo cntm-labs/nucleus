@@ -389,4 +389,85 @@ mod tests {
         assert!(result.is_err());
         assert_eq!(result.unwrap_err().code(), "user/not_found");
     }
+
+    #[tokio::test]
+    async fn update_me_returns_not_found_when_user_missing() {
+        let project_id = ProjectId::new();
+        let user_id = UserId::new();
+        let repo = Arc::new(MockUserRepo::new());
+        let svc = UserService::new(repo);
+
+        let update = UpdateUser {
+            email: None,
+            username: None,
+            first_name: Some("Ghost".to_string()),
+            last_name: None,
+            avatar_url: None,
+            metadata: None,
+            private_metadata: None,
+        };
+
+        let result = svc.update_me(&project_id, &user_id, &update).await;
+
+        assert!(
+            result.is_err(),
+            "update_me must error when the user does not exist"
+        );
+        assert_eq!(result.unwrap_err().code(), "user/not_found");
+    }
+
+    #[tokio::test]
+    async fn list_users_only_returns_users_in_target_project() {
+        use crate::core::pagination::PaginationParams;
+        use crate::test_support::fixtures::{test_project_a, test_project_b};
+
+        let project_a = test_project_a();
+        let project_b = test_project_b();
+
+        let users = vec![
+            make_user(project_a, UserId::new(), "a1@example.test"),
+            make_user(project_a, UserId::new(), "a2@example.test"),
+            make_user(project_a, UserId::new(), "a3@example.test"),
+            make_user(project_b, UserId::new(), "b1@example.test"),
+            make_user(project_b, UserId::new(), "b2@example.test"),
+        ];
+        let repo = Arc::new(MockUserRepo::with_users(users));
+        let svc = UserService::new(repo);
+
+        // PaginationParams has no Default impl in core/pagination.rs (verified
+        // against server/src/core/pagination.rs:4). Construct directly.
+        let params = PaginationParams {
+            limit: 20,
+            cursor: None,
+        };
+
+        let page_a = svc.list_users(&project_a, &params).await.unwrap();
+        assert_eq!(
+            page_a.data.len(),
+            3,
+            "project A should see only its 3 users"
+        );
+
+        let page_b = svc.list_users(&project_b, &params).await.unwrap();
+        assert_eq!(
+            page_b.data.len(),
+            2,
+            "project B should see only its 2 users"
+        );
+    }
+
+    #[tokio::test]
+    async fn create_user_admin_persists_via_repo() {
+        use crate::test_support::fixtures::{fake_new_user, test_project_a, TEST_EMAIL};
+
+        let project_id = test_project_a();
+        let repo = Arc::new(MockUserRepo::new());
+        let svc = UserService::new(repo);
+
+        let new_user = fake_new_user();
+        let created = svc.create_user(&project_id, &new_user).await.unwrap();
+
+        assert_eq!(created.project_id, project_id);
+        assert_eq!(created.email, TEST_EMAIL);
+    }
 }
