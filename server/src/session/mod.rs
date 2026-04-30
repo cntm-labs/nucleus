@@ -111,6 +111,34 @@ impl SessionService {
     pub async fn touch_session(&self, session_id: &SessionId) -> Result<(), AppError> {
         self.repo.update_last_active(session_id).await
     }
+
+    /// Create a session for a dashboard account. Account sessions are NOT project-scoped
+    /// (they grant access to the Nucleus dashboard, not to any customer project).
+    /// Internally builds NewSession with project_id = ProjectId::nil() — sessions live only
+    /// in Redis (no SQL FK), so the nil project_id is safely ignored.
+    pub async fn create_account_session(
+        &self,
+        account_id: &AccountId,
+        device_info: DeviceInfo,
+        ttl_secs: u64,
+    ) -> Result<(String, Session), AppError> {
+        let session_token = crypto::generate_token();
+        let token_hash = crypto::generate_token_hash(&session_token);
+
+        let new_session = NewSession {
+            user_id: UserId::from_uuid(account_id.0),
+            project_id: ProjectId::from_uuid(uuid::Uuid::nil()),
+            token_hash,
+            device_type: device_info.device_type,
+            device_name: device_info.device_name,
+            browser: device_info.browser,
+            ip: device_info.ip,
+            ttl_secs,
+        };
+
+        let session = self.repo.create(&new_session).await?;
+        Ok((session_token, session))
+    }
 }
 
 #[derive(Debug, Default)]
@@ -547,5 +575,31 @@ mod tests {
             result.is_ok(),
             "revoking a session that doesn't exist must be a no-op, got: {result:?}"
         );
+    }
+
+    #[tokio::test]
+    async fn create_account_session_uses_nil_project_id() {
+        let svc = test_service();
+        let account_id = AccountId::new();
+
+        let (token, session) = svc
+            .create_account_session(&account_id, DeviceInfo::default(), 3600)
+            .await
+            .unwrap();
+
+        assert!(!token.is_empty());
+        assert_eq!(
+            session.user_id.0, account_id.0,
+            "account session's user_id slot holds the account_id uuid"
+        );
+        assert_eq!(
+            session.project_id.0,
+            uuid::Uuid::nil(),
+            "account sessions use nil project_id"
+        );
+
+        // Validation should still work because session is keyed by SessionId, not project_id
+        let fetched = svc.validate_session(&session.id).await.unwrap();
+        assert_eq!(fetched.id, session.id);
     }
 }
