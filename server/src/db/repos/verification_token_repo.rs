@@ -129,3 +129,71 @@ impl VerificationTokenRepository for PgVerificationTokenRepository {
         Ok(())
     }
 }
+
+#[cfg(test)]
+pub(crate) mod tests {
+    use super::*;
+    use std::sync::Mutex;
+
+    pub(crate) struct MockVerificationTokenRepo {
+        tokens: Mutex<Vec<VerificationToken>>,
+    }
+
+    impl MockVerificationTokenRepo {
+        pub(crate) fn new() -> Self {
+            Self {
+                tokens: Mutex::new(Vec::new()),
+            }
+        }
+    }
+
+    #[async_trait]
+    impl VerificationTokenRepository for MockVerificationTokenRepo {
+        async fn create(
+            &self,
+            user_id: Uuid,
+            project_id: Uuid,
+            token_type: &str,
+            token_hash: &str,
+            redirect_url: Option<&str>,
+            expires_at: DateTime<Utc>,
+        ) -> Result<VerificationToken, AppError> {
+            let token = VerificationToken {
+                id: Uuid::new_v4(),
+                project_id,
+                user_id,
+                token_type: token_type.to_string(),
+                token_hash: token_hash.to_string(),
+                redirect_url: redirect_url.map(|s| s.to_string()),
+                expires_at,
+                used_at: None,
+                created_at: Utc::now(),
+            };
+            self.tokens.lock().unwrap().push(token.clone());
+            Ok(token)
+        }
+
+        async fn find_by_hash(
+            &self,
+            token_hash: &str,
+            token_type: &str,
+        ) -> Result<Option<VerificationToken>, AppError> {
+            Ok(self
+                .tokens
+                .lock()
+                .unwrap()
+                .iter()
+                .find(|t| {
+                    t.token_hash == token_hash && t.token_type == token_type && t.used_at.is_none()
+                })
+                .cloned())
+        }
+
+        async fn mark_used(&self, id: Uuid) -> Result<(), AppError> {
+            if let Some(t) = self.tokens.lock().unwrap().iter_mut().find(|t| t.id == id) {
+                t.used_at = Some(Utc::now());
+            }
+            Ok(())
+        }
+    }
+}
