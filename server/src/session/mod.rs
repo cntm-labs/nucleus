@@ -150,7 +150,7 @@ pub struct DeviceInfo {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use crate::core::clock::Clock;
     use chrono::{DateTime, Utc};
@@ -161,8 +161,8 @@ mod tests {
     // Test Clock
     // -----------------------------------------------------------------------
 
-    struct TestClock {
-        now: DateTime<Utc>,
+    pub(crate) struct TestClock {
+        pub(crate) now: DateTime<Utc>,
     }
 
     impl Clock for TestClock {
@@ -175,14 +175,14 @@ mod tests {
     // Mock SessionRepository
     // -----------------------------------------------------------------------
 
-    struct MockSessionRepo {
+    pub(crate) struct MockSessionRepo {
         sessions: Mutex<HashMap<SessionId, Session>>,
         user_sessions: Mutex<HashMap<UserId, Vec<SessionId>>>,
         revoked_jwts: Mutex<HashMap<String, bool>>,
     }
 
     impl MockSessionRepo {
-        fn new() -> Self {
+        pub(crate) fn new() -> Self {
             Self {
                 sessions: Mutex::new(HashMap::new()),
                 user_sessions: Mutex::new(HashMap::new()),

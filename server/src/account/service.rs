@@ -4,13 +4,16 @@ use std::sync::Arc;
 
 use chrono::{Duration, Utc};
 
+use crate::auth::jwt::{JwtService, SigningKeyPair};
 use crate::auth::password::PasswordService;
 use crate::core::crypto;
-use crate::core::error::AppError;
+use crate::core::error::{AccountError, AppError};
 use crate::core::notification::NotificationService;
 use crate::core::types::ProjectId;
 use crate::db::repos::audit_repo::{AuditRepository, NewAuditLog};
+use crate::db::repos::session_repo::Session;
 use crate::db::repos::verification_token_repo::VerificationTokenRepository;
+use crate::session::{DeviceInfo, SessionService};
 
 use crate::account::repo::{Account, AccountRepository, NewAccount};
 
@@ -22,23 +25,39 @@ pub struct AccountService {
     verification_token_repo: Arc<dyn VerificationTokenRepository>,
     notification: Arc<dyn NotificationService>,
     audit: Arc<dyn AuditRepository>,
+    session_service: Arc<SessionService>,
+    jwt_signing_key: Arc<SigningKeyPair>,
+    issuer: String,
     base_url: String,
+    jwt_lifetime_secs: i64,
+    session_ttl_secs: u64,
 }
 
 impl AccountService {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         repo: Arc<dyn AccountRepository>,
         verification_token_repo: Arc<dyn VerificationTokenRepository>,
         notification: Arc<dyn NotificationService>,
         audit: Arc<dyn AuditRepository>,
+        session_service: Arc<SessionService>,
+        jwt_signing_key: Arc<SigningKeyPair>,
+        issuer: String,
         base_url: String,
+        jwt_lifetime_secs: i64,
+        session_ttl_secs: u64,
     ) -> Self {
         Self {
             repo,
             verification_token_repo,
             notification,
             audit,
+            session_service,
+            jwt_signing_key,
+            issuer,
             base_url,
+            jwt_lifetime_secs,
+            session_ttl_secs,
         }
     }
 
@@ -118,16 +137,92 @@ impl AccountService {
 
         Ok(account)
     }
+
+    /// Sign in an account. Returns (Account, jwt, Session) on success.
+    /// Anti-enumeration: any failure returns InvalidCredentials except EmailNotVerified.
+    pub async fn sign_in_account(
+        &self,
+        email: &str,
+        password: &str,
+        device: DeviceInfo,
+    ) -> Result<(Account, String, Session), AppError> {
+        let email = email.trim().to_lowercase();
+
+        let account = match self.repo.find_by_email(&email).await? {
+            Some(a) => a,
+            None => return Err(AppError::Account(AccountError::InvalidCredentials)),
+        };
+
+        let password_hash = self.repo.get_password_hash(&account.id).await?;
+        let ok = PasswordService::verify(password, &password_hash)?;
+        if !ok {
+            let _ = self
+                .audit
+                .create_audit_log(&NewAuditLog {
+                    project_id: ProjectId::from_uuid(uuid::Uuid::nil()),
+                    actor_type: "account".to_string(),
+                    actor_id: Some(account.id.0),
+                    action: "account.sign_in_failed".to_string(),
+                    target_type: Some("account".to_string()),
+                    target_id: Some(account.id.0),
+                    metadata: Some(serde_json::json!({ "reason": "wrong_password" })),
+                    ip: None,
+                    user_agent: None,
+                })
+                .await;
+            return Err(AppError::Account(AccountError::InvalidCredentials));
+        }
+
+        if !account.email_verified {
+            return Err(AppError::Account(AccountError::EmailNotVerified));
+        }
+
+        if !account.is_active {
+            return Err(AppError::Account(AccountError::InvalidCredentials));
+        }
+
+        let (_session_token, session) = self
+            .session_service
+            .create_account_session(&account.id, device, self.session_ttl_secs)
+            .await?;
+
+        let claims = JwtService::build_account_claims(
+            &account.id,
+            &self.issuer,
+            self.jwt_lifetime_secs,
+            Some(account.email.clone()),
+        );
+        let jwt = JwtService::sign(&claims, &self.jwt_signing_key)?;
+
+        let _ = self
+            .audit
+            .create_audit_log(&NewAuditLog {
+                project_id: ProjectId::from_uuid(uuid::Uuid::nil()),
+                actor_type: "account".to_string(),
+                actor_id: Some(account.id.0),
+                action: "account.signed_in".to_string(),
+                target_type: Some("account".to_string()),
+                target_id: Some(account.id.0),
+                metadata: Some(serde_json::json!({ "session_id": session.id.to_string() })),
+                ip: None,
+                user_agent: None,
+            })
+            .await;
+
+        Ok((account, jwt, session))
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::account::repo::tests::MockAccountRepo;
+    use crate::core::clock::MockClock;
     use crate::core::error::AccountError;
     use crate::core::notification::tests::MockNotificationService;
     use crate::db::repos::audit_repo::tests::MockAuditRepo;
     use crate::db::repos::verification_token_repo::tests::MockVerificationTokenRepo;
+    use crate::session::tests::MockSessionRepo;
 
     fn make_service() -> (
         AccountService,
@@ -139,12 +234,21 @@ mod tests {
             Arc::new(MockVerificationTokenRepo::new());
         let notif = Arc::new(MockNotificationService::new());
         let audit: Arc<dyn AuditRepository> = Arc::new(MockAuditRepo::new());
+        let session_repo = Arc::new(MockSessionRepo::new());
+        let clock = Arc::new(MockClock { now: Utc::now() });
+        let session_service = Arc::new(SessionService::new(session_repo, clock));
+        let signing_key = Arc::new(JwtService::generate_key_pair("test-kid").unwrap());
         let svc = AccountService::new(
             repo.clone() as Arc<dyn AccountRepository>,
             token_repo,
             notif.clone() as Arc<dyn NotificationService>,
             audit,
+            session_service,
+            signing_key,
+            "https://nucleus.test".to_string(),
             "https://dashboard.example.test".to_string(),
+            300,
+            3600,
         );
         (svc, repo, notif)
     }
@@ -202,5 +306,72 @@ mod tests {
                 || format!("{err:?}").to_lowercase().contains("email"),
             "expected validation/email error, got: {err:?}"
         );
+    }
+
+    #[tokio::test]
+    async fn sign_in_succeeds_when_account_verified() {
+        let (svc, repo, _notif) = make_service();
+        let account = svc
+            .sign_up_account("verified@example.test", "Strong-Password-123!", "V", None)
+            .await
+            .unwrap();
+        repo.mark_email_verified(&account.id).await.unwrap();
+
+        let (signed_in, jwt, session) = svc
+            .sign_in_account(
+                "verified@example.test",
+                "Strong-Password-123!",
+                DeviceInfo::default(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(signed_in.id, account.id);
+        assert!(!jwt.is_empty(), "JWT must be issued");
+        assert_eq!(
+            session.user_id.0, account.id.0,
+            "session bound to account_id"
+        );
+    }
+
+    #[tokio::test]
+    async fn sign_in_fails_on_wrong_password() {
+        let (svc, repo, _notif) = make_service();
+        let account = svc
+            .sign_up_account("wp@example.test", "Strong-Password-123!", "WP", None)
+            .await
+            .unwrap();
+        repo.mark_email_verified(&account.id).await.unwrap();
+
+        let err = svc
+            .sign_in_account("wp@example.test", "Wrong-Password!", DeviceInfo::default())
+            .await
+            .unwrap_err();
+        assert!(matches!(
+            err,
+            AppError::Account(AccountError::InvalidCredentials)
+        ));
+    }
+
+    #[tokio::test]
+    async fn sign_in_fails_on_unverified_account() {
+        let (svc, _repo, _notif) = make_service();
+        svc.sign_up_account("unverified@example.test", "Strong-Password-123!", "U", None)
+            .await
+            .unwrap();
+        // do NOT mark verified
+
+        let err = svc
+            .sign_in_account(
+                "unverified@example.test",
+                "Strong-Password-123!",
+                DeviceInfo::default(),
+            )
+            .await
+            .unwrap_err();
+        assert!(matches!(
+            err,
+            AppError::Account(AccountError::EmailNotVerified)
+        ));
     }
 }
