@@ -19,6 +19,10 @@ pub struct NucleusClaims {
     pub iat: i64,    // issued at
     pub jti: String, // unique token ID
 
+    // Token kind discriminator. None or Some("user") = user auth; Some("account") = dashboard account.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub kind: Option<String>,
+
     // Nucleus-specific claims
     #[serde(skip_serializing_if = "Option::is_none")]
     pub email: Option<String>,
@@ -209,12 +213,44 @@ impl JwtService {
             exp: (now + Duration::seconds(lifetime_secs)).timestamp(),
             iat: now.timestamp(),
             jti: format!("jti_{}", Uuid::new_v4()),
+            kind: None,
             email,
             first_name,
             last_name,
             avatar_url: None,
             email_verified: None,
             metadata,
+            org_id: None,
+            org_slug: None,
+            org_role: None,
+            org_permissions: None,
+        }
+    }
+
+    /// Build claims for an account (dashboard) token. Account tokens use a constant
+    /// `aud = "nucleus.dashboard"` and carry `kind = Some("account")` so the
+    /// account_auth middleware can distinguish them from user tokens.
+    pub fn build_account_claims(
+        account_id: &AccountId,
+        issuer: &str,
+        lifetime_secs: i64,
+        email: Option<String>,
+    ) -> NucleusClaims {
+        let now = Utc::now();
+        NucleusClaims {
+            sub: account_id.to_string(),
+            iss: issuer.to_string(),
+            aud: "nucleus.dashboard".to_string(),
+            exp: (now + Duration::seconds(lifetime_secs)).timestamp(),
+            iat: now.timestamp(),
+            jti: format!("jti_{}", Uuid::new_v4()),
+            kind: Some("account".to_string()),
+            email,
+            first_name: None,
+            last_name: None,
+            avatar_url: None,
+            email_verified: None,
+            metadata: None,
             org_id: None,
             org_slug: None,
             org_role: None,

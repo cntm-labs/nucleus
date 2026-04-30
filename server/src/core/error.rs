@@ -5,6 +5,8 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum AppError {
+    #[error(transparent)]
+    Account(#[from] AccountError),
     #[error("{0}")]
     Auth(#[from] AuthError),
     #[error("{0}")]
@@ -270,6 +272,7 @@ impl ApiError {
 impl AppError {
     pub fn code(&self) -> &str {
         match self {
+            Self::Account(e) => e.code(),
             Self::Auth(e) => e.code(),
             Self::User(e) => e.code(),
             Self::Org(e) => e.code(),
@@ -280,6 +283,7 @@ impl AppError {
 
     pub fn status(&self) -> StatusCode {
         match self {
+            Self::Account(e) => e.status(),
             Self::Auth(e) => e.status(),
             Self::User(e) => e.status(),
             Self::Org(e) => e.status(),
@@ -306,6 +310,45 @@ impl AppError {
                 details,
                 docs_url: format!("https://docs.nucleus.dev/errors/{}", docs_slug),
             },
+        }
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum AccountError {
+    #[error("invalid credentials")]
+    InvalidCredentials,
+    #[error("email already registered")]
+    EmailTaken,
+    #[error("email not verified")]
+    EmailNotVerified,
+    #[error("account not found")]
+    NotFound,
+    #[error("verification token invalid")]
+    TokenInvalid,
+    #[error("verification token expired")]
+    TokenExpired,
+}
+
+impl AccountError {
+    pub fn code(&self) -> &'static str {
+        match self {
+            Self::InvalidCredentials => "account/invalid_credentials",
+            Self::EmailTaken => "account/email_taken",
+            Self::EmailNotVerified => "account/email_not_verified",
+            Self::NotFound => "account/not_found",
+            Self::TokenInvalid => "account/token_invalid",
+            Self::TokenExpired => "account/token_expired",
+        }
+    }
+
+    pub fn status(&self) -> StatusCode {
+        match self {
+            Self::InvalidCredentials => StatusCode::UNAUTHORIZED,
+            Self::EmailTaken => StatusCode::CONFLICT,
+            Self::EmailNotVerified => StatusCode::FORBIDDEN,
+            Self::NotFound => StatusCode::NOT_FOUND,
+            Self::TokenInvalid | Self::TokenExpired => StatusCode::BAD_REQUEST,
         }
     }
 }
