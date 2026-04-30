@@ -23,6 +23,7 @@ pub struct AuditLog {
     pub created_at: DateTime<Utc>,
 }
 
+#[derive(Debug, Clone)]
 pub struct NewAuditLog {
     pub project_id: ProjectId,
     pub actor_type: String,
@@ -50,6 +51,7 @@ pub struct SignInAttempt {
     pub created_at: DateTime<Utc>,
 }
 
+#[derive(Debug, Clone)]
 pub struct NewSignInAttempt {
     pub project_id: ProjectId,
     pub user_id: Option<UserId>,
@@ -318,5 +320,97 @@ impl AuditRepository for PgAuditRepository {
             next_cursor,
             total_count: None,
         })
+    }
+}
+
+#[cfg(test)]
+pub(crate) mod tests {
+    use super::*;
+    use std::sync::Mutex;
+
+    pub(crate) struct MockAuditRepo {
+        logs: Mutex<Vec<NewAuditLog>>,
+        attempts: Mutex<Vec<NewSignInAttempt>>,
+    }
+
+    impl MockAuditRepo {
+        pub(crate) fn new() -> Self {
+            Self {
+                logs: Mutex::new(Vec::new()),
+                attempts: Mutex::new(Vec::new()),
+            }
+        }
+
+        #[allow(dead_code)]
+        pub(crate) fn logs(&self) -> Vec<NewAuditLog> {
+            self.logs.lock().unwrap().clone()
+        }
+    }
+
+    #[async_trait]
+    impl AuditRepository for MockAuditRepo {
+        async fn create_audit_log(&self, log: &NewAuditLog) -> Result<AuditLog, AppError> {
+            self.logs.lock().unwrap().push(log.clone());
+            Ok(AuditLog {
+                id: Uuid::new_v4(),
+                project_id: log.project_id,
+                actor_type: log.actor_type.clone(),
+                actor_id: log.actor_id,
+                action: log.action.clone(),
+                target_type: log.target_type.clone(),
+                target_id: log.target_id,
+                metadata: log.metadata.clone().unwrap_or(serde_json::json!({})),
+                ip: log.ip.clone(),
+                user_agent: log.user_agent.clone(),
+                created_at: Utc::now(),
+            })
+        }
+
+        async fn list_audit_logs(
+            &self,
+            _project_id: &ProjectId,
+            _params: &PaginationParams,
+        ) -> Result<PaginatedResponse<AuditLog>, AppError> {
+            Ok(PaginatedResponse {
+                data: vec![],
+                has_more: false,
+                next_cursor: None,
+                total_count: None,
+            })
+        }
+
+        async fn create_sign_in_attempt(
+            &self,
+            attempt: &NewSignInAttempt,
+        ) -> Result<SignInAttempt, AppError> {
+            self.attempts.lock().unwrap().push(attempt.clone());
+            Ok(SignInAttempt {
+                id: Uuid::new_v4(),
+                project_id: attempt.project_id,
+                user_id: attempt.user_id,
+                method: attempt.method.clone(),
+                status: attempt.status.clone(),
+                failure_reason: attempt.failure_reason.clone(),
+                ip: attempt.ip.clone(),
+                user_agent: attempt.user_agent.clone(),
+                country_code: attempt.country_code.clone(),
+                city: attempt.city.clone(),
+                created_at: Utc::now(),
+            })
+        }
+
+        async fn list_sign_in_attempts(
+            &self,
+            _project_id: &ProjectId,
+            _user_id: &UserId,
+            _params: &PaginationParams,
+        ) -> Result<PaginatedResponse<SignInAttempt>, AppError> {
+            Ok(PaginatedResponse {
+                data: vec![],
+                has_more: false,
+                next_cursor: None,
+                total_count: None,
+            })
+        }
     }
 }
