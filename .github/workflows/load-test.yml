@@ -3,7 +3,7 @@ name: Load Test
 on:
   push:
     branches: [main]
-    paths: ['crates/**']
+    paths: ['server/**']
   workflow_dispatch:
     inputs:
       profile:
@@ -23,11 +23,11 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with: { shared-key: load-test }
-      - run: cargo build --release --bin nucleus-server
+      - run: cargo build --release --bin cntm-nucleus-server
       - uses: actions/upload-artifact@v4
         with:
           name: nucleus-server
-          path: target/release/nucleus-server
+          path: target/release/cntm-nucleus-server
           retention-days: 1
 
   smoke:
@@ -51,7 +51,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with: { name: nucleus-server }
-      - run: chmod +x nucleus-server && ./nucleus-server &
+      - run: chmod +x cntm-nucleus-server && ./cntm-nucleus-server &
       - run: sleep 3 && curl -sf http://localhost:3000/health
 
       - name: Install k6
@@ -116,7 +116,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with: { name: nucleus-server }
-      - run: chmod +x nucleus-server && ./nucleus-server &
+      - run: chmod +x cntm-nucleus-server && ./cntm-nucleus-server &
       - run: sleep 3
 
       - name: Install k6
@@ -183,7 +183,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with: { name: nucleus-server }
-      - run: chmod +x nucleus-server && ./nucleus-server &
+      - run: chmod +x cntm-nucleus-server && ./cntm-nucleus-server &
       - run: sleep 3
 
       - name: Install k6
@@ -247,7 +247,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with: { name: nucleus-server }
-      - run: chmod +x nucleus-server && ./nucleus-server &
+      - run: chmod +x cntm-nucleus-server && ./cntm-nucleus-server &
       - run: sleep 3
 
       - name: Install k6
