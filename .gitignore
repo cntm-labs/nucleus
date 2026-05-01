@@ -1,7 +1,11 @@
 /target
 dashboard/node_modules
 node_modules/
-/docs
+
+# AI-generated artifacts — specs, plans, design docs from skill workflows
+# stay local and must never reach the public repo. Other docs/ subdirs
+# (architecture, contributing, etc.) are tracked normally.
+/docs/superpowers/
 
 # Secrets & credentials — NEVER commit these
 .env
