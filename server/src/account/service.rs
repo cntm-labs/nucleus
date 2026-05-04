@@ -211,6 +211,73 @@ impl AccountService {
 
         Ok((account, jwt, session))
     }
+
+    /// Mark an account's email as verified. Token is single-use.
+    pub async fn verify_email(&self, token: &str) -> Result<Account, AppError> {
+        let token_hash = crypto::generate_token_hash(token);
+        let record = self
+            .verification_token_repo
+            .find_by_hash(&token_hash, VERIFICATION_TOKEN_TYPE)
+            .await?
+            .ok_or(AppError::Account(AccountError::TokenInvalid))?;
+
+        if record.expires_at < Utc::now() {
+            return Err(AppError::Account(AccountError::TokenExpired));
+        }
+        if record.used_at.is_some() {
+            return Err(AppError::Account(AccountError::TokenInvalid));
+        }
+
+        let account_id = crate::core::types::AccountId::from_uuid(record.user_id);
+        self.repo.mark_email_verified(&account_id).await?;
+        self.verification_token_repo.mark_used(record.id).await?;
+
+        let _ = self
+            .audit
+            .create_audit_log(&NewAuditLog {
+                project_id: ProjectId::from_uuid(uuid::Uuid::nil()),
+                actor_type: "account".to_string(),
+                actor_id: Some(account_id.0),
+                action: "account.email_verified".to_string(),
+                target_type: Some("account".to_string()),
+                target_id: Some(account_id.0),
+                metadata: None,
+                ip: None,
+                user_agent: None,
+            })
+            .await;
+
+        self.repo
+            .find_by_id(&account_id)
+            .await?
+            .ok_or(AppError::Account(AccountError::NotFound))
+    }
+
+    /// Get the current account profile.
+    pub async fn get_me(
+        &self,
+        account_id: &crate::core::types::AccountId,
+    ) -> Result<Account, AppError> {
+        self.repo
+            .find_by_id(account_id)
+            .await?
+            .ok_or(AppError::Account(AccountError::NotFound))
+    }
+
+    /// Sign out — revoke session + revoke JWT.
+    /// SessionService::revoke_session takes &UserId; AccountId.0 == UserId.0 (both Uuid).
+    pub async fn sign_out(
+        &self,
+        session_id: &crate::core::types::SessionId,
+        account_id: &crate::core::types::AccountId,
+        jti: Option<&str>,
+        jwt_ttl_secs: u64,
+    ) -> Result<(), AppError> {
+        let user_id_proxy = crate::core::types::UserId::from_uuid(account_id.0);
+        self.session_service
+            .revoke_session(session_id, &user_id_proxy, jti, jwt_ttl_secs)
+            .await
+    }
 }
 
 #[cfg(test)]
@@ -373,5 +440,43 @@ mod tests {
             err,
             AppError::Account(AccountError::EmailNotVerified)
         ));
+    }
+
+    #[tokio::test]
+    async fn verify_email_marks_account_verified_and_consumes_token() {
+        let (svc, _repo, notif) = make_service();
+        let account = svc
+            .sign_up_account("verify@example.test", "Strong-Password-123!", "V", None)
+            .await
+            .unwrap();
+        assert!(!account.email_verified, "fresh account starts unverified");
+
+        // Extract token from the verification email body (mock captured the URL).
+        let emails = notif.sent_emails();
+        let body = &emails[0].2; // (to, subject, html_body, text_body)
+        let token = body
+            .split("token=")
+            .nth(1)
+            .expect("verification URL contains token=...")
+            .split(|c: char| c == '\"' || c.is_whitespace())
+            .next()
+            .expect("token segment");
+
+        let updated = svc.verify_email(token).await.unwrap();
+        assert!(
+            updated.email_verified,
+            "after verify_email, account.email_verified must be true"
+        );
+
+        // Second use of the same token must fail (single-use).
+        let err = svc.verify_email(token).await.unwrap_err();
+        assert!(matches!(err, AppError::Account(AccountError::TokenInvalid)));
+    }
+
+    #[tokio::test]
+    async fn verify_email_fails_on_unknown_token() {
+        let (svc, _repo, _notif) = make_service();
+        let err = svc.verify_email("does_not_exist").await.unwrap_err();
+        assert!(matches!(err, AppError::Account(AccountError::TokenInvalid)));
     }
 }
