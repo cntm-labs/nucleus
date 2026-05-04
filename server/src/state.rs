@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use crate::account::service::AccountService;
 use crate::auth::jwt::SigningKeyPair;
 use crate::auth::service::AuthService;
 use crate::core::clock::Clock;
@@ -24,6 +25,7 @@ pub struct AppState {
     pub master_key: [u8; 32],
     pub clock: Arc<dyn Clock>,
     pub auth_service: Arc<AuthService>,
+    pub account_service: Arc<AccountService>,
     pub session_service: Arc<SessionService>,
     pub signing_key: Arc<SigningKeyPair>,
     pub user_service: Arc<UserService>,
