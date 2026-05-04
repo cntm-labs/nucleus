@@ -281,7 +281,12 @@ pub fn create_router(
         .route(
             "/projects/{id}/settings",
             get(dashboard::handle_get_settings).patch(dashboard::handle_update_settings),
-        );
+        )
+        // Inject signing key so the AuthAccount extractor can validate dashboard JWTs
+        // on handlers that opt in via `auth: AuthAccount`. Handlers that don't take
+        // the extractor remain open in v1.0; project-level authorization is a
+        // separate concern (deferred to v1.1).
+        .layer(axum::Extension(state.signing_key.clone()));
 
     Router::new()
         .route("/.well-known/jwks.json", get(well_known::handle_jwks))
