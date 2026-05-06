@@ -170,7 +170,38 @@ pub fn create_router(
             get(webhook::handle_webhook_delivery_logs),
         );
 
-    // Phase 5: Dashboard API routes (require account session)
+    // Phase 5a: Dashboard account auth routes
+    // Public (no token required) — sign-up, sign-in, verify-email
+    let dashboard_auth_public = Router::new()
+        .route(
+            "/sign-up",
+            post(crate::account::handlers::sign_up::handle_sign_up),
+        )
+        .route(
+            "/sign-in",
+            post(crate::account::handlers::sign_in::handle_sign_in),
+        )
+        .route(
+            "/verify-email",
+            post(crate::account::handlers::verify_email::handle_verify_email),
+        )
+        .with_state(state.account_service.clone());
+
+    // Protected (require account JWT) — me, sign-out
+    // The `axum::Extension` layer makes `Arc<SigningKeyPair>` available to
+    // the AuthAccount FromRequestParts extractor.
+    let dashboard_auth_protected = Router::new()
+        .route("/me", get(crate::account::handlers::me::handle_me))
+        .route(
+            "/sign-out",
+            post(crate::account::handlers::sign_out::handle_sign_out),
+        )
+        .layer(axum::Extension(state.signing_key.clone()))
+        .with_state(state.account_service.clone());
+
+    let dashboard_auth_routes = dashboard_auth_public.merge(dashboard_auth_protected);
+
+    // Phase 5b: Dashboard API routes (require account session)
     let dashboard_routes = Router::new()
         // Projects
         .route(
@@ -250,7 +281,12 @@ pub fn create_router(
         .route(
             "/projects/{id}/settings",
             get(dashboard::handle_get_settings).patch(dashboard::handle_update_settings),
-        );
+        )
+        // Inject signing key so the AuthAccount extractor can validate dashboard JWTs
+        // on handlers that opt in via `auth: AuthAccount`. Handlers that don't take
+        // the extractor remain open in v1.0; project-level authorization is a
+        // separate concern (deferred to v1.1).
+        .layer(axum::Extension(state.signing_key.clone()));
 
     Router::new()
         .route("/.well-known/jwks.json", get(well_known::handle_jwks))
@@ -264,6 +300,7 @@ pub fn create_router(
         .nest("/api/v1/users", user_routes)
         .nest("/api/v1/orgs", org_routes)
         .nest("/api/v1/admin", admin_routes.merge(webhook_admin_routes))
+        .nest("/api/v1/dashboard/auth", dashboard_auth_routes)
         .nest("/api/v1/dashboard", dashboard_routes)
         .layer(build_cors_layer(&state.allowed_origins))
         .layer(middleware::from_fn(request_id_middleware))

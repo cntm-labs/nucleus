@@ -3,11 +3,12 @@ use std::sync::Arc;
 use crate::core::crypto;
 use crate::core::error::{ApiError, AppError};
 use crate::core::pagination::PaginationParams;
-use crate::core::types::{AccountId, ApiKeyId, ProjectId};
+use crate::core::types::{ApiKeyId, ProjectId};
 use crate::db::repos::api_key_repo::{ApiKeyRepository, NewApiKey};
 use crate::db::repos::audit_repo::AuditRepository;
 use crate::db::repos::project_repo::{NewProject, ProjectRepository};
 use crate::db::repos::signing_key_repo::SigningKeyRepository;
+use crate::middleware::account_auth::AuthAccount;
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::Json;
@@ -33,20 +34,14 @@ pub struct DashboardState {
 // Projects
 // ---------------------------------------------------------------------------
 
-// TODO: extract account_id from authenticated dashboard session
-// For now, use Uuid::nil() as placeholder
-fn placeholder_account_id() -> AccountId {
-    AccountId::from_uuid(Uuid::nil())
-}
-
 pub async fn handle_list_projects(
     State(state): State<DashboardState>,
+    auth: AuthAccount,
     Query(params): Query<PaginationParams>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let account_id = placeholder_account_id();
     let result = state
         .project_repo
-        .list_by_account(&account_id, &params)
+        .list_by_account(&auth.account_id, &params)
         .await?;
     Ok(Json(
         serde_json::to_value(&result).map_err(|e| AppError::Internal(e.into()))?,
@@ -63,11 +58,11 @@ pub struct CreateProjectRequest {
 
 pub async fn handle_create_project(
     State(state): State<DashboardState>,
+    auth: AuthAccount,
     Json(req): Json<CreateProjectRequest>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let account_id = placeholder_account_id();
     let new_project = NewProject {
-        account_id,
+        account_id: auth.account_id,
         name: req.name,
         slug: req.slug,
         plan_id: Uuid::nil(), // Default free plan

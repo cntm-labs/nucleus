@@ -3,6 +3,8 @@ use std::sync::Arc;
 use anyhow::Result;
 use tracing_subscriber::EnvFilter;
 
+use cntm_nucleus_server::account::repo::{AccountRepository, PgAccountRepository};
+use cntm_nucleus_server::account::service::AccountService;
 use cntm_nucleus_server::auth::jwt::{JwtService, SigningKeyPair};
 use cntm_nucleus_server::auth::service::AuthService;
 use cntm_nucleus_server::core::clock::SystemClock;
@@ -170,6 +172,22 @@ async fn main() -> Result<()> {
         services::sms::CompositeNotificationService::new(email_service, twilio_service),
     );
 
+    // Account auth service (dashboard layer — separate stakeholder from end users)
+    let account_repo: Arc<dyn AccountRepository> = Arc::new(PgAccountRepository::new(db.clone()));
+    let account_audit_repo = Arc::new(PgAuditRepository::new(db.clone()));
+    let account_service = Arc::new(AccountService::new(
+        account_repo,
+        token_repo.clone(),
+        notification_service.clone(),
+        account_audit_repo,
+        session_service.clone(),
+        signing_key.clone(),
+        config.issuer_url.clone(),
+        config.dashboard_url.clone(),
+        config.jwt_lifetime_secs,
+        86400, // dashboard session TTL: 24 hours
+    ));
+
     // Capture bind address before moving config fields
     let bind_addr = config.bind_addr();
 
@@ -180,6 +198,7 @@ async fn main() -> Result<()> {
         master_key: config.master_encryption_key,
         clock: Arc::new(SystemClock),
         auth_service,
+        account_service,
         session_service,
         signing_key,
         user_service,

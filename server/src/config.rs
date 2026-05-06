@@ -12,6 +12,7 @@ pub struct Config {
     pub allowed_origins: Vec<String>,
     pub trusted_proxies: Vec<IpAddr>,
     pub issuer_url: String,
+    pub dashboard_url: String,
     pub jwt_lifetime_secs: i64,
     pub rp_name: String,
     pub rp_id: String,
@@ -64,6 +65,8 @@ impl Config {
 
         let issuer_url =
             std::env::var("ISSUER_URL").unwrap_or_else(|_| "https://nucleus.local".to_string());
+        let dashboard_url =
+            std::env::var("DASHBOARD_URL").unwrap_or_else(|_| "http://localhost:5173".to_string());
         let jwt_lifetime_secs = std::env::var("JWT_LIFETIME_SECS")
             .ok()
             .and_then(|v| v.parse().ok())
@@ -109,6 +112,7 @@ impl Config {
             allowed_origins,
             trusted_proxies,
             issuer_url,
+            dashboard_url,
             jwt_lifetime_secs,
             rp_name,
             rp_id,

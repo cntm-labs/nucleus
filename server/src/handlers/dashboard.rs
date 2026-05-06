@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use crate::core::error::AppError;
 use crate::core::pagination::PaginationParams;
+use crate::middleware::account_auth::AuthAccount;
 use axum::extract::{Path, Query, State};
 use axum::Json;
 use uuid::Uuid;
@@ -14,18 +15,20 @@ use crate::state::AppState;
 
 pub async fn handle_list_projects(
     State(state): State<Arc<AppState>>,
+    auth: AuthAccount,
     query: Query<PaginationParams>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     let ds = state.dashboard_state();
-    crate::api::handlers::dashboard::handle_list_projects(State(ds), query).await
+    crate::api::handlers::dashboard::handle_list_projects(State(ds), auth, query).await
 }
 
 pub async fn handle_create_project(
     State(state): State<Arc<AppState>>,
+    auth: AuthAccount,
     Json(req): Json<crate::api::handlers::dashboard::CreateProjectRequest>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     let ds = state.dashboard_state();
-    crate::api::handlers::dashboard::handle_create_project(State(ds), Json(req)).await
+    crate::api::handlers::dashboard::handle_create_project(State(ds), auth, Json(req)).await
 }
 
 pub async fn handle_get_project(
