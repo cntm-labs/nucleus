@@ -3,6 +3,8 @@ import { AuthProvider } from './lib/auth-context'
 import { DashboardLayout } from './components/layout'
 import { LoginPage } from './pages/login'
 import { RegisterPage } from './pages/register'
+import { CheckEmailPage } from './pages/check-email'
+import { VerifyEmailPage } from './pages/verify-email'
 import { ProjectListPage } from './pages/projects/list'
 import { ProjectCreatePage } from './pages/projects/create'
 import { ProjectOverviewPage } from './pages/projects/[slug]/overview'
@@ -22,6 +24,8 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/check-email" element={<CheckEmailPage />} />
+        <Route path="/verify-email" element={<VerifyEmailPage />} />
         <Route path="/" element={<DashboardLayout />}>
           <Route index element={<Navigate to="/projects" replace />} />
           <Route path="projects" element={<ProjectListPage />} />
