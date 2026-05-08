@@ -1,31 +1,62 @@
-import { createContext, useContext, useState, ReactNode } from 'react'
-import { api } from './api'
+import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
+import { api, accountApi, Account } from './api'
 
 interface AuthState {
   isAuthenticated: boolean
-  account: { id: string; email: string; name: string } | null
+  loading: boolean
+  account: Account | null
   login: (email: string, password: string) => Promise<void>
-  logout: () => void
+  logout: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthState | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [account, setAccount] = useState<AuthState['account']>(null)
+  const [account, setAccount] = useState<Account | null>(null)
+  const [loading, setLoading] = useState(true)
 
-  const login = async (email: string, _password: string) => {
-    // TODO: call actual login endpoint
-    setAccount({ id: '1', email, name: email.split('@')[0] })
-    api.setToken('placeholder-token')
+  // On mount, if we have a stored token, try to fetch the current account.
+  useEffect(() => {
+    let cancelled = false
+    accountApi
+      .me()
+      .then((acc) => {
+        if (!cancelled) setAccount(acc)
+      })
+      .catch(() => {
+        // Token invalid/expired — clear it
+        api.setToken(null)
+        if (!cancelled) setAccount(null)
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const login = async (email: string, password: string) => {
+    const { account: acc, token } = await accountApi.signIn(email, password)
+    api.setToken(token)
+    setAccount(acc)
   }
 
-  const logout = () => {
-    setAccount(null)
-    api.setToken(null)
+  const logout = async () => {
+    try {
+      await accountApi.signOut()
+    } catch {
+      // best-effort; clear local state regardless
+    } finally {
+      api.setToken(null)
+      setAccount(null)
+    }
   }
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated: !!account, account, login, logout }}>
+    <AuthContext.Provider
+      value={{ isAuthenticated: !!account, loading, account, login, logout }}
+    >
       {children}
     </AuthContext.Provider>
   )
