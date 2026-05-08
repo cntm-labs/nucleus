@@ -26,6 +26,7 @@ pub struct PasswordResetState {
     pub credential_repo: Arc<dyn CredentialRepository>,
     pub session_service: Arc<SessionService>,
     pub notification_service: Arc<dyn NotificationService>,
+    pub audit_repo: Arc<dyn crate::db::repos::audit_repo::AuditRepository>,
     pub base_url: String,
 }
 
@@ -88,6 +89,22 @@ pub async fn handle_request_reset(
                     reset_url
                 ),
             )
+            .await;
+
+        // Best-effort audit
+        let _ = state
+            .audit_repo
+            .create_audit_log(&crate::db::repos::audit_repo::NewAuditLog {
+                project_id,
+                actor_type: "user".to_string(),
+                actor_id: Some(user.id.0),
+                action: "user.password_reset_requested".to_string(),
+                target_type: Some("user".to_string()),
+                target_id: Some(user.id.0),
+                metadata: None,
+                ip: None,
+                user_agent: None,
+            })
             .await;
     }
 
@@ -168,6 +185,22 @@ pub async fn handle_confirm_reset(
         project_id = %project_id,
         "Password reset completed, all sessions revoked"
     );
+
+    // Best-effort audit
+    let _ = state
+        .audit_repo
+        .create_audit_log(&crate::db::repos::audit_repo::NewAuditLog {
+            project_id,
+            actor_type: "user".to_string(),
+            actor_id: Some(user_id.0),
+            action: "user.password_reset_completed".to_string(),
+            target_type: Some("user".to_string()),
+            target_id: Some(user_id.0),
+            metadata: None,
+            ip: None,
+            user_agent: None,
+        })
+        .await;
 
     Ok(Json(ConfirmResetResponse {
         message: "Password has been reset successfully.".to_string(),

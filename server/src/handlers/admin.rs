@@ -116,6 +116,23 @@ pub async fn handle_admin_ban_user(
 ) -> Result<StatusCode, AppError> {
     crate::identity::handlers::admin::ban_user(&state.user_service, &api_key.project_id, &user_id)
         .await?;
+
+    // Best-effort audit
+    let _ = state
+        .audit_repo
+        .create_audit_log(&crate::db::repos::audit_repo::NewAuditLog {
+            project_id: api_key.project_id,
+            actor_type: "api_key".to_string(),
+            actor_id: None, // api_key.id not exposed on ApiKeyAuth; v1.1 wires this
+            action: "user.banned".to_string(),
+            target_type: Some("user".to_string()),
+            target_id: Some(user_id.0),
+            metadata: None,
+            ip: None,
+            user_agent: None,
+        })
+        .await;
+
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -131,5 +148,22 @@ pub async fn handle_admin_unban_user(
         &user_id,
     )
     .await?;
+
+    // Best-effort audit
+    let _ = state
+        .audit_repo
+        .create_audit_log(&crate::db::repos::audit_repo::NewAuditLog {
+            project_id: api_key.project_id,
+            actor_type: "api_key".to_string(),
+            actor_id: None,
+            action: "user.unbanned".to_string(),
+            target_type: Some("user".to_string()),
+            target_id: Some(user_id.0),
+            metadata: None,
+            ip: None,
+            user_agent: None,
+        })
+        .await;
+
     Ok(StatusCode::NO_CONTENT)
 }
