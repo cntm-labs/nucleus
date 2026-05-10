@@ -53,24 +53,13 @@ impl std::ops::Deref for NucleusClaims {
 impl<S: Send + Sync> FromRequestParts<S> for NucleusClaims {
     type Rejection = Response;
 
-    fn from_request_parts<'a, 'b, 'c>(
-        parts: &'a mut Parts,
-        _state: &'b S,
-    ) -> BoxFuture<'c, Result<Self, Self::Rejection>>
-    where
-        'a: 'c,
-        'b: 'c,
-    {
-        Box::pin(async move {
-            parts
-                .extensions
-                .get::<claims::NucleusClaims>()
-                .cloned()
-                .map(NucleusClaims)
-                .ok_or_else(|| {
-                    (StatusCode::UNAUTHORIZED, "Missing or invalid token").into_response()
-                })
-        })
+    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
+        parts
+            .extensions
+            .get::<claims::NucleusClaims>()
+            .cloned()
+            .map(NucleusClaims)
+            .ok_or_else(|| (StatusCode::UNAUTHORIZED, "Missing or invalid token").into_response())
     }
 }
 
