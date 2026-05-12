@@ -51,16 +51,30 @@ pub struct JwksVerifier {
     ttl: Duration,
     cache: RwLock<Option<CachedKeys>>,
     http: reqwest::Client,
+    expected_aud: Option<String>,
 }
 
 impl JwksVerifier {
     pub fn new(base_url: &str, ttl_secs: u64) -> Self {
+        Self::with_config(base_url, ttl_secs, None)
+    }
+
+    /// Create a verifier that enforces the given audience claim on every token.
+    ///
+    /// Tokens whose `aud` does not match `expected_aud` will be rejected,
+    /// preventing cross-project replay attacks in multi-tenant deployments.
+    pub fn with_audience(base_url: &str, ttl_secs: u64, expected_aud: impl Into<String>) -> Self {
+        Self::with_config(base_url, ttl_secs, Some(expected_aud.into()))
+    }
+
+    fn with_config(base_url: &str, ttl_secs: u64, expected_aud: Option<String>) -> Self {
         let jwks_url = format!("{}/.well-known/jwks.json", base_url.trim_end_matches('/'));
         Self {
             jwks_url,
             ttl: Duration::from_secs(ttl_secs),
             cache: RwLock::new(None),
             http: reqwest::Client::new(),
+            expected_aud,
         }
     }
 
@@ -75,9 +89,13 @@ impl JwksVerifier {
         let key = self.get_key(&kid).await?;
 
         let mut validation = Validation::new(Algorithm::RS256);
-        // Nucleus tokens carry project-specific audiences; disable default aud
-        // validation so callers can check it themselves if needed.
-        validation.validate_aud = false;
+        if let Some(aud) = &self.expected_aud {
+            validation.set_audience(&[aud]);
+        } else {
+            // No expected audience configured: skip aud validation so callers
+            // can check it themselves via the returned claims if needed.
+            validation.validate_aud = false;
+        }
 
         let data = decode::<NucleusClaims>(token, &key, &validation)
             .map_err(|e| NucleusError::InvalidToken(e.to_string()))?;
@@ -174,6 +192,25 @@ mod tests {
     fn verifier_stores_ttl() {
         let verifier = JwksVerifier::new("https://api.test.com", 7200);
         assert_eq!(verifier.ttl, Duration::from_secs(7200));
+    }
+
+    #[test]
+    fn verifier_new_has_no_expected_audience() {
+        let verifier = JwksVerifier::new("https://api.test.com", 3600);
+        assert!(verifier.expected_aud.is_none());
+    }
+
+    #[test]
+    fn verifier_with_audience_stores_audience() {
+        let verifier = JwksVerifier::with_audience("https://api.test.com", 3600, "proj_abc");
+        assert_eq!(verifier.expected_aud.as_deref(), Some("proj_abc"));
+    }
+
+    #[test]
+    fn verifier_with_audience_accepts_string_types() {
+        let aud = String::from("proj_xyz");
+        let verifier = JwksVerifier::with_audience("https://api.test.com", 3600, aud);
+        assert_eq!(verifier.expected_aud.as_deref(), Some("proj_xyz"));
     }
 
     #[tokio::test]

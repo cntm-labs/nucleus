@@ -18,6 +18,14 @@ pub struct NucleusConfig {
     /// How long (in seconds) the JWKS key set should be cached.
     /// Defaults to 3600 (1 hour).
     pub jwks_cache_ttl_secs: Option<u64>,
+
+    /// Expected `aud` claim in incoming tokens.
+    ///
+    /// When set, [`NucleusClient::verify_token`] rejects any token whose `aud`
+    /// does not match this value. This prevents cross-project token replay in
+    /// multi-tenant Nucleus deployments where multiple projects share the same
+    /// JWKS endpoint. Defaults to `None` (audience not validated).
+    pub expected_audience: Option<String>,
 }
 
 /// Main entry point for interacting with Nucleus from a Rust backend.
@@ -29,6 +37,7 @@ pub struct NucleusConfig {
 ///     secret_key: "sk_live_...".into(),
 ///     base_url: None,
 ///     jwks_cache_ttl_secs: None,
+///     expected_audience: None,
 /// });
 /// ```
 #[derive(Clone)]
@@ -51,7 +60,10 @@ impl NucleusClient {
             .clone()
             .unwrap_or_else(|| DEFAULT_BASE_URL.to_string());
         let ttl_secs = config.jwks_cache_ttl_secs.unwrap_or(3600);
-        let verifier = Arc::new(JwksVerifier::new(&base_url, ttl_secs));
+        let verifier = Arc::new(match config.expected_audience.clone() {
+            Some(aud) => JwksVerifier::with_audience(&base_url, ttl_secs, aud),
+            None => JwksVerifier::new(&base_url, ttl_secs),
+        });
 
         let http = Arc::new(crate::admin::HttpClient::new(
             base_url,

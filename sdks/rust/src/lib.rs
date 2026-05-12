@@ -16,6 +16,7 @@
 //!         secret_key: "sk_live_...".into(),
 //!         base_url: None,
 //!         jwks_cache_ttl_secs: None,
+//!         expected_audience: None,
 //!     });
 //!
 //!     let claims = client.verify_token("eyJ...").await.unwrap();
