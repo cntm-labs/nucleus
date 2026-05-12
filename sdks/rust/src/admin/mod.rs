@@ -12,15 +12,15 @@ use std::sync::Arc;
 #[derive(Debug, Clone)]
 pub struct HttpClient {
     base_url: String,
-    secret_key: String,
+    api_key: String,
     http: reqwest::Client,
 }
 
 impl HttpClient {
-    pub fn new(base_url: String, secret_key: String) -> Self {
+    pub fn new(base_url: String, api_key: String) -> Self {
         Self {
             base_url,
-            secret_key,
+            api_key,
             http: reqwest::Client::new(),
         }
     }
@@ -39,7 +39,7 @@ impl HttpClient {
             .http
             .delete(&url)
             .header("Content-Type", "application/json")
-            .header("Authorization", format!("Bearer {}", self.secret_key))
+            .header("Authorization", format!("Bearer {}", self.api_key))
             .send()
             .await?;
 
@@ -65,7 +65,7 @@ impl HttpClient {
             .http
             .request(method, &url)
             .header("Content-Type", "application/json")
-            .header("Authorization", format!("Bearer {}", self.secret_key))
+            .header("Authorization", format!("Bearer {}", self.api_key))
             .send()
             .await?;
 

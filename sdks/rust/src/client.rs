@@ -8,7 +8,13 @@ const DEFAULT_BASE_URL: &str = "https://api.nucleus.dev";
 /// Configuration for [`NucleusClient`].
 #[derive(Debug, Clone)]
 pub struct NucleusConfig {
-    /// Admin / secret API key for your Nucleus project.
+    /// Admin API key for your Nucleus project. Used by the HTTP client
+    /// (admin/users, admin/orgs) and to fetch JWKS. NOT a JWT signing or
+    /// verification key — JWT verification uses RS256 + JWKS.
+    pub api_key: String,
+
+    /// Renamed to [`api_key`][NucleusConfig::api_key]. Will be removed in v0.4.
+    #[deprecated(since = "0.3.1", note = "Renamed to `api_key`. Will be removed in v0.4.")]
     pub secret_key: String,
 
     /// Override the default Nucleus API base URL.
@@ -26,7 +32,8 @@ pub struct NucleusConfig {
 /// use nucleus_rs::{NucleusClient, NucleusConfig};
 ///
 /// let client = NucleusClient::new(NucleusConfig {
-///     secret_key: "sk_live_...".into(),
+///     api_key: "sk_live_...".into(),
+///     secret_key: Default::default(),
 ///     base_url: None,
 ///     jwks_cache_ttl_secs: None,
 /// });
@@ -53,10 +60,14 @@ impl NucleusClient {
         let ttl_secs = config.jwks_cache_ttl_secs.unwrap_or(3600);
         let verifier = Arc::new(JwksVerifier::new(&base_url, ttl_secs));
 
-        let http = Arc::new(crate::admin::HttpClient::new(
-            base_url,
-            config.secret_key.clone(),
-        ));
+        #[allow(deprecated)]
+        let api_key = if !config.api_key.is_empty() {
+            config.api_key.clone()
+        } else {
+            config.secret_key.clone()
+        };
+
+        let http = Arc::new(crate::admin::HttpClient::new(base_url, api_key));
 
         Self {
             config,

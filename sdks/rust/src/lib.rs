@@ -13,7 +13,8 @@
 //! #[tokio::main]
 //! async fn main() {
 //!     let client = NucleusClient::new(NucleusConfig {
-//!         secret_key: "sk_live_...".into(),
+//!         api_key: "sk_live_...".into(),
+//!         secret_key: Default::default(),
 //!         base_url: None,
 //!         jwks_cache_ttl_secs: None,
 //!     });
