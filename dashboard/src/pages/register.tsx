@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { accountApi } from '../lib/api'
 
 export function RegisterPage() {
   const navigate = useNavigate()
@@ -12,10 +13,16 @@ export function RegisterPage() {
     setLoading(true)
     setError('')
     try {
-      // TODO: call register API
-      navigate('/login')
-    } catch {
-      setError('Registration failed. Please try again.')
+      await accountApi.signUp(
+        form.email,
+        form.password,
+        form.name,
+        form.company || undefined,
+      )
+      navigate(`/check-email?email=${encodeURIComponent(form.email)}`)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Registration failed'
+      setError(message)
     } finally {
       setLoading(false)
     }

@@ -66,6 +66,7 @@ impl AppState {
             credential_repo: self.credential_repo.clone(),
             session_service: self.session_service.clone(),
             notification_service: self.notification_service.clone(),
+            audit_repo: self.audit_repo.clone(),
             base_url: self.issuer_url.clone(),
         }
     }

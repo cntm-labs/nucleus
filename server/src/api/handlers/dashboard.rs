@@ -63,12 +63,29 @@ pub async fn handle_create_project(
 ) -> Result<Json<serde_json::Value>, AppError> {
     let new_project = NewProject {
         account_id: auth.account_id,
-        name: req.name,
-        slug: req.slug,
+        name: req.name.clone(),
+        slug: req.slug.clone(),
         plan_id: Uuid::nil(), // Default free plan
         data_mode: req.data_mode,
     };
     let project = state.project_repo.create(&new_project).await?;
+
+    // Best-effort audit
+    let _ = state
+        .audit_repo
+        .create_audit_log(&crate::db::repos::audit_repo::NewAuditLog {
+            project_id: project.id,
+            actor_type: "account".to_string(),
+            actor_id: Some(auth.account_id.0),
+            action: "project.created".to_string(),
+            target_type: Some("project".to_string()),
+            target_id: Some(project.id.0),
+            metadata: Some(serde_json::json!({ "name": req.name, "slug": req.slug })),
+            ip: None,
+            user_agent: None,
+        })
+        .await;
+
     Ok(Json(
         serde_json::to_value(&project).map_err(|e| AppError::Internal(e.into()))?,
     ))
@@ -202,6 +219,25 @@ pub async fn handle_create_api_key(
 
     let api_key = state.api_key_repo.create(&new_key).await?;
 
+    // Best-effort audit
+    let _ = state
+        .audit_repo
+        .create_audit_log(&crate::db::repos::audit_repo::NewAuditLog {
+            project_id: pid,
+            actor_type: "dashboard".to_string(),
+            actor_id: None, // v1.0: handler doesn't yet take AuthAccount
+            action: "api_key.created".to_string(),
+            target_type: Some("api_key".to_string()),
+            target_id: Some(api_key.id.0),
+            metadata: Some(serde_json::json!({
+                "key_prefix": key_prefix,
+                "label": api_key.label,
+            })),
+            ip: None,
+            user_agent: None,
+        })
+        .await;
+
     // Return the full key ONCE (it's hashed in DB, can never be retrieved again)
     Ok(Json(json!({
         "id": api_key.id.to_string(),
@@ -216,10 +252,27 @@ pub async fn handle_create_api_key(
 
 pub async fn handle_revoke_api_key(
     State(state): State<DashboardState>,
-    Path((_project_id, key_id)): Path<(Uuid, Uuid)>,
+    Path((project_id, key_id)): Path<(Uuid, Uuid)>,
 ) -> Result<StatusCode, AppError> {
     let kid = ApiKeyId::from_uuid(key_id);
     state.api_key_repo.revoke(&kid).await?;
+
+    // Best-effort audit
+    let _ = state
+        .audit_repo
+        .create_audit_log(&crate::db::repos::audit_repo::NewAuditLog {
+            project_id: ProjectId::from_uuid(project_id),
+            actor_type: "dashboard".to_string(),
+            actor_id: None,
+            action: "api_key.revoked".to_string(),
+            target_type: Some("api_key".to_string()),
+            target_id: Some(key_id),
+            metadata: None,
+            ip: None,
+            user_agent: None,
+        })
+        .await;
+
     Ok(StatusCode::NO_CONTENT)
 }
 

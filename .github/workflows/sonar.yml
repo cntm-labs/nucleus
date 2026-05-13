@@ -12,7 +12,14 @@ jobs:
   sonarqube:
     name: SonarQube Scan
     runs-on: [self-hosted, internal-runner]
-    
+    # Sonar runs on a k8s self-hosted runner that talks to Sonar via
+    # cluster-internal DNS (sonarqube.devops.svc.cluster.local). When ARC
+    # is unhealthy and no runner picks up the job, GitHub fails the check
+    # after a long timeout. Treat the scan as advisory rather than blocking:
+    # quality gate status is still visible in the Sonar UI, but a runner
+    # outage does not gate merges.
+    continue-on-error: true
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4

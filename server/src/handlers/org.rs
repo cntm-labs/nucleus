@@ -170,6 +170,27 @@ pub async fn handle_change_role(
         .org_service
         .update_member_role(&org.id, &user_id, &role_id)
         .await?;
+
+    // Best-effort audit
+    let actor_id = claims.sub.parse::<uuid::Uuid>().ok();
+    let _ = state
+        .audit_repo
+        .create_audit_log(&crate::db::repos::audit_repo::NewAuditLog {
+            project_id,
+            actor_type: "user".to_string(),
+            actor_id,
+            action: "org.role_changed".to_string(),
+            target_type: Some("user".to_string()),
+            target_id: Some(user_id.0),
+            metadata: Some(serde_json::json!({
+                "org_id": org.id.to_string(),
+                "role_id": role_id.to_string(),
+            })),
+            ip: None,
+            user_agent: None,
+        })
+        .await;
+
     Ok(Json(serde_json::json!({ "ok": true })))
 }
 

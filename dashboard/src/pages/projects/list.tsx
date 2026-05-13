@@ -1,13 +1,14 @@
 import { Link } from 'react-router-dom'
-
-// Mock data for now
-const mockProjects = [
-  { id: '1', name: 'Orbit', slug: 'orbit', environment: 'production', data_mode: 'federated', users_count: 1234, created_at: '2026-01-15' },
-  { id: '2', name: 'Demo App', slug: 'demo-app', environment: 'development', data_mode: 'centralized', users_count: 56, created_at: '2026-03-01' },
-]
+import { useQuery } from '@tanstack/react-query'
+import { projectsApi } from '../../lib/api'
 
 export function ProjectListPage() {
-  const projects = mockProjects // TODO: useQuery to fetch from API
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['projects'],
+    queryFn: projectsApi.list,
+  })
+
+  const projects = data?.data ?? []
 
   return (
     <div>
@@ -21,7 +22,15 @@ export function ProjectListPage() {
         </Link>
       </div>
 
-      {projects.length === 0 ? (
+      {isLoading ? (
+        <div className="bg-white rounded-xl border border-gray-200 p-12 text-center text-gray-500">
+          Loading projects...
+        </div>
+      ) : error ? (
+        <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl p-6 text-sm">
+          Failed to load projects: {error instanceof Error ? error.message : 'unknown error'}
+        </div>
+      ) : projects.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
           <p className="text-gray-500 mb-4">No projects yet</p>
           <Link to="/projects/new" className="text-nucleus-600 hover:underline">Create your first project</Link>
@@ -47,7 +56,6 @@ export function ProjectListPage() {
                       {project.data_mode}
                     </span>
                   </div>
-                  <p className="text-sm text-gray-500 mt-2">{project.users_count.toLocaleString()} users</p>
                 </div>
               </div>
             </Link>
