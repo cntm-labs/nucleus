@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'config.dart';
 import 'models/user.dart';
 import 'models/session.dart';
+import 'models/active_session.dart';
 import 'models/organization.dart';
 import 'models/member.dart';
 import 'validation.dart';
@@ -129,21 +130,32 @@ class NucleusApiClient {
   }
 
   // --- Sessions ---
-  Future<List<NucleusSession>> getSessions() async {
-    final res = await http.get(Uri.parse('${config.effectiveBaseUrl}/v1/sessions'), headers: _headers());
+
+  /// Fetch all active sessions for the authenticated user.
+  /// Each entry includes device name, IP address, and last-active timestamp,
+  /// allowing users to see where they are signed in.
+  Future<List<NucleusActiveSession>> getSessions() async {
+    final res = await http.get(
+      Uri.parse('${config.effectiveBaseUrl}/v1/users/me/sessions'),
+      headers: _headers(),
+    );
     if (res.statusCode >= 300) throw NucleusApiException(res.statusCode, res.body);
     final decoded = jsonDecode(res.body);
-    if (decoded is List) return decoded.map((e) => NucleusSession.fromJson(e)).toList();
-    if (decoded is Map && decoded.containsKey('sessions')) return (decoded['sessions'] as List).map((e) => NucleusSession.fromJson(e)).toList();
+    if (decoded is List) {
+      return decoded.map((e) => NucleusActiveSession.fromJson(e as Map<String, dynamic>)).toList();
+    }
     return [];
   }
+
+  /// Revoke (remote-logout) a specific session by its ID.
+  /// After calling this, the device associated with that session will be signed out.
+  Future<void> revokeSession(String sessionId) =>
+      _delete('/v1/users/me/sessions/$sessionId');
 
   Future<NucleusSession> refreshSession(String refreshToken) async {
     final json = await _post('/v1/sessions/refresh', body: {'refresh_token': refreshToken});
     return NucleusSession.fromJson(json);
   }
-
-  Future<void> revokeSession(String sessionId) => _delete('/v1/sessions/$sessionId');
 
   Future<NucleusSession> switchSession(String sessionId) async {
     final json = await _post('/v1/sessions/switch', body: {'session_id': sessionId});

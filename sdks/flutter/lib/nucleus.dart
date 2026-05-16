@@ -8,6 +8,7 @@ export 'src/client.dart' show NucleusApiException;
 // Models
 export 'src/models/user.dart';
 export 'src/models/session.dart';
+export 'src/models/active_session.dart';
 export 'src/models/organization.dart';
 export 'src/models/member.dart';
 
@@ -29,6 +30,7 @@ export 'src/widgets/user_button.dart';
 export 'src/widgets/user_profile.dart';
 export 'src/widgets/org_switcher.dart';
 export 'src/widgets/org_profile.dart';
+export 'src/widgets/session_manager.dart';
 
 import 'package:flutter/foundation.dart';
 

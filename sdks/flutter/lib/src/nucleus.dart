@@ -5,6 +5,7 @@ import 'auth/oauth.dart';
 import 'session/token_storage.dart';
 import 'session/auto_refresh.dart';
 import 'models/session.dart';
+import 'models/active_session.dart';
 
 class Nucleus {
   static NucleusApiClient? _client;
@@ -75,6 +76,22 @@ class Nucleus {
     } catch (_) {
       await signOut();
     }
+  }
+
+  /// Returns all active sessions for the current user, including device name,
+  /// IP address, and last-active timestamp. Use this to build a "Manage Sessions"
+  /// screen so users can see where they are signed in.
+  static Future<List<NucleusActiveSession>> listActiveSessions() {
+    if (_client == null) throw StateError('Nucleus not configured. Call Nucleus.configure() first.');
+    return _client!.getSessions();
+  }
+
+  /// Revoke (remote-logout) the session identified by [sessionId].
+  /// The device associated with that session will be signed out immediately.
+  /// Throws if Nucleus is not configured or the request fails.
+  static Future<void> revokeSession(String sessionId) {
+    if (_client == null) throw StateError('Nucleus not configured. Call Nucleus.configure() first.');
+    return _client!.revokeSession(sessionId);
   }
 
   static Future<void> signOut() async {
