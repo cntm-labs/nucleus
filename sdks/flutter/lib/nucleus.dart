@@ -15,6 +15,9 @@ export 'src/models/member.dart';
 export 'src/auth/auth_state.dart';
 export 'src/auth/oauth.dart';
 
+// Biometric
+export 'src/biometric/biometric_auth.dart';
+
 // Session
 export 'src/session/token_storage.dart';
 
