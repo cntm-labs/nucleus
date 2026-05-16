@@ -54,6 +54,8 @@ pub fn create_router(
         .route("/token/refresh", post(auth::handle_refresh))
         .route("/sign-out", post(auth::handle_sign_out))
         .route("/sign-out/all", post(auth::handle_sign_out_all))
+        // Session heartbeat (inactivity lock support)
+        .route("/session/heartbeat", post(auth::handle_session_heartbeat))
         // Phase 3: OAuth
         .route("/sign-in/oauth", post(auth::handle_oauth_start))
         .route("/oauth/callback", get(auth::handle_oauth_callback))

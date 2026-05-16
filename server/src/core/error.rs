@@ -39,6 +39,8 @@ pub enum AuthError {
     SessionRevoked,
     #[error("Session token is invalid")]
     SessionInvalid,
+    #[error("Session locked due to inactivity")]
+    SessionInactivityLockout,
     #[error("Token has expired")]
     TokenExpired,
     #[error("Token is invalid")]
@@ -151,6 +153,7 @@ impl AuthError {
             Self::SessionExpired => "auth/session_expired",
             Self::SessionRevoked => "auth/session_revoked",
             Self::SessionInvalid => "auth/session_invalid",
+            Self::SessionInactivityLockout => "auth/session_inactivity_lockout",
             Self::TokenExpired => "auth/token_expired",
             Self::TokenInvalid => "auth/token_invalid",
             Self::TokenRevoked => "auth/token_revoked",
@@ -176,6 +179,7 @@ impl AuthError {
             Self::SessionExpired => StatusCode::UNAUTHORIZED,
             Self::SessionRevoked => StatusCode::UNAUTHORIZED,
             Self::SessionInvalid => StatusCode::UNAUTHORIZED,
+            Self::SessionInactivityLockout => StatusCode::UNAUTHORIZED,
             Self::TokenExpired => StatusCode::UNAUTHORIZED,
             Self::TokenInvalid => StatusCode::UNAUTHORIZED,
             Self::TokenRevoked => StatusCode::UNAUTHORIZED,

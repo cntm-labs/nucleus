@@ -8,15 +8,12 @@ use crate::db::repos::session_repo::{NewSession, Session, SessionRepository};
 
 pub struct SessionService {
     repo: Arc<dyn SessionRepository>,
-    _clock: Arc<dyn Clock>,
+    clock: Arc<dyn Clock>,
 }
 
 impl SessionService {
     pub fn new(repo: Arc<dyn SessionRepository>, clock: Arc<dyn Clock>) -> Self {
-        Self {
-            repo,
-            _clock: clock,
-        }
+        Self { repo, clock }
     }
 
     /// Create a new session, returns (session_token, session).
@@ -112,6 +109,41 @@ impl SessionService {
         self.repo.update_last_active(session_id).await
     }
 
+    /// Heartbeat: confirm the session is still within its inactivity window.
+    ///
+    /// Validates the session exists and belongs to `user_id`, then checks
+    /// whether `last_active_at` is within `inactivity_timeout_secs` of now.
+    ///
+    /// - Active: refreshes `last_active_at` and returns the session.
+    /// - Inactive: revokes the session server-side and returns
+    ///   `SessionInactivityLockout` so the client knows to lock the UI.
+    pub async fn heartbeat_session(
+        &self,
+        session_id: &SessionId,
+        user_id: &UserId,
+        inactivity_timeout_secs: u64,
+    ) -> Result<Session, AppError> {
+        let session = self.validate_session(session_id).await?;
+
+        if session.user_id != *user_id {
+            return Err(AppError::Auth(AuthError::SessionInvalid));
+        }
+
+        let last_active = chrono::DateTime::parse_from_rfc3339(&session.last_active_at)
+            .map_err(|e| AppError::Internal(e.into()))?
+            .with_timezone(&chrono::Utc);
+
+        let inactive_secs = (self.clock.now() - last_active).num_seconds().max(0) as u64;
+
+        if inactive_secs > inactivity_timeout_secs {
+            self.repo.delete(session_id, &session.user_id).await?;
+            return Err(AppError::Auth(AuthError::SessionInactivityLockout));
+        }
+
+        self.repo.update_last_active(session_id).await?;
+        Ok(session)
+    }
+
     /// Create a session for a dashboard account. Account sessions are NOT project-scoped
     /// (they grant access to the Nucleus dashboard, not to any customer project).
     /// Internally builds NewSession with project_id = ProjectId::nil() — sessions live only
@@ -187,6 +219,15 @@ pub(crate) mod tests {
                 sessions: Mutex::new(HashMap::new()),
                 user_sessions: Mutex::new(HashMap::new()),
                 revoked_jwts: Mutex::new(HashMap::new()),
+            }
+        }
+
+        /// Set `last_active_at` to `seconds_ago` seconds in the past so that
+        /// inactivity-lockout tests can exercise the timeout branch.
+        pub(crate) fn backdate_last_active(&self, session_id: &SessionId, seconds_ago: u64) {
+            let past = Utc::now() - chrono::Duration::seconds(seconds_ago as i64);
+            if let Some(s) = self.sessions.lock().unwrap().get_mut(session_id) {
+                s.last_active_at = past.to_rfc3339();
             }
         }
     }
@@ -292,6 +333,13 @@ pub(crate) mod tests {
         let repo = Arc::new(MockSessionRepo::new());
         let clock = Arc::new(TestClock { now: Utc::now() });
         SessionService::new(repo, clock)
+    }
+
+    fn test_service_with_repo() -> (SessionService, Arc<MockSessionRepo>) {
+        let repo = Arc::new(MockSessionRepo::new());
+        let clock = Arc::new(TestClock { now: Utc::now() });
+        let svc = SessionService::new(repo.clone(), clock);
+        (svc, repo)
     }
 
     // -----------------------------------------------------------------------
@@ -575,6 +623,93 @@ pub(crate) mod tests {
             result.is_ok(),
             "revoking a session that doesn't exist must be a no-op, got: {result:?}"
         );
+    }
+
+    #[tokio::test]
+    async fn heartbeat_within_timeout_succeeds() {
+        let svc = test_service();
+        let user_id = UserId::new();
+        let (_, session) = svc
+            .create_session(&user_id, &ProjectId::new(), DeviceInfo::default(), 3600)
+            .await
+            .unwrap();
+
+        // 300s timeout — session was just created so it's within the window
+        let result = svc.heartbeat_session(&session.id, &user_id, 300).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn heartbeat_expired_session_returns_session_expired() {
+        let svc = test_service();
+        let user_id = UserId::new();
+
+        let result = svc
+            .heartbeat_session(&SessionId::new(), &user_id, 300)
+            .await;
+        assert!(matches!(
+            result,
+            Err(AppError::Auth(AuthError::SessionExpired))
+        ));
+    }
+
+    #[tokio::test]
+    async fn heartbeat_wrong_user_returns_session_invalid() {
+        let svc = test_service();
+        let owner_id = UserId::new();
+        let (_, session) = svc
+            .create_session(&owner_id, &ProjectId::new(), DeviceInfo::default(), 3600)
+            .await
+            .unwrap();
+
+        let other_user = UserId::new();
+        let result = svc
+            .heartbeat_session(&session.id, &other_user, 300)
+            .await;
+        assert!(matches!(
+            result,
+            Err(AppError::Auth(AuthError::SessionInvalid))
+        ));
+    }
+
+    #[tokio::test]
+    async fn heartbeat_exceeded_timeout_locks_out() {
+        let (svc, repo) = test_service_with_repo();
+        let user_id = UserId::new();
+        let (_, session) = svc
+            .create_session(&user_id, &ProjectId::new(), DeviceInfo::default(), 3600)
+            .await
+            .unwrap();
+
+        // Backdate last_active by 10 minutes; use a 5-minute timeout → lockout
+        repo.backdate_last_active(&session.id, 600);
+
+        let result = svc.heartbeat_session(&session.id, &user_id, 300).await;
+        assert!(matches!(
+            result,
+            Err(AppError::Auth(AuthError::SessionInactivityLockout))
+        ));
+    }
+
+    #[tokio::test]
+    async fn heartbeat_lockout_revokes_session() {
+        let (svc, repo) = test_service_with_repo();
+        let user_id = UserId::new();
+        let (_, session) = svc
+            .create_session(&user_id, &ProjectId::new(), DeviceInfo::default(), 3600)
+            .await
+            .unwrap();
+
+        // Backdate last_active past the timeout window and trigger lockout
+        repo.backdate_last_active(&session.id, 600);
+        let _ = svc.heartbeat_session(&session.id, &user_id, 300).await;
+
+        // Session should no longer exist in Redis
+        let result = svc.validate_session(&session.id).await;
+        assert!(matches!(
+            result,
+            Err(AppError::Auth(AuthError::SessionExpired))
+        ));
     }
 
     #[tokio::test]

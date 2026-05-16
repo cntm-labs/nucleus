@@ -7,7 +7,7 @@ use std::sync::Arc;
 use crate::auth::handlers::sign_in::{SignInRequest, SignInResponse};
 use crate::auth::handlers::sign_up::{SignUpRequest, SignUpResponse};
 use crate::auth::handlers::token::RefreshResponse;
-use crate::core::error::AppError;
+use crate::core::error::{AppError, AuthError};
 use crate::core::types::{ProjectId, SessionId, UserId};
 
 use crate::middleware::auth::JwtAuth;
@@ -122,6 +122,62 @@ pub async fn handle_sign_out_all(
         .await?;
 
     Ok(Json(AuthSignOutAllResponse { revoked_count }))
+}
+
+// ---------------------------------------------------------------------------
+// Session heartbeat
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Deserialize)]
+pub struct HeartbeatRequest {
+    pub session_id: String,
+    /// How many seconds of inactivity before the session is locked out.
+    /// Defaults to 300 (5 min); capped at 3600 (1 hour) server-side.
+    pub inactivity_timeout_secs: Option<u64>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct HeartbeatResponse {
+    pub active: bool,
+    pub session_id: String,
+    pub last_active_at: String,
+}
+
+/// POST /api/v1/auth/session/heartbeat
+///
+/// Clients (especially finance apps) should call this endpoint periodically
+/// to signal that the user is still active. The server checks `last_active_at`
+/// against the configured inactivity window:
+///
+/// - Within window → refreshes `last_active_at`, returns 200.
+/// - Outside window → revokes the session, returns 401 `session_inactivity_lockout`.
+pub async fn handle_session_heartbeat(
+    JwtAuth(claims): JwtAuth,
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<HeartbeatRequest>,
+) -> Result<Json<HeartbeatResponse>, AppError> {
+    let session_id: SessionId = req
+        .session_id
+        .parse()
+        .map_err(|_| AppError::Auth(AuthError::SessionExpired))?;
+
+    let user_id: UserId = claims
+        .sub
+        .parse()
+        .map_err(|_| AppError::Auth(AuthError::TokenInvalid))?;
+
+    let timeout_secs = req.inactivity_timeout_secs.unwrap_or(300).min(3600);
+
+    let session = state
+        .session_service
+        .heartbeat_session(&session_id, &user_id, timeout_secs)
+        .await?;
+
+    Ok(Json(HeartbeatResponse {
+        active: true,
+        session_id: session.id.to_string(),
+        last_active_at: session.last_active_at,
+    }))
 }
 
 // ---------------------------------------------------------------------------
