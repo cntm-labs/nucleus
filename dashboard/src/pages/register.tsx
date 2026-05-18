@@ -36,23 +36,23 @@ export function RegisterPage() {
         {error && <div className="bg-red-50 text-red-600 text-sm p-3 rounded-lg mb-4">{error}</div>}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
-            <input type="text" value={form.name} onChange={e => setForm({...form, name: e.target.value})}
+            <label htmlFor="register-name" className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+            <input id="register-name" type="text" value={form.name} onChange={e => setForm({...form, name: e.target.value})}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-nucleus-500 focus:border-transparent outline-none" required />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-            <input type="email" value={form.email} onChange={e => setForm({...form, email: e.target.value})}
+            <label htmlFor="register-email" className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <input id="register-email" type="email" value={form.email} onChange={e => setForm({...form, email: e.target.value})}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-nucleus-500 focus:border-transparent outline-none" required />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Company (optional)</label>
-            <input type="text" value={form.company} onChange={e => setForm({...form, company: e.target.value})}
+            <label htmlFor="register-company" className="block text-sm font-medium text-gray-700 mb-1">Company (optional)</label>
+            <input id="register-company" type="text" value={form.company} onChange={e => setForm({...form, company: e.target.value})}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-nucleus-500 focus:border-transparent outline-none" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-            <input type="password" value={form.password} onChange={e => setForm({...form, password: e.target.value})}
+            <label htmlFor="register-password" className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+            <input id="register-password" type="password" value={form.password} onChange={e => setForm({...form, password: e.target.value})}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-nucleus-500 focus:border-transparent outline-none" required minLength={8} />
             <p className="text-xs text-gray-400 mt-1">Minimum 8 characters</p>
           </div>
