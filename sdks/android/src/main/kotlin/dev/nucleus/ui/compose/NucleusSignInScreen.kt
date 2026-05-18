@@ -29,6 +29,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import dev.nucleus.auth.OAuth
 import dev.nucleus.auth.SignIn
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
 /**
@@ -68,118 +69,161 @@ fun NucleusSignInScreen(
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        // ---- Email / Password ------------------------------------------
-
-        OutlinedTextField(
-            value = email,
-            onValueChange = { email = it },
-            label = { Text("Email") },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(
-                keyboardType = KeyboardType.Email,
-                imeAction = ImeAction.Next,
-            ),
-            modifier = Modifier.fillMaxWidth(),
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        OutlinedTextField(
-            value = password,
-            onValueChange = { password = it },
-            label = { Text("Password") },
-            singleLine = true,
-            visualTransformation = PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(
-                keyboardType = KeyboardType.Password,
-                imeAction = ImeAction.Done,
-            ),
-            modifier = Modifier.fillMaxWidth(),
-        )
-
-        Spacer(modifier = Modifier.height(20.dp))
-
-        Button(
-            onClick = {
-                scope.launch {
-                    isLoading = true
-                    try {
-                        SignIn.withEmailPassword(email.trim(), password)
-                        onSignInSuccess()
-                    } catch (e: Exception) {
-                        onError(e.message ?: "Sign-in failed.")
-                    } finally {
-                        isLoading = false
-                    }
-                }
+        EmailPasswordSection(
+            email = email,
+            password = password,
+            isLoading = isLoading,
+            onEmailChange = { email = it },
+            onPasswordChange = { password = it },
+            onSubmit = {
+                scope.runAuthFlow(
+                    setLoading = { isLoading = it },
+                    onSuccess = onSignInSuccess,
+                    onError = onError,
+                    defaultError = "Sign-in failed.",
+                ) { SignIn.withEmailPassword(email.trim(), password) }
             },
-            enabled = !isLoading && email.isNotBlank() && password.isNotBlank(),
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            if (isLoading) {
-                CircularProgressIndicator(
-                    color = MaterialTheme.colorScheme.onPrimary,
-                    strokeWidth = 2.dp,
-                )
-            } else {
-                Text("Continue")
-            }
-        }
-
-        // ---- Passkey ---------------------------------------------------
+        )
 
         if (enablePasskey) {
             Spacer(modifier = Modifier.height(12.dp))
-
-            OutlinedButton(
+            PasskeyButton(
+                isLoading = isLoading,
                 onClick = {
-                    scope.launch {
-                        isLoading = true
-                        try {
-                            SignIn.withPasskey(context)
-                            onSignInSuccess()
-                        } catch (e: Exception) {
-                            onError(e.message ?: "Passkey sign-in failed.")
-                        } finally {
-                            isLoading = false
-                        }
-                    }
+                    scope.runAuthFlow(
+                        setLoading = { isLoading = it },
+                        onSuccess = onSignInSuccess,
+                        onError = onError,
+                        defaultError = "Passkey sign-in failed.",
+                    ) { SignIn.withPasskey(context) }
                 },
-                enabled = !isLoading,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text("Sign in with Passkey")
-            }
+            )
         }
-
-        // ---- OAuth providers -------------------------------------------
 
         if (oauthProviders.isNotEmpty()) {
             Spacer(modifier = Modifier.height(20.dp))
-
             oauthProviders.forEach { provider ->
-                OutlinedButton(
+                OAuthProviderButton(
+                    provider = provider,
+                    isLoading = isLoading,
                     onClick = {
-                        scope.launch {
-                            isLoading = true
-                            try {
-                                OAuth.startFlow(context, provider)
-                                onSignInSuccess()
-                            } catch (e: Exception) {
-                                onError(e.message ?: "OAuth sign-in failed.")
-                            } finally {
-                                isLoading = false
-                            }
-                        }
+                        scope.runAuthFlow(
+                            setLoading = { isLoading = it },
+                            onSuccess = onSignInSuccess,
+                            onError = onError,
+                            defaultError = "OAuth sign-in failed.",
+                        ) { OAuth.startFlow(context, provider) }
                     },
-                    enabled = !isLoading,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 4.dp),
-                ) {
-                    Text("Continue with ${provider.replaceFirstChar { it.uppercase() }}")
-                }
+                )
             }
         }
+    }
+}
+
+@Composable
+private fun EmailPasswordSection(
+    email: String,
+    password: String,
+    isLoading: Boolean,
+    onEmailChange: (String) -> Unit,
+    onPasswordChange: (String) -> Unit,
+    onSubmit: () -> Unit,
+) {
+    OutlinedTextField(
+        value = email,
+        onValueChange = onEmailChange,
+        label = { Text("Email") },
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(
+            keyboardType = KeyboardType.Email,
+            imeAction = ImeAction.Next,
+        ),
+        modifier = Modifier.fillMaxWidth(),
+    )
+
+    Spacer(modifier = Modifier.height(12.dp))
+
+    OutlinedTextField(
+        value = password,
+        onValueChange = onPasswordChange,
+        label = { Text("Password") },
+        singleLine = true,
+        visualTransformation = PasswordVisualTransformation(),
+        keyboardOptions = KeyboardOptions(
+            keyboardType = KeyboardType.Password,
+            imeAction = ImeAction.Done,
+        ),
+        modifier = Modifier.fillMaxWidth(),
+    )
+
+    Spacer(modifier = Modifier.height(20.dp))
+
+    Button(
+        onClick = onSubmit,
+        enabled = !isLoading && email.isNotBlank() && password.isNotBlank(),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        if (isLoading) {
+            CircularProgressIndicator(
+                color = MaterialTheme.colorScheme.onPrimary,
+                strokeWidth = 2.dp,
+            )
+        } else {
+            Text("Continue")
+        }
+    }
+}
+
+@Composable
+private fun PasskeyButton(
+    isLoading: Boolean,
+    onClick: () -> Unit,
+) {
+    OutlinedButton(
+        onClick = onClick,
+        enabled = !isLoading,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text("Sign in with Passkey")
+    }
+}
+
+@Composable
+private fun OAuthProviderButton(
+    provider: String,
+    isLoading: Boolean,
+    onClick: () -> Unit,
+) {
+    OutlinedButton(
+        onClick = onClick,
+        enabled = !isLoading,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+    ) {
+        Text("Continue with ${provider.replaceFirstChar { it.uppercase() }}")
+    }
+}
+
+/**
+ * Wrap a suspending auth action with the common loading + success + error +
+ * cleanup pattern shared by all sign-in buttons. Extracted to keep the parent
+ * Composable's cognitive complexity below Sonar's threshold.
+ */
+private fun CoroutineScope.runAuthFlow(
+    setLoading: (Boolean) -> Unit,
+    onSuccess: () -> Unit,
+    onError: (String) -> Unit,
+    defaultError: String,
+    action: suspend () -> Unit,
+) = launch {
+    setLoading(true)
+    try {
+        action()
+        onSuccess()
+    } catch (e: Exception) {
+        onError(e.message ?: defaultError)
+    } finally {
+        setLoading(false)
     }
 }

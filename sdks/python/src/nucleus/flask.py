@@ -14,9 +14,15 @@ class NucleusAuth:
     def _before_request(self):
         auth = request.headers.get('Authorization', '')
         if auth.startswith('Bearer '):
-            try: g.nucleus_claims = verify_token(auth[7:], self.base_url)
-            except: g.nucleus_claims = None
-        else: g.nucleus_claims = None
+            try:
+                g.nucleus_claims = verify_token(auth[7:], self.base_url)
+            except Exception:
+                # Token verification failed (invalid signature, expired, network
+                # error, malformed JWT, etc.). Treat the request as unauthenticated;
+                # `required` decorator returns 401 if claims are missing.
+                g.nucleus_claims = None
+        else:
+            g.nucleus_claims = None
 
     def required(self, f):
         @wraps(f)
