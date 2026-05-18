@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, ReactNode } from 'react'
 import { api, accountApi, Account } from './api'
 
 interface AuthState {
@@ -36,13 +36,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  const login = async (email: string, password: string) => {
+  const login = useCallback(async (email: string, password: string) => {
     const { account: acc, token } = await accountApi.signIn(email, password)
     api.setToken(token)
     setAccount(acc)
-  }
+  }, [])
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     try {
       await accountApi.signOut()
     } catch {
@@ -51,15 +51,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       api.setToken(null)
       setAccount(null)
     }
-  }
+  }, [])
 
-  return (
-    <AuthContext.Provider
-      value={{ isAuthenticated: !!account, loading, account, login, logout }}
-    >
-      {children}
-    </AuthContext.Provider>
+  const value = useMemo<AuthState>(
+    () => ({ isAuthenticated: !!account, loading, account, login, logout }),
+    [account, loading, login, logout],
   )
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
 export function useAuth() {
