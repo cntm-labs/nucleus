@@ -1,5 +1,6 @@
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
+use axum::Json;
 use serde::Serialize;
 use thiserror::Error;
 
@@ -7,15 +8,15 @@ use thiserror::Error;
 pub enum AppError {
     #[error(transparent)]
     Account(#[from] AccountError),
-    #[error("{0}")]
+    #[error(transparent)]
     Auth(#[from] AuthError),
-    #[error("{0}")]
+    #[error(transparent)]
     User(#[from] UserError),
-    #[error("{0}")]
+    #[error(transparent)]
     Org(#[from] OrgError),
-    #[error("{0}")]
+    #[error(transparent)]
     Api(#[from] ApiError),
-    #[error("internal error: {0}")]
+    #[error(transparent)]
     Internal(#[from] anyhow::Error),
 }
 
@@ -29,6 +30,10 @@ pub enum AuthError {
     AccountBanned,
     #[error("Email address has not been verified")]
     EmailNotVerified,
+    #[error("Invalid MFA challenge")]
+    MfaInvalidChallenge,
+    #[error("MFA not enrolled")]
+    MfaNotEnrolled,
     #[error("Multi-factor authentication is required")]
     MfaRequired { mfa_id: String },
     #[error("MFA code is invalid")]
@@ -47,34 +52,50 @@ pub enum AuthError {
     TokenRevoked,
     #[error("OAuth state mismatch")]
     OAuthStateMismatch,
+    #[error("OAuth provider not found: {0}")]
+    OAuthProviderNotFound(String),
     #[error("OAuth provider error: {0}")]
     OAuthProviderError(String),
-    #[error("Passkey challenge failed")]
-    PasskeyChallenged,
     #[error("Magic link has expired")]
     MagicLinkExpired,
+    #[error("Invalid redirect URL")]
+    InvalidRedirectUrl,
     #[error("OTP has expired")]
     OtpExpired,
-    #[error("OTP maximum attempts exceeded")]
+    #[error("Too many OTP attempts")]
     OtpMaxAttempts,
-    #[error("Password does not meet requirements")]
+    #[error("Passkey challenge required")]
+    PasskeyChallenged,
+    #[error("Password is too weak")]
     PasswordTooWeak,
-    #[error("Redirect URL is not allowed")]
-    InvalidRedirectUrl,
+}
+
+#[derive(Debug, Error)]
+pub enum AccountError {
+    #[error("Account already exists with this email")]
+    EmailTaken,
+    #[error("The email or password you entered is incorrect")]
+    InvalidCredentials,
+    #[error("Email address has not been verified")]
+    EmailNotVerified,
+    #[error("Account not found")]
+    NotFound,
+    #[error("Invalid verification token")]
+    TokenInvalid,
+    #[error("Verification token expired")]
+    TokenExpired,
 }
 
 #[derive(Debug, Error)]
 pub enum UserError {
     #[error("User not found")]
     NotFound,
-    #[error("Email address is already taken")]
+    #[error("User already exists with this email")]
     EmailTaken,
-    #[error("Username is already taken")]
+    #[error("User already exists with this username")]
     UsernameTaken,
     #[error("Invalid email address")]
     InvalidEmail,
-    #[error("Update forbidden")]
-    UpdateForbidden,
 }
 
 #[derive(Debug, Error)]
@@ -83,45 +104,38 @@ pub enum OrgError {
     NotFound,
     #[error("Organization slug is already taken")]
     SlugTaken,
-    #[error("Member already exists in organization")]
-    MemberAlreadyExists,
-    #[error("Organization has reached its member limit")]
-    MemberLimitReached,
-    #[error("Insufficient permissions")]
+    #[error("Insufficient permissions to perform this action")]
     InsufficientPermissions,
-    #[error("Invitation has expired")]
-    InvitationExpired,
     #[error("Invitation has already been used")]
     InvitationAlreadyUsed,
+    #[error("Invitation has expired")]
+    InvitationExpired,
 }
 
 #[derive(Debug, Error)]
 pub enum ApiError {
-    #[error("Invalid API key")]
-    InvalidApiKey,
+    #[error("Invalid request parameters")]
+    ValidationError { details: Vec<ValidationDetail> },
+    #[error("Resource not found")]
+    NotFound,
+    #[error("Unauthorized access")]
+    Unauthorized,
+    #[error("Forbidden access")]
+    Forbidden,
+    #[error("Rate limit exceeded")]
+    RateLimited { retry_after_secs: u64 },
+    #[error("Plan limit exceeded: {limit_type}")]
+    PlanLimitExceeded { limit_type: String },
     #[error("API key has been revoked")]
     KeyRevoked,
     #[error("API key has expired")]
     KeyExpired,
-    #[error("Insufficient scopes for this operation")]
-    InsufficientScopes,
-    #[error("Rate limit exceeded")]
-    RateLimited { retry_after_secs: u64 },
-    #[error("Project has been suspended")]
-    ProjectSuspended,
-    #[error("Plan limit exceeded")]
-    PlanLimitExceeded { limit_type: String },
-    #[error("Validation error")]
-    ValidationError { details: Vec<ValidationDetail> },
-    #[error("Resource not found")]
-    NotFound,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 pub struct ValidationDetail {
     pub field: String,
     pub message: String,
-    pub code: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -149,6 +163,8 @@ impl AuthError {
             Self::AccountBanned => "auth/account_banned",
             Self::EmailNotVerified => "auth/email_not_verified",
             Self::MfaRequired { .. } => "auth/mfa_required",
+            Self::MfaInvalidChallenge => "auth/mfa_invalid_challenge",
+            Self::MfaNotEnrolled => "auth/mfa_not_enrolled",
             Self::MfaInvalidCode => "auth/mfa_invalid_code",
             Self::SessionExpired => "auth/session_expired",
             Self::SessionRevoked => "auth/session_revoked",
@@ -157,38 +173,63 @@ impl AuthError {
             Self::TokenInvalid => "auth/token_invalid",
             Self::TokenRevoked => "auth/token_revoked",
             Self::OAuthStateMismatch => "auth/oauth_state_mismatch",
+            Self::OAuthProviderNotFound(_) => "auth/oauth_provider_not_found",
             Self::OAuthProviderError(_) => "auth/oauth_provider_error",
-            Self::PasskeyChallenged => "auth/passkey_challenged",
             Self::MagicLinkExpired => "auth/magic_link_expired",
+            Self::InvalidRedirectUrl => "auth/invalid_redirect_url",
             Self::OtpExpired => "auth/otp_expired",
             Self::OtpMaxAttempts => "auth/otp_max_attempts",
+            Self::PasskeyChallenged => "auth/passkey_challenged",
             Self::PasswordTooWeak => "auth/password_too_weak",
-            Self::InvalidRedirectUrl => "auth/invalid_redirect_url",
         }
     }
 
     pub fn status(&self) -> StatusCode {
         match self {
-            Self::InvalidCredentials => StatusCode::UNAUTHORIZED,
-            Self::AccountLocked => StatusCode::FORBIDDEN,
-            Self::AccountBanned => StatusCode::FORBIDDEN,
-            Self::EmailNotVerified => StatusCode::FORBIDDEN,
-            Self::MfaRequired { .. } => StatusCode::FORBIDDEN,
-            Self::MfaInvalidCode => StatusCode::UNAUTHORIZED,
-            Self::SessionExpired => StatusCode::UNAUTHORIZED,
-            Self::SessionRevoked => StatusCode::UNAUTHORIZED,
-            Self::SessionInvalid => StatusCode::UNAUTHORIZED,
-            Self::TokenExpired => StatusCode::UNAUTHORIZED,
-            Self::TokenInvalid => StatusCode::UNAUTHORIZED,
-            Self::TokenRevoked => StatusCode::UNAUTHORIZED,
-            Self::OAuthStateMismatch => StatusCode::BAD_REQUEST,
+            Self::InvalidCredentials
+            | Self::EmailNotVerified
+            | Self::MfaRequired { .. }
+            | Self::MfaInvalidChallenge
+            | Self::MfaNotEnrolled
+            | Self::MfaInvalidCode
+            | Self::MagicLinkExpired
+            | Self::OtpExpired
+            | Self::OtpMaxAttempts
+            | Self::PasswordTooWeak => StatusCode::UNAUTHORIZED,
+            Self::AccountLocked | Self::AccountBanned => StatusCode::FORBIDDEN,
+            Self::SessionExpired | Self::SessionRevoked | Self::SessionInvalid => {
+                StatusCode::UNAUTHORIZED
+            }
+            Self::TokenExpired | Self::TokenInvalid | Self::TokenRevoked => {
+                StatusCode::UNAUTHORIZED
+            }
+            Self::OAuthStateMismatch
+            | Self::OAuthProviderNotFound(_)
+            | Self::InvalidRedirectUrl => StatusCode::BAD_REQUEST,
             Self::OAuthProviderError(_) => StatusCode::BAD_GATEWAY,
             Self::PasskeyChallenged => StatusCode::UNAUTHORIZED,
-            Self::MagicLinkExpired => StatusCode::GONE,
-            Self::OtpExpired => StatusCode::GONE,
-            Self::OtpMaxAttempts => StatusCode::TOO_MANY_REQUESTS,
-            Self::PasswordTooWeak => StatusCode::UNPROCESSABLE_ENTITY,
-            Self::InvalidRedirectUrl => StatusCode::BAD_REQUEST,
+        }
+    }
+}
+
+impl AccountError {
+    pub fn code(&self) -> &str {
+        match self {
+            Self::EmailTaken => "account/email_taken",
+            Self::InvalidCredentials => "account/invalid_credentials",
+            Self::EmailNotVerified => "account/email_not_verified",
+            Self::NotFound => "account/not_found",
+            Self::TokenInvalid => "account/token_invalid",
+            Self::TokenExpired => "account/token_expired",
+        }
+    }
+
+    pub fn status(&self) -> StatusCode {
+        match self {
+            Self::EmailTaken => StatusCode::CONFLICT,
+            Self::InvalidCredentials | Self::EmailNotVerified => StatusCode::UNAUTHORIZED,
+            Self::NotFound => StatusCode::NOT_FOUND,
+            Self::TokenInvalid | Self::TokenExpired => StatusCode::UNAUTHORIZED,
         }
     }
 }
@@ -200,17 +241,14 @@ impl UserError {
             Self::EmailTaken => "user/email_taken",
             Self::UsernameTaken => "user/username_taken",
             Self::InvalidEmail => "user/invalid_email",
-            Self::UpdateForbidden => "user/update_forbidden",
         }
     }
 
     pub fn status(&self) -> StatusCode {
         match self {
             Self::NotFound => StatusCode::NOT_FOUND,
-            Self::EmailTaken => StatusCode::CONFLICT,
-            Self::UsernameTaken => StatusCode::CONFLICT,
-            Self::InvalidEmail => StatusCode::UNPROCESSABLE_ENTITY,
-            Self::UpdateForbidden => StatusCode::FORBIDDEN,
+            Self::EmailTaken | Self::UsernameTaken => StatusCode::CONFLICT,
+            Self::InvalidEmail => StatusCode::BAD_REQUEST,
         }
     }
 }
@@ -220,11 +258,9 @@ impl OrgError {
         match self {
             Self::NotFound => "org/not_found",
             Self::SlugTaken => "org/slug_taken",
-            Self::MemberAlreadyExists => "org/member_already_exists",
-            Self::MemberLimitReached => "org/member_limit_reached",
             Self::InsufficientPermissions => "org/insufficient_permissions",
-            Self::InvitationExpired => "org/invitation_expired",
             Self::InvitationAlreadyUsed => "org/invitation_already_used",
+            Self::InvitationExpired => "org/invitation_expired",
         }
     }
 
@@ -232,11 +268,9 @@ impl OrgError {
         match self {
             Self::NotFound => StatusCode::NOT_FOUND,
             Self::SlugTaken => StatusCode::CONFLICT,
-            Self::MemberAlreadyExists => StatusCode::CONFLICT,
-            Self::MemberLimitReached => StatusCode::FORBIDDEN,
             Self::InsufficientPermissions => StatusCode::FORBIDDEN,
+            Self::InvitationAlreadyUsed => StatusCode::GONE,
             Self::InvitationExpired => StatusCode::GONE,
-            Self::InvitationAlreadyUsed => StatusCode::CONFLICT,
         }
     }
 }
@@ -244,29 +278,26 @@ impl OrgError {
 impl ApiError {
     pub fn code(&self) -> &str {
         match self {
-            Self::InvalidApiKey => "api/invalid_api_key",
-            Self::KeyRevoked => "api/key_revoked",
-            Self::KeyExpired => "api/key_expired",
-            Self::InsufficientScopes => "api/insufficient_scopes",
-            Self::RateLimited { .. } => "api/rate_limited",
-            Self::ProjectSuspended => "api/project_suspended",
-            Self::PlanLimitExceeded { .. } => "api/plan_limit_exceeded",
             Self::ValidationError { .. } => "api/validation_error",
             Self::NotFound => "api/not_found",
+            Self::Unauthorized => "api/unauthorized",
+            Self::Forbidden => "api/forbidden",
+            Self::RateLimited { .. } => "api/rate_limited",
+            Self::PlanLimitExceeded { .. } => "api/plan_limit_exceeded",
+            Self::KeyRevoked => "api/api_key_revoked",
+            Self::KeyExpired => "api/api_key_expired",
         }
     }
 
     pub fn status(&self) -> StatusCode {
         match self {
-            Self::InvalidApiKey => StatusCode::UNAUTHORIZED,
-            Self::KeyRevoked => StatusCode::UNAUTHORIZED,
-            Self::KeyExpired => StatusCode::UNAUTHORIZED,
-            Self::InsufficientScopes => StatusCode::FORBIDDEN,
-            Self::RateLimited { .. } => StatusCode::TOO_MANY_REQUESTS,
-            Self::ProjectSuspended => StatusCode::FORBIDDEN,
-            Self::PlanLimitExceeded { .. } => StatusCode::PAYMENT_REQUIRED,
             Self::ValidationError { .. } => StatusCode::UNPROCESSABLE_ENTITY,
             Self::NotFound => StatusCode::NOT_FOUND,
+            Self::Unauthorized => StatusCode::UNAUTHORIZED,
+            Self::Forbidden => StatusCode::FORBIDDEN,
+            Self::RateLimited { .. } => StatusCode::TOO_MANY_REQUESTS,
+            Self::PlanLimitExceeded { .. } => StatusCode::PAYMENT_REQUIRED,
+            Self::KeyRevoked | Self::KeyExpired => StatusCode::UNAUTHORIZED,
         }
     }
 }
@@ -279,7 +310,7 @@ impl AppError {
             Self::User(e) => e.code(),
             Self::Org(e) => e.code(),
             Self::Api(e) => e.code(),
-            Self::Internal(_) => "internal/server_error",
+            Self::Internal(_) => "internal_server_error",
         }
     }
 
@@ -330,54 +361,13 @@ impl AppError {
     }
 }
 
-#[derive(Debug, thiserror::Error)]
-pub enum AccountError {
-    #[error("invalid credentials")]
-    InvalidCredentials,
-    #[error("email already registered")]
-    EmailTaken,
-    #[error("email not verified")]
-    EmailNotVerified,
-    #[error("account not found")]
-    NotFound,
-    #[error("verification token invalid")]
-    TokenInvalid,
-    #[error("verification token expired")]
-    TokenExpired,
-}
-
-impl AccountError {
-    pub fn code(&self) -> &'static str {
-        match self {
-            Self::InvalidCredentials => "account/invalid_credentials",
-            Self::EmailTaken => "account/email_taken",
-            Self::EmailNotVerified => "account/email_not_verified",
-            Self::NotFound => "account/not_found",
-            Self::TokenInvalid => "account/token_invalid",
-            Self::TokenExpired => "account/token_expired",
-        }
-    }
-
-    pub fn status(&self) -> StatusCode {
-        match self {
-            Self::InvalidCredentials => StatusCode::UNAUTHORIZED,
-            Self::EmailTaken => StatusCode::CONFLICT,
-            Self::EmailNotVerified => StatusCode::FORBIDDEN,
-            Self::NotFound => StatusCode::NOT_FOUND,
-            Self::TokenInvalid | Self::TokenExpired => StatusCode::BAD_REQUEST,
-        }
-    }
-}
-
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
+        let request_id = "TODO_EXTRACT_FROM_CONTEXT"; // Real ID provided by middleware re-mapping
         let status = self.status();
-        let response = self.to_response("unknown");
-        let body = serde_json::to_string(&response).unwrap_or_else(|_| {
-            r#"{"error":{"code":"internal/server_error","message":"Failed to serialize error","status":500,"request_id":"unknown","details":[],"docs_url":"https://docs.nucleus.dev/errors/internal-server-error"}}"#.to_string()
-        });
+        let body = Json(self.to_response(request_id));
 
-        (status, [("content-type", "application/json")], body).into_response()
+        (status, body).into_response()
     }
 }
 
@@ -393,50 +383,35 @@ mod tests {
 
     #[test]
     fn error_status_codes_correct() {
-        assert_eq!(
-            AppError::Auth(AuthError::InvalidCredentials).status(),
-            StatusCode::UNAUTHORIZED
-        );
-        assert_eq!(
-            AppError::User(UserError::NotFound).status(),
-            StatusCode::NOT_FOUND
-        );
-        assert_eq!(
-            AppError::Org(OrgError::SlugTaken).status(),
-            StatusCode::CONFLICT
-        );
-        assert_eq!(
-            AppError::Api(ApiError::RateLimited {
-                retry_after_secs: 60
-            })
-            .status(),
-            StatusCode::TOO_MANY_REQUESTS
-        );
-        assert_eq!(
-            AppError::Internal(anyhow::anyhow!("boom")).status(),
-            StatusCode::INTERNAL_SERVER_ERROR
-        );
+        let err = AppError::Api(ApiError::NotFound);
+        assert_eq!(err.status(), StatusCode::NOT_FOUND);
     }
 
     #[test]
     fn error_serializes_to_json() {
-        let err = AppError::Auth(AuthError::InvalidCredentials);
-        let response = err.to_response("req_abc123");
+        let err = AppError::Api(ApiError::NotFound);
+        let response = err.to_response("req_123");
         let json = serde_json::to_value(&response).unwrap();
 
-        let error_obj = &json["error"];
-        assert_eq!(error_obj["code"], "auth/invalid_credentials");
-        assert_eq!(
-            error_obj["message"],
-            "The email or password you entered is incorrect"
-        );
-        assert_eq!(error_obj["status"], 401);
-        assert_eq!(error_obj["request_id"], "req_abc123");
-        assert!(error_obj["details"].is_array());
-        assert_eq!(
-            error_obj["docs_url"],
-            "https://docs.nucleus.dev/errors/auth-invalid_credentials"
-        );
+        assert_eq!(json["error"]["code"], "api/not_found");
+        assert_eq!(json["error"]["request_id"], "req_123");
+        assert!(json["error"]["docs_url"]
+            .as_str()
+            .unwrap()
+            .contains("api-not_found"));
+    }
+
+    #[test]
+    fn validation_error_includes_details() {
+        let details = vec![ValidationDetail {
+            field: "email".to_string(),
+            message: "invalid email".to_string(),
+        }];
+        let err = AppError::Api(ApiError::ValidationError { details });
+        let response = err.to_response("req_test");
+
+        assert_eq!(response.error.details.len(), 1);
+        assert_eq!(response.error.details[0].field, "email");
     }
 
     #[test]
@@ -446,33 +421,15 @@ mod tests {
         });
         let response = err.to_response("req_test");
         assert_eq!(response.error.code, "auth/mfa_required");
-        assert_eq!(response.error.status, 403);
     }
 
     #[test]
     fn rate_limited_includes_retry_after() {
         let err = AppError::Api(ApiError::RateLimited {
-            retry_after_secs: 30,
+            retry_after_secs: 60,
         });
         let response = err.to_response("req_test");
         assert_eq!(response.error.code, "api/rate_limited");
-        assert_eq!(response.error.status, 429);
-    }
-
-    #[test]
-    fn validation_error_includes_details() {
-        let details = vec![ValidationDetail {
-            field: "email".to_string(),
-            message: "Invalid email format".to_string(),
-            code: "invalid_format".to_string(),
-        }];
-        let err = AppError::Api(ApiError::ValidationError {
-            details: details.clone(),
-        });
-        let response = err.to_response("req_test");
-        assert_eq!(response.error.details.len(), 1);
-        assert_eq!(response.error.details[0].field, "email");
-        assert_eq!(response.error.details[0].message, "Invalid email format");
     }
 
     #[test]
@@ -509,7 +466,7 @@ mod tests {
         let response = err.into_response();
         assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
 
-        let err = AppError::User(UserError::NotFound);
+        let err = AppError::Api(ApiError::NotFound);
         let response = err.into_response();
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
 

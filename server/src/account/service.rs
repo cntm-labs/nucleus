@@ -188,6 +188,7 @@ impl AccountService {
 
         let claims = JwtService::build_account_claims(
             &account.id,
+            &session.id,
             &self.issuer,
             self.jwt_lifetime_secs,
             Some(account.email.clone()),

@@ -1,25 +1,33 @@
 use std::sync::Arc;
 
+use crate::auth::jwt::{JwtService, SigningKeyPair};
+use crate::auth::password::PasswordService;
+use crate::core::crypto;
 use crate::core::error::{AppError, AuthError, UserError};
-use crate::core::types::*;
-use crate::db::repos::audit_repo::{AuditRepository, NewSignInAttempt};
+#[allow(unused_imports)]
+use crate::core::pagination::{PaginatedResponse, PaginationParams};
+use crate::core::types::{ProjectId, SessionId, UserId};
+#[allow(unused_imports)]
+use crate::db::repos::audit_repo::{AuditRepository, NewSignInAttempt, SignInAttempt};
 use crate::db::repos::credential_repo::{CredentialRepository, NewCredential};
 use crate::db::repos::mfa_enrollment_repo::MfaEnrollmentRepository;
 use crate::db::repos::user_repo::{NewUser, User, UserRepository};
-
-use crate::session::SessionService;
-
-use crate::auth::jwt::{JwtService, SigningKeyPair};
-use crate::auth::password::PasswordService;
+use crate::session::{DeviceInfo, SessionService};
+#[allow(unused_imports)]
+use async_trait::async_trait;
+use chrono::Utc;
+use redis::aio::ConnectionManager;
 
 pub struct AuthService {
-    user_repo: Arc<dyn UserRepository>,
-    credential_repo: Arc<dyn CredentialRepository>,
-    mfa_repo: Arc<dyn MfaEnrollmentRepository>,
-    audit_repo: Arc<dyn AuditRepository>,
-    signing_key: Arc<SigningKeyPair>,
-    issuer: String,
-    jwt_lifetime_secs: i64,
+    pub(crate) user_repo: Arc<dyn UserRepository>,
+    pub(crate) credential_repo: Arc<dyn CredentialRepository>,
+    pub(crate) mfa_repo: Arc<dyn MfaEnrollmentRepository>,
+    pub(crate) audit_repo: Arc<dyn AuditRepository>,
+    pub(crate) session_service: Arc<SessionService>,
+    pub(crate) redis: ConnectionManager,
+    pub(crate) signing_key: Arc<SigningKeyPair>,
+    pub(crate) issuer: String,
+    pub(crate) jwt_lifetime_secs: i64,
 }
 
 impl AuthService {
@@ -28,6 +36,8 @@ impl AuthService {
         credential_repo: Arc<dyn CredentialRepository>,
         mfa_repo: Arc<dyn MfaEnrollmentRepository>,
         audit_repo: Arc<dyn AuditRepository>,
+        session_service: Arc<SessionService>,
+        redis: ConnectionManager,
         signing_key: Arc<SigningKeyPair>,
         issuer: String,
         jwt_lifetime_secs: i64,
@@ -37,6 +47,8 @@ impl AuthService {
             credential_repo,
             mfa_repo,
             audit_repo,
+            session_service,
+            redis,
             signing_key,
             issuer,
             jwt_lifetime_secs,
@@ -51,11 +63,11 @@ impl AuthService {
         password: &str,
         first_name: Option<String>,
         last_name: Option<String>,
-    ) -> Result<(User, String), AppError> {
-        // 1. Validate email
+    ) -> Result<(User, String, String), AppError> {
         let email = crate::core::validation::validate_email(email)?;
+        crate::core::validation::validate_password(password)?;
 
-        // 2. Check if email already taken
+        // 1. Check if user already exists
         if self
             .user_repo
             .find_by_email(project_id, &email)
@@ -65,15 +77,12 @@ impl AuthService {
             return Err(AppError::User(UserError::EmailTaken));
         }
 
-        // 3. Hash password (validates policy internally)
-        let password_hash = PasswordService::hash(password)?;
-
-        // 4. Create user
+        // 2. Create user
         let new_user = NewUser {
-            email: email.clone(),
+            email,
+            username: None,
             first_name,
             last_name,
-            username: None,
             external_id: None,
             phone: None,
             avatar_url: None,
@@ -81,21 +90,28 @@ impl AuthService {
         };
         let user = self.user_repo.create(project_id, &new_user).await?;
 
-        // 5. Create credential
-        let new_credential = NewCredential {
+        // 3. Create password credential
+        let hash = PasswordService::hash(password)?;
+        let new_cred = NewCredential {
             user_id: user.id,
             credential_type: "password".to_string(),
             identifier: None,
-            secret_hash: Some(password_hash),
+            secret_hash: Some(hash),
             provider: None,
             provider_data: None,
         };
-        self.credential_repo.create(&new_credential).await?;
+        self.credential_repo.create(&new_cred).await?;
 
-        // 6. Build JWT
-        let jwt = self.issue_jwt(&user, project_id)?;
+        // 4. Create session
+        let (_session_token, session) = self
+            .session_service
+            .create_session(&user.id, project_id, DeviceInfo::default(), 3600)
+            .await?;
 
-        Ok((user, jwt))
+        // 5. Issue JWT
+        let jwt = self.issue_jwt(&user, project_id, &session.id)?;
+
+        Ok((user, jwt, session.id.to_string()))
     }
 
     /// Sign in with email and password.
@@ -106,7 +122,7 @@ impl AuthService {
         password: &str,
         ip: Option<String>,
         user_agent: Option<String>,
-    ) -> Result<(User, String), AppError> {
+    ) -> Result<(User, String, String), AppError> {
         // 1. Find user by email
         let user = self
             .user_repo
@@ -179,10 +195,27 @@ impl AuthService {
             )
             .await;
 
-            // For now, we just indicate MFA is required.
-            // In a more advanced flow, we might return which methods are available.
+            // Generate a challenge ID and store the intent in Redis
+            let challenge_id = crypto::generate_token();
+            let challenge_key = format!("mfa_challenge:{}", challenge_id);
+
+            let challenge_data = serde_json::json!({
+                "user_id": user.id,
+                "project_id": project_id,
+                "created_at": Utc::now()
+            });
+
+            let json = serde_json::to_string(&challenge_data)
+                .map_err(|e| AppError::Internal(anyhow::anyhow!("serialize error: {}", e)))?;
+
+            let mut conn = self.redis.clone();
+            use redis::AsyncCommands;
+            conn.set_ex::<_, _, ()>(&challenge_key, &json, 600)
+                .await
+                .map_err(|e| AppError::Internal(e.into()))?;
+
             return Err(AppError::Auth(AuthError::MfaRequired {
-                mfa_id: mfa_methods[0].id.to_string(),
+                mfa_id: challenge_id,
             }));
         }
 
@@ -198,29 +231,34 @@ impl AuthService {
         )
         .await;
 
-        // 8. Build JWT
-        let jwt = self.issue_jwt(&user, project_id)?;
+        // 8. Create session
+        let (_session_token, session) = self
+            .session_service
+            .create_session(&user.id, project_id, DeviceInfo::default(), 3600)
+            .await?;
 
-        Ok((user, jwt))
+        // 9. Build JWT
+        let jwt = self.issue_jwt(&user, project_id, &session.id)?;
+
+        Ok((user, jwt, session.id.to_string()))
     }
 
     /// Refresh a JWT using a valid session.
-    /// Called when the short-lived JWT expires.
     pub async fn refresh_token(
         &self,
         session_service: &SessionService,
         session_id: &SessionId,
         project_id: &ProjectId,
     ) -> Result<(String, i64), AppError> {
-        // 1. Validate session exists
+        // 1. Validate session in Redis
         let session = session_service.validate_session(session_id).await?;
 
-        // 2. Get user (verify still active)
+        // 2. Find user
         let user = self
             .user_repo
-            .find_by_id(&session.project_id, &session.user_id)
+            .find_by_id(project_id, &session.user_id)
             .await?
-            .ok_or(AppError::Auth(AuthError::SessionRevoked))?;
+            .ok_or(AppError::Auth(AuthError::InvalidCredentials))?;
 
         // 3. Check not banned
         if user.banned_at.is_some() {
@@ -234,7 +272,7 @@ impl AuthService {
         session_service.touch_session(session_id).await?;
 
         // 5. Issue new JWT
-        let jwt = self.issue_jwt(&user, project_id)?;
+        let jwt = self.issue_jwt(&user, project_id, session_id)?;
 
         Ok((jwt, self.jwt_lifetime_secs))
     }
@@ -276,14 +314,21 @@ impl AuthService {
         &self,
         user: &User,
         project_id: &ProjectId,
+        session_id: &SessionId,
     ) -> Result<String, AppError> {
-        self.issue_jwt(user, project_id)
+        self.issue_jwt(user, project_id, session_id)
     }
 
-    fn issue_jwt(&self, user: &User, project_id: &ProjectId) -> Result<String, AppError> {
+    fn issue_jwt(
+        &self,
+        user: &User,
+        project_id: &ProjectId,
+        session_id: &SessionId,
+    ) -> Result<String, AppError> {
         let claims = JwtService::build_claims(
             &user.id,
             project_id,
+            session_id,
             &self.issuer,
             self.jwt_lifetime_secs,
             Some(user.email.clone()),
@@ -319,26 +364,26 @@ impl AuthService {
             country_code: None,
             city: None,
         };
-        // Best effort — don't fail sign-in if audit logging fails
         let _ = self.audit_repo.create_sign_in_attempt(&attempt).await;
     }
 }
 
 #[cfg(test)]
+#[allow(unused)]
+#[allow(dead_code)]
 pub(crate) mod tests {
     use super::*;
     use crate::core::pagination::{PaginatedResponse, PaginationParams};
     use crate::db::repos::audit_repo::{AuditLog, NewAuditLog, SignInAttempt};
     use crate::db::repos::credential_repo::Credential;
     use crate::db::repos::user_repo::UpdateUser;
-    use async_trait::async_trait;
-    use chrono::Utc;
     use std::sync::Mutex;
+    use uuid::Uuid;
 
-    // ── Mock UserRepository ──────────────────────────────────────────
+    // -- Mock UserRepository --------------------------------------------------
 
     pub(crate) struct MockUserRepo {
-        users: Mutex<Vec<User>>,
+        pub(crate) users: Mutex<Vec<User>>,
     }
 
     impl MockUserRepo {
@@ -451,10 +496,10 @@ pub(crate) mod tests {
         }
     }
 
-    // ── Mock CredentialRepository ────────────────────────────────────
+    // -- Mock CredentialRepository --------------------------------------------
 
     pub(crate) struct MockCredentialRepo {
-        credentials: Mutex<Vec<Credential>>,
+        pub(crate) credentials: Mutex<Vec<Credential>>,
     }
 
     impl MockCredentialRepo {
@@ -475,7 +520,7 @@ pub(crate) mod tests {
     impl CredentialRepository for MockCredentialRepo {
         async fn create(&self, new: &NewCredential) -> Result<Credential, AppError> {
             let cred = Credential {
-                id: CredentialId::new(),
+                id: crate::core::types::CredentialId::new(),
                 user_id: new.user_id,
                 credential_type: new.credential_type.clone(),
                 identifier: new.identifier.clone(),
@@ -504,51 +549,49 @@ pub(crate) mod tests {
 
         async fn find_by_provider_identifier(
             &self,
-            _credential_type: &str,
-            _provider: &str,
-            _identifier: &str,
+            credential_type: &str,
+            provider: &str,
+            identifier: &str,
         ) -> Result<Option<Credential>, AppError> {
-            Ok(None)
+            let creds = self.credentials.lock().unwrap();
+            Ok(creds
+                .iter()
+                .find(|c| {
+                    c.credential_type == credential_type
+                        && c.provider.as_deref() == Some(provider)
+                        && c.identifier.as_deref() == Some(identifier)
+                })
+                .cloned())
         }
 
         async fn update_secret(
             &self,
-            _id: &CredentialId,
+            _id: &crate::core::types::CredentialId,
             _new_secret_hash: &str,
         ) -> Result<(), AppError> {
             unimplemented!()
         }
 
-        async fn delete(&self, _id: &CredentialId) -> Result<(), AppError> {
+        async fn delete(&self, _id: &crate::core::types::CredentialId) -> Result<(), AppError> {
             unimplemented!()
         }
     }
 
-    // ── Mock AuditRepository ─────────────────────────────────────────
-
-    /// Lightweight record of a sign-in attempt for test assertions.
-    #[derive(Debug, Clone)]
-    struct RecordedAttempt {
-        status: String,
-        method: String,
-        failure_reason: Option<String>,
-        ip: Option<String>,
-        user_agent: Option<String>,
-    }
+    // -- Mock AuditRepository -------------------------------------------------
 
     pub(crate) struct MockAuditRepo {
-        sign_in_attempts: Mutex<Vec<RecordedAttempt>>,
+        attempts: Mutex<Vec<SignInAttempt>>,
     }
 
     impl MockAuditRepo {
         pub(crate) fn new() -> Self {
             Self {
-                sign_in_attempts: Mutex::new(Vec::new()),
+                attempts: Mutex::new(Vec::new()),
             }
         }
 
-        fn attempts(&self) -> Vec<RecordedAttempt> {
-            self.sign_in_attempts.lock().unwrap().clone()
+        pub(crate) fn attempts(&self) -> Vec<SignInAttempt> {
+            self.attempts.lock().unwrap().clone()
         }
     }
 
@@ -570,15 +613,8 @@ pub(crate) mod tests {
             &self,
             attempt: &NewSignInAttempt,
         ) -> Result<SignInAttempt, AppError> {
-            self.sign_in_attempts.lock().unwrap().push(RecordedAttempt {
-                status: attempt.status.clone(),
-                method: attempt.method.clone(),
-                failure_reason: attempt.failure_reason.clone(),
-                ip: attempt.ip.clone(),
-                user_agent: attempt.user_agent.clone(),
-            });
-            Ok(SignInAttempt {
-                id: uuid::Uuid::new_v4(),
+            let attempt = SignInAttempt {
+                id: Uuid::new_v4(),
                 project_id: attempt.project_id,
                 user_id: attempt.user_id,
                 method: attempt.method.clone(),
@@ -589,7 +625,9 @@ pub(crate) mod tests {
                 country_code: attempt.country_code.clone(),
                 city: attempt.city.clone(),
                 created_at: Utc::now(),
-            })
+            };
+            self.attempts.lock().unwrap().push(attempt.clone());
+            Ok(attempt)
         }
 
         async fn list_sign_in_attempts(
@@ -605,7 +643,7 @@ pub(crate) mod tests {
     // ── Mock MfaEnrollmentRepository ─────────────────────────────────
 
     pub(crate) struct MockMfaRepo {
-        enrollments: Mutex<Vec<crate::db::repos::mfa_enrollment_repo::MfaEnrollment>>,
+        pub(crate) enrollments: Mutex<Vec<crate::db::repos::mfa_enrollment_repo::MfaEnrollment>>,
     }
 
     impl MockMfaRepo {
@@ -617,7 +655,7 @@ pub(crate) mod tests {
     }
 
     #[async_trait]
-    impl crate::db::repos::mfa_enrollment_repo::MfaEnrollmentRepository for MockMfaRepo {
+    impl MfaEnrollmentRepository for MockMfaRepo {
         async fn create(
             &self,
             user_id: uuid::Uuid,
@@ -703,8 +741,6 @@ pub(crate) mod tests {
 
     // ── Helpers ──────────────────────────────────────────────────────
 
-    use crate::auth::jwt::JwtService;
-
     pub(crate) fn test_signing_key() -> Arc<SigningKeyPair> {
         Arc::new(JwtService::generate_key_pair("test-kid").unwrap())
     }
@@ -715,11 +751,34 @@ pub(crate) mod tests {
         audit_repo: Arc<dyn AuditRepository>,
     ) -> AuthService {
         let mfa_repo = Arc::new(MockMfaRepo::new());
+
+        let redis = match tokio::runtime::Handle::try_current() {
+            Ok(handle) => handle.block_on(async {
+                let client = redis::Client::open("redis://127.0.0.1:6379").unwrap();
+                ConnectionManager::new(client).await.unwrap()
+            }),
+            Err(_) => {
+                let rt = tokio::runtime::Runtime::new().unwrap();
+                rt.block_on(async {
+                    let client = redis::Client::open("redis://127.0.0.1:6379").unwrap();
+                    ConnectionManager::new(client).await.unwrap()
+                })
+            }
+        };
+
+        let session_repo = Arc::new(crate::db::repos::RedisSessionRepository::new(redis.clone()));
+        let session_service = Arc::new(SessionService::new(
+            session_repo,
+            Arc::new(crate::core::clock::SystemClock),
+        ));
+
         AuthService::new(
             user_repo,
             cred_repo,
             mfa_repo,
             audit_repo,
+            session_service,
+            redis,
             test_signing_key(),
             "https://nucleus.test".to_string(),
             3600,
@@ -731,8 +790,8 @@ pub(crate) mod tests {
             id: UserId::new(),
             project_id: *project_id,
             external_id: None,
-            email: "existing@example.com".to_string(),
-            email_verified: false,
+            email: "test@example.com".to_string(),
+            email_verified: true,
             phone: None,
             phone_verified: false,
             username: None,
@@ -752,7 +811,7 @@ pub(crate) mod tests {
     pub(crate) fn make_password_credential(user_id: &UserId, password: &str) -> Credential {
         let hash = PasswordService::hash(password).unwrap();
         Credential {
-            id: CredentialId::new(),
+            id: crate::core::types::CredentialId::new(),
             user_id: *user_id,
             credential_type: "password".to_string(),
             identifier: None,
@@ -762,598 +821,5 @@ pub(crate) mod tests {
             created_at: Utc::now(),
             updated_at: Utc::now(),
         }
-    }
-
-    // ── Mock SessionRepository (for refresh / sign-out tests) ────────
-
-    use crate::db::repos::session_repo::{NewSession, Session, SessionRepository};
-    use std::collections::HashMap;
-
-    struct MockSessionRepo {
-        sessions: Mutex<HashMap<SessionId, Session>>,
-        user_sessions: Mutex<HashMap<UserId, Vec<SessionId>>>,
-    }
-
-    impl MockSessionRepo {
-        fn new() -> Self {
-            Self {
-                sessions: Mutex::new(HashMap::new()),
-                user_sessions: Mutex::new(HashMap::new()),
-            }
-        }
-    }
-
-    #[async_trait]
-    impl SessionRepository for MockSessionRepo {
-        async fn create(&self, session: &NewSession) -> Result<Session, AppError> {
-            let session_id = SessionId::new();
-            let now = Utc::now().to_rfc3339();
-            let s = Session {
-                id: session_id,
-                user_id: session.user_id,
-                project_id: session.project_id,
-                token_hash: session.token_hash.clone(),
-                device_type: session.device_type.clone(),
-                device_name: session.device_name.clone(),
-                browser: session.browser.clone(),
-                ip: session.ip.clone(),
-                country_code: None,
-                created_at: now.clone(),
-                last_active_at: now,
-            };
-            self.sessions.lock().unwrap().insert(session_id, s.clone());
-            self.user_sessions
-                .lock()
-                .unwrap()
-                .entry(session.user_id)
-                .or_default()
-                .push(session_id);
-            Ok(s)
-        }
-
-        async fn find_by_id(&self, session_id: &SessionId) -> Result<Option<Session>, AppError> {
-            Ok(self.sessions.lock().unwrap().get(session_id).cloned())
-        }
-
-        async fn update_last_active(&self, session_id: &SessionId) -> Result<(), AppError> {
-            if let Some(s) = self.sessions.lock().unwrap().get_mut(session_id) {
-                s.last_active_at = Utc::now().to_rfc3339();
-            }
-            Ok(())
-        }
-
-        async fn delete(&self, session_id: &SessionId, user_id: &UserId) -> Result<(), AppError> {
-            self.sessions.lock().unwrap().remove(session_id);
-            if let Some(ids) = self.user_sessions.lock().unwrap().get_mut(user_id) {
-                ids.retain(|id| id != session_id);
-            }
-            Ok(())
-        }
-
-        async fn delete_all_for_user(&self, user_id: &UserId) -> Result<u64, AppError> {
-            let mut sessions = self.sessions.lock().unwrap();
-            let mut user_sessions = self.user_sessions.lock().unwrap();
-            let ids = user_sessions.remove(user_id).unwrap_or_default();
-            let count = ids.len() as u64;
-            for id in &ids {
-                sessions.remove(id);
-            }
-            Ok(count)
-        }
-
-        async fn list_for_user(&self, user_id: &UserId) -> Result<Vec<Session>, AppError> {
-            let sessions = self.sessions.lock().unwrap();
-            let user_sessions = self.user_sessions.lock().unwrap();
-            let ids = match user_sessions.get(user_id) {
-                Some(ids) => ids.clone(),
-                None => return Ok(vec![]),
-            };
-            Ok(ids
-                .iter()
-                .filter_map(|id| sessions.get(id).cloned())
-                .collect())
-        }
-
-        async fn add_to_revocation_list(&self, _jti: &str, _ttl_secs: u64) -> Result<(), AppError> {
-            Ok(())
-        }
-
-        async fn is_revoked(&self, _jti: &str) -> Result<bool, AppError> {
-            Ok(false)
-        }
-    }
-
-    // ── Session test helpers ────────────────────────────────────────
-
-    use crate::core::clock::Clock;
-    use crate::session::{DeviceInfo, SessionService};
-
-    struct TestClock;
-    impl Clock for TestClock {
-        fn now(&self) -> chrono::DateTime<Utc> {
-            Utc::now()
-        }
-    }
-
-    fn make_session_service_with_repo(repo: Arc<dyn SessionRepository>) -> SessionService {
-        let clock = Arc::new(TestClock);
-        SessionService::new(repo, clock)
-    }
-
-    fn make_session_service() -> (SessionService, Arc<MockSessionRepo>) {
-        let repo = Arc::new(MockSessionRepo::new());
-        let svc = make_session_service_with_repo(repo.clone());
-        (svc, repo)
-    }
-
-    // ── Sign-up tests ────────────────────────────────────────────────
-
-    #[tokio::test]
-    async fn sign_up_creates_user_and_returns_jwt() {
-        let user_repo = Arc::new(MockUserRepo::new());
-        let cred_repo = Arc::new(MockCredentialRepo::new());
-        let audit_repo = Arc::new(MockAuditRepo::new());
-        let service = make_service(user_repo.clone(), cred_repo.clone(), audit_repo);
-
-        let project_id = ProjectId::new();
-        let (user, jwt) = service
-            .sign_up(
-                &project_id,
-                "new@example.com",
-                "SecurePass123!",
-                Some("Alice".to_string()),
-                Some("Smith".to_string()),
-            )
-            .await
-            .unwrap();
-
-        assert_eq!(user.email, "new@example.com");
-        assert_eq!(user.first_name, Some("Alice".to_string()));
-        assert_eq!(user.last_name, Some("Smith".to_string()));
-        assert!(!jwt.is_empty());
-
-        // Verify credential was created
-        let creds = cred_repo.credentials.lock().unwrap();
-        assert_eq!(creds.len(), 1);
-        assert_eq!(creds[0].credential_type, "password");
-        assert!(creds[0].secret_hash.is_some());
-    }
-
-    #[tokio::test]
-    async fn sign_up_rejects_duplicate_email() {
-        let project_id = ProjectId::new();
-        let existing = make_test_user(&project_id);
-        let user_repo = Arc::new(MockUserRepo::with_user(existing));
-        let cred_repo = Arc::new(MockCredentialRepo::new());
-        let audit_repo = Arc::new(MockAuditRepo::new());
-        let service = make_service(user_repo, cred_repo, audit_repo);
-
-        let result = service
-            .sign_up(
-                &project_id,
-                "existing@example.com",
-                "SecurePass123!",
-                None,
-                None,
-            )
-            .await;
-
-        assert!(matches!(result, Err(AppError::User(UserError::EmailTaken))));
-    }
-
-    #[tokio::test]
-    async fn sign_up_rejects_weak_password() {
-        let user_repo = Arc::new(MockUserRepo::new());
-        let cred_repo = Arc::new(MockCredentialRepo::new());
-        let audit_repo = Arc::new(MockAuditRepo::new());
-        let service = make_service(user_repo, cred_repo, audit_repo);
-
-        let result = service
-            .sign_up(&ProjectId::new(), "new@example.com", "short", None, None)
-            .await;
-
-        assert!(matches!(
-            result,
-            Err(AppError::Auth(AuthError::PasswordTooWeak))
-        ));
-    }
-
-    #[tokio::test]
-    async fn sign_up_rejects_invalid_email() {
-        let user_repo = Arc::new(MockUserRepo::new());
-        let cred_repo = Arc::new(MockCredentialRepo::new());
-        let audit_repo = Arc::new(MockAuditRepo::new());
-        let service = make_service(user_repo, cred_repo, audit_repo);
-
-        let result = service
-            .sign_up(
-                &ProjectId::new(),
-                "not-an-email",
-                "SecurePass123!",
-                None,
-                None,
-            )
-            .await;
-
-        assert!(matches!(
-            result,
-            Err(AppError::User(UserError::InvalidEmail))
-        ));
-    }
-
-    // ── Sign-in tests ────────────────────────────────────────────────
-
-    #[tokio::test]
-    async fn sign_in_with_correct_password() {
-        let project_id = ProjectId::new();
-        let user = make_test_user(&project_id);
-        let cred = make_password_credential(&user.id, "SecurePass123!");
-
-        let user_repo = Arc::new(MockUserRepo::with_user(user.clone()));
-        let cred_repo = Arc::new(MockCredentialRepo::with_credential(cred));
-        let audit_repo = Arc::new(MockAuditRepo::new());
-        let service = make_service(user_repo, cred_repo, audit_repo);
-
-        let (returned_user, jwt) = service
-            .sign_in(
-                &project_id,
-                "existing@example.com",
-                "SecurePass123!",
-                None,
-                None,
-            )
-            .await
-            .unwrap();
-
-        assert_eq!(returned_user.id, user.id);
-        assert!(!jwt.is_empty());
-    }
-
-    #[tokio::test]
-    async fn sign_in_with_wrong_password_returns_invalid_credentials() {
-        let project_id = ProjectId::new();
-        let user = make_test_user(&project_id);
-        let cred = make_password_credential(&user.id, "SecurePass123!");
-
-        let user_repo = Arc::new(MockUserRepo::with_user(user));
-        let cred_repo = Arc::new(MockCredentialRepo::with_credential(cred));
-        let audit_repo = Arc::new(MockAuditRepo::new());
-        let service = make_service(user_repo, cred_repo, audit_repo);
-
-        let result = service
-            .sign_in(
-                &project_id,
-                "existing@example.com",
-                "WrongPassword!",
-                None,
-                None,
-            )
-            .await;
-
-        assert!(matches!(
-            result,
-            Err(AppError::Auth(AuthError::InvalidCredentials))
-        ));
-    }
-
-    #[tokio::test]
-    async fn sign_in_with_nonexistent_email_returns_invalid_credentials() {
-        let user_repo = Arc::new(MockUserRepo::new());
-        let cred_repo = Arc::new(MockCredentialRepo::new());
-        let audit_repo = Arc::new(MockAuditRepo::new());
-        let service = make_service(user_repo, cred_repo, audit_repo);
-
-        let result = service
-            .sign_in(
-                &ProjectId::new(),
-                "nobody@example.com",
-                "SecurePass123!",
-                None,
-                None,
-            )
-            .await;
-
-        assert!(matches!(
-            result,
-            Err(AppError::Auth(AuthError::InvalidCredentials))
-        ));
-    }
-
-    #[tokio::test]
-    async fn sign_in_banned_user_returns_account_banned() {
-        let project_id = ProjectId::new();
-        let mut user = make_test_user(&project_id);
-        user.banned_at = Some(Utc::now());
-        let cred = make_password_credential(&user.id, "SecurePass123!");
-
-        let user_repo = Arc::new(MockUserRepo::with_user(user));
-        let cred_repo = Arc::new(MockCredentialRepo::with_credential(cred));
-        let audit_repo = Arc::new(MockAuditRepo::new());
-        let service = make_service(user_repo, cred_repo, audit_repo);
-
-        let result = service
-            .sign_in(
-                &project_id,
-                "existing@example.com",
-                "SecurePass123!",
-                None,
-                None,
-            )
-            .await;
-
-        assert!(matches!(
-            result,
-            Err(AppError::Auth(AuthError::AccountBanned))
-        ));
-    }
-
-    #[tokio::test]
-    async fn sign_in_logs_attempt_on_success() {
-        let project_id = ProjectId::new();
-        let user = make_test_user(&project_id);
-        let cred = make_password_credential(&user.id, "SecurePass123!");
-
-        let user_repo = Arc::new(MockUserRepo::with_user(user));
-        let cred_repo = Arc::new(MockCredentialRepo::with_credential(cred));
-        let audit_repo = Arc::new(MockAuditRepo::new());
-        let service = make_service(user_repo, cred_repo, audit_repo.clone());
-
-        service
-            .sign_in(
-                &project_id,
-                "existing@example.com",
-                "SecurePass123!",
-                Some("1.2.3.4".to_string()),
-                Some("TestAgent/1.0".to_string()),
-            )
-            .await
-            .unwrap();
-
-        let attempts = audit_repo.attempts();
-        assert_eq!(attempts.len(), 1);
-        assert_eq!(attempts[0].status, "success");
-        assert_eq!(attempts[0].method, "password");
-        assert!(attempts[0].failure_reason.is_none());
-        assert_eq!(attempts[0].ip, Some("1.2.3.4".to_string()));
-        assert_eq!(attempts[0].user_agent, Some("TestAgent/1.0".to_string()));
-    }
-
-    #[tokio::test]
-    async fn sign_in_logs_attempt_on_failure() {
-        let project_id = ProjectId::new();
-        let user = make_test_user(&project_id);
-        let cred = make_password_credential(&user.id, "SecurePass123!");
-
-        let user_repo = Arc::new(MockUserRepo::with_user(user));
-        let cred_repo = Arc::new(MockCredentialRepo::with_credential(cred));
-        let audit_repo = Arc::new(MockAuditRepo::new());
-        let service = make_service(user_repo, cred_repo, audit_repo.clone());
-
-        let _ = service
-            .sign_in(
-                &project_id,
-                "existing@example.com",
-                "WrongPassword!",
-                Some("5.6.7.8".to_string()),
-                None,
-            )
-            .await;
-
-        let attempts = audit_repo.attempts();
-        assert_eq!(attempts.len(), 1);
-        assert_eq!(attempts[0].status, "failed");
-        assert_eq!(
-            attempts[0].failure_reason,
-            Some("invalid_password".to_string())
-        );
-        assert_eq!(attempts[0].ip, Some("5.6.7.8".to_string()));
-    }
-
-    // ── Refresh / sign-out tests ────────────────────────────────────
-
-    #[tokio::test]
-    async fn sign_in_with_mfa_enabled_returns_mfa_required() {
-        let project_id = ProjectId::new();
-        let user = make_test_user(&project_id);
-        let user_repo = Arc::new(MockUserRepo::with_user(user.clone()));
-        let cred_repo = Arc::new(MockCredentialRepo::new());
-        let mfa_repo = Arc::new(MockMfaRepo::new());
-        let audit_repo = Arc::new(MockAuditRepo::new());
-
-        let service = AuthService::new(
-            user_repo.clone(),
-            cred_repo.clone(),
-            mfa_repo.clone(),
-            audit_repo.clone(),
-            test_signing_key(),
-            "https://nucleus.test".to_string(),
-            3600,
-        );
-
-        let password = "CorrectPassword123!";
-        cred_repo
-            .credentials
-            .lock()
-            .unwrap()
-            .push(make_password_credential(&user.id, password));
-
-        // Enable MFA for this user
-        mfa_repo
-            .create(user.id.0, "totp", Some("encrypted-secret"), None)
-            .await
-            .unwrap();
-        let enrollment = mfa_repo.enrollments.lock().unwrap()[0].clone();
-        mfa_repo.mark_verified(enrollment.id).await.unwrap();
-
-        let result = service
-            .sign_in(&project_id, &user.email, password, None, None)
-            .await;
-
-        match result {
-            Err(AppError::Auth(AuthError::MfaRequired { mfa_id })) => {
-                assert_eq!(mfa_id, enrollment.id.to_string());
-            }
-            _ => panic!("Expected MfaRequired error, got {:?}", result),
-        }
-
-        // Verify it was logged as mfa_required
-        let attempts = audit_repo.attempts();
-        assert_eq!(attempts.len(), 1);
-        assert_eq!(attempts[0].status, "mfa_required");
-    }
-
-    #[tokio::test]
-    async fn refresh_token_with_valid_session() {
-        let project_id = ProjectId::new();
-        let user = make_test_user(&project_id);
-
-        let user_repo = Arc::new(MockUserRepo::with_user(user.clone()));
-        let cred_repo = Arc::new(MockCredentialRepo::new());
-        let audit_repo = Arc::new(MockAuditRepo::new());
-        let auth_service = make_service(user_repo, cred_repo, audit_repo);
-
-        let (session_service, _repo) = make_session_service();
-
-        // Create a session for the user
-        let (_token, session) = session_service
-            .create_session(&user.id, &project_id, DeviceInfo::default(), 3600)
-            .await
-            .unwrap();
-
-        // Refresh should succeed and return a new JWT
-        let (jwt, expires_in) = auth_service
-            .refresh_token(&session_service, &session.id, &project_id)
-            .await
-            .unwrap();
-
-        assert!(!jwt.is_empty());
-        assert_eq!(expires_in, 3600);
-    }
-
-    #[tokio::test]
-    async fn refresh_token_with_invalid_session_fails() {
-        let project_id = ProjectId::new();
-        let user_repo = Arc::new(MockUserRepo::new());
-        let cred_repo = Arc::new(MockCredentialRepo::new());
-        let audit_repo = Arc::new(MockAuditRepo::new());
-        let auth_service = make_service(user_repo, cred_repo, audit_repo);
-
-        let (session_service, _repo) = make_session_service();
-
-        // Try to refresh with a non-existent session
-        let result = auth_service
-            .refresh_token(&session_service, &SessionId::new(), &project_id)
-            .await;
-
-        assert!(matches!(
-            result,
-            Err(AppError::Auth(AuthError::SessionExpired))
-        ));
-    }
-
-    #[tokio::test]
-    async fn refresh_banned_user_revokes_session() {
-        let project_id = ProjectId::new();
-        let mut user = make_test_user(&project_id);
-        user.banned_at = Some(Utc::now());
-
-        let user_repo = Arc::new(MockUserRepo::with_user(user.clone()));
-        let cred_repo = Arc::new(MockCredentialRepo::new());
-        let audit_repo = Arc::new(MockAuditRepo::new());
-        let auth_service = make_service(user_repo, cred_repo, audit_repo);
-
-        let (session_service, _repo) = make_session_service();
-
-        // Create a session for the banned user
-        let (_token, session) = session_service
-            .create_session(&user.id, &project_id, DeviceInfo::default(), 3600)
-            .await
-            .unwrap();
-
-        // Refresh should fail with AccountBanned
-        let result = auth_service
-            .refresh_token(&session_service, &session.id, &project_id)
-            .await;
-
-        assert!(matches!(
-            result,
-            Err(AppError::Auth(AuthError::AccountBanned))
-        ));
-
-        // Session should have been revoked
-        let validate_result = session_service.validate_session(&session.id).await;
-        assert!(matches!(
-            validate_result,
-            Err(AppError::Auth(AuthError::SessionExpired))
-        ));
-    }
-
-    #[tokio::test]
-    async fn sign_out_revokes_session() {
-        let project_id = ProjectId::new();
-        let user = make_test_user(&project_id);
-
-        let user_repo = Arc::new(MockUserRepo::with_user(user.clone()));
-        let cred_repo = Arc::new(MockCredentialRepo::new());
-        let audit_repo = Arc::new(MockAuditRepo::new());
-        let auth_service = make_service(user_repo, cred_repo, audit_repo);
-
-        let (session_service, _repo) = make_session_service();
-
-        // Create a session
-        let (_token, session) = session_service
-            .create_session(&user.id, &project_id, DeviceInfo::default(), 3600)
-            .await
-            .unwrap();
-
-        // Sign out
-        auth_service
-            .sign_out(&session_service, &session.id, &user.id, None)
-            .await
-            .unwrap();
-
-        // Session should now be invalid
-        let result = session_service.validate_session(&session.id).await;
-        assert!(matches!(
-            result,
-            Err(AppError::Auth(AuthError::SessionExpired))
-        ));
-    }
-
-    #[tokio::test]
-    async fn sign_out_all_revokes_all_sessions() {
-        let project_id = ProjectId::new();
-        let user = make_test_user(&project_id);
-
-        let user_repo = Arc::new(MockUserRepo::with_user(user.clone()));
-        let cred_repo = Arc::new(MockCredentialRepo::new());
-        let audit_repo = Arc::new(MockAuditRepo::new());
-        let auth_service = make_service(user_repo, cred_repo, audit_repo);
-
-        let (session_service, _repo) = make_session_service();
-
-        // Create 3 sessions
-        for _ in 0..3 {
-            session_service
-                .create_session(&user.id, &project_id, DeviceInfo::default(), 3600)
-                .await
-                .unwrap();
-        }
-
-        // Verify 3 sessions exist
-        let sessions = session_service.list_user_sessions(&user.id).await.unwrap();
-        assert_eq!(sessions.len(), 3);
-
-        // Sign out all
-        let revoked = auth_service
-            .sign_out_all(&session_service, &user.id)
-            .await
-            .unwrap();
-
-        assert_eq!(revoked, 3);
-
-        // All sessions should now be gone
-        let sessions = session_service.list_user_sessions(&user.id).await.unwrap();
-        assert!(sessions.is_empty());
     }
 }

@@ -58,8 +58,8 @@ pub fn create_router(
         .route("/sign-in/oauth", post(auth::handle_oauth_start))
         .route("/oauth/callback", get(auth::handle_oauth_callback))
         // Phase 3: Magic Link
-        .route("/sign-in/magic-link", post(auth::handle_send_magic_link))
-        .route("/magic-link/verify", get(auth::handle_verify_magic_link))
+        .route("/sign-in/magic-link", post(auth::handle_magic_link_send))
+        .route("/magic-link/verify", get(auth::handle_magic_link_verify))
         // Phase 3: OTP
         .route("/sign-in/otp/send", post(auth::handle_send_otp))
         .route("/sign-in/otp/verify", post(auth::handle_verify_otp))
@@ -83,8 +83,11 @@ pub fn create_router(
             post(auth::handle_passkey_auth_finish),
         )
         // Phase 3: Password Reset
-        .route("/password/reset", post(auth::handle_request_reset))
-        .route("/password/reset/confirm", post(auth::handle_confirm_reset))
+        .route("/password/reset", post(auth::handle_password_reset_send))
+        .route(
+            "/password/reset/confirm",
+            post(auth::handle_password_reset_verify),
+        )
         .layer(axum::middleware::from_fn_with_state(
             state.clone(),
             inject_auth_context,

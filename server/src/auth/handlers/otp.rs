@@ -198,7 +198,9 @@ pub async fn handle_verify_otp(
         .create_session(&user.id, &project_id, DeviceInfo::default(), 3600)
         .await?;
 
-    let jwt = state.auth_service.issue_jwt_for_user(&user, &project_id)?;
+    let jwt = state
+        .auth_service
+        .issue_jwt_for_user(&user, &project_id, &session.id)?;
 
     Ok(Json(VerifyOtpResponse {
         user: serde_json::to_value(&user)

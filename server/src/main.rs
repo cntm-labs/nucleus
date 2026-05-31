@@ -1,9 +1,10 @@
+use std::net::SocketAddr;
 use std::sync::Arc;
 
-use anyhow::Result;
-use tracing_subscriber::EnvFilter;
-
-use cntm_nucleus_server::account::repo::{AccountRepository, PgAccountRepository};
+use axum::extract::Request;
+use axum::middleware::Next;
+use axum::response::Response;
+use cntm_nucleus_server::account::repo::PgAccountRepository;
 use cntm_nucleus_server::account::service::AccountService;
 use cntm_nucleus_server::auth::jwt::{JwtService, SigningKeyPair};
 use cntm_nucleus_server::auth::service::AuthService;
@@ -19,33 +20,28 @@ use cntm_nucleus_server::db::repos::mfa_enrollment_repo::PgMfaEnrollmentReposito
 use cntm_nucleus_server::db::repos::org_repo::PgOrgRepository;
 use cntm_nucleus_server::db::repos::project_repo::PgProjectRepository;
 use cntm_nucleus_server::db::repos::session_repo::RedisSessionRepository;
-use cntm_nucleus_server::db::repos::signing_key_repo::{
-    PgSigningKeyRepository, SigningKeyRepository,
-};
+use cntm_nucleus_server::db::repos::signing_key_repo::PgSigningKeyRepository;
 use cntm_nucleus_server::db::repos::user_repo::PgUserRepository;
 use cntm_nucleus_server::db::repos::verification_token_repo::PgVerificationTokenRepository;
+use cntm_nucleus_server::db::repos::SigningKeyRepository;
 use cntm_nucleus_server::identity::user::UserService;
+use cntm_nucleus_server::middleware::rate_limit::RateLimitConfig;
 use cntm_nucleus_server::migrate::run_migrations;
 use cntm_nucleus_server::org::organization::OrgService;
 use cntm_nucleus_server::session::SessionService;
+use cntm_nucleus_server::state::AppState;
+use cntm_nucleus_server::{config, services};
+use tower_http::trace::TraceLayer;
 use uuid::Uuid;
 
-use cntm_nucleus_server::config::Config;
-use cntm_nucleus_server::middleware::rate_limit::RateLimitConfig;
-use cntm_nucleus_server::router::create_router;
-use cntm_nucleus_server::services;
-use cntm_nucleus_server::state::AppState;
-
 #[tokio::main]
-async fn main() -> Result<()> {
-    let config = Config::from_env()?;
+async fn main() -> anyhow::Result<()> {
+    // Load configuration
+    let config = config::Config::from_env()?;
 
     // Initialize tracing
     tracing_subscriber::fmt()
-        .with_env_filter(
-            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(&config.rust_log)),
-        )
-        .json()
+        .with_max_level(tracing::Level::INFO)
         .init();
 
     tracing::info!("Starting Nucleus server...");
@@ -105,7 +101,7 @@ async fn main() -> Result<()> {
     // Create session repository and service
     let session_repo = Arc::new(RedisSessionRepository::new(redis.clone()));
     let clock: Arc<dyn cntm_nucleus_server::core::clock::Clock> = Arc::new(SystemClock);
-    let session_service = Arc::new(SessionService::new(session_repo, clock));
+    let session_service = Arc::new(SessionService::new(session_repo, clock.clone()));
 
     // Create repositories
     let user_repo = Arc::new(PgUserRepository::new(db.clone()));
@@ -116,12 +112,15 @@ async fn main() -> Result<()> {
     let project_repo = Arc::new(PgProjectRepository::new(db.clone()));
     let api_key_repo = Arc::new(PgApiKeyRepository::new(db.clone()));
     let audit_repo_dashboard = Arc::new(PgAuditRepository::new(db.clone()));
+    let account_repo = Arc::new(PgAccountRepository::new(db.clone()));
 
     let auth_service = Arc::new(AuthService::new(
         user_repo.clone(),
         credential_repo.clone(),
         mfa_repo.clone(),
         audit_repo,
+        session_service.clone(),
+        redis.clone(),
         signing_key.clone(),
         config.issuer_url.clone(),
         config.jwt_lifetime_secs,
@@ -150,54 +149,81 @@ async fn main() -> Result<()> {
         }
     };
 
-    let twilio_service = match (
-        &config.twilio_account_sid,
-        &config.twilio_auth_token,
-        &config.twilio_from_number,
+    // Initialize OAuth providers and state store
+    let http_client: Arc<dyn cntm_nucleus_server::auth::oauth::provider::HttpClient> =
+        Arc::new(cntm_nucleus_server::auth::oauth::provider::ReqwestHttpClient::new());
+    let oauth_state_store =
+        Arc::new(cntm_nucleus_server::auth::oauth::state::RedisOAuthStateStore::new(redis.clone()));
+
+    let mut oauth_providers: std::collections::HashMap<
+        String,
+        Arc<dyn cntm_nucleus_server::auth::oauth::provider::OAuthProvider>,
+    > = std::collections::HashMap::new();
+
+    // Google
+    if let (Some(client_id), Some(client_secret)) = (
+        std::env::var("GOOGLE_CLIENT_ID").ok(),
+        std::env::var("GOOGLE_CLIENT_SECRET").ok(),
     ) {
-        (Some(sid), Some(token), Some(from)) => {
-            tracing::info!("Twilio configured — SMS delivery enabled");
-            Some(Arc::new(services::sms::TwilioService::new(
-                sid.clone(),
-                token.clone(),
-                from.clone(),
-            )))
-        }
-        _ => {
-            tracing::info!("Twilio not configured — SMS delivery disabled");
-            None
-        }
-    };
+        let google_config = cntm_nucleus_server::auth::oauth::provider::OAuthConfig {
+            client_id,
+            client_secret,
+            redirect_url: format!("{}/api/v1/auth/oauth/callback", config.issuer_url),
+            scopes: cntm_nucleus_server::auth::oauth::google::GoogleProvider::default_scopes(),
+        };
+        oauth_providers.insert(
+            "google".to_string(),
+            Arc::new(
+                cntm_nucleus_server::auth::oauth::google::GoogleProvider::new(
+                    google_config,
+                    http_client.clone(),
+                ),
+            ),
+        );
+        tracing::info!("Google OAuth provider initialized");
+    }
 
-    let notification_service: Arc<dyn NotificationService> = Arc::new(
-        services::sms::CompositeNotificationService::new(email_service, twilio_service),
-    );
+    // GitHub
+    if let (Some(client_id), Some(client_secret)) = (
+        std::env::var("GITHUB_CLIENT_ID").ok(),
+        std::env::var("GITHUB_CLIENT_SECRET").ok(),
+    ) {
+        let github_config = cntm_nucleus_server::auth::oauth::provider::OAuthConfig {
+            client_id,
+            client_secret,
+            redirect_url: format!("{}/api/v1/auth/oauth/callback", config.issuer_url),
+            scopes: cntm_nucleus_server::auth::oauth::github::GitHubProvider::default_scopes(),
+        };
+        oauth_providers.insert(
+            "github".to_string(),
+            Arc::new(
+                cntm_nucleus_server::auth::oauth::github::GitHubProvider::new(
+                    github_config,
+                    http_client.clone(),
+                ),
+            ),
+        );
+        tracing::info!("GitHub OAuth provider initialized");
+    }
 
-    // Account auth service (dashboard layer — separate stakeholder from end users)
-    let account_repo: Arc<dyn AccountRepository> = Arc::new(PgAccountRepository::new(db.clone()));
-    let account_audit_repo = Arc::new(PgAuditRepository::new(db.clone()));
     let account_service = Arc::new(AccountService::new(
         account_repo,
         token_repo.clone(),
-        notification_service.clone(),
-        account_audit_repo,
+        email_service.clone(),
+        audit_repo_dashboard.clone(),
         session_service.clone(),
         signing_key.clone(),
         config.issuer_url.clone(),
-        config.dashboard_url.clone(),
+        config.issuer_url.clone(), // base_url
         config.jwt_lifetime_secs,
-        86400, // dashboard session TTL: 24 hours
+        604800, // Default 7 days session TTL
     ));
 
-    // Capture bind address before moving config fields
-    let bind_addr = config.bind_addr();
-
-    // Build application state
     let state = Arc::new(AppState {
         db,
         redis,
         master_key: config.master_encryption_key,
-        clock: Arc::new(SystemClock),
+        clock,
         auth_service,
         account_service,
         session_service,
@@ -212,14 +238,16 @@ async fn main() -> Result<()> {
         audit_repo: audit_repo_dashboard,
         signing_key_repo,
         org_service,
-        notification_service,
-        allowed_origins: config.allowed_origins,
-        issuer_url: config.issuer_url,
-        rp_name: config.rp_name,
-        rp_id: config.rp_id,
+        notification_service: email_service,
+        oauth_providers,
+        oauth_state_store,
+        allowed_origins: config.allowed_origins.clone(),
+        issuer_url: config.issuer_url.clone(),
+        rp_name: "Nucleus".to_string(),
+        rp_id: "localhost".to_string(), // TODO: Configurable
     });
 
-    // Build router with configurable rate limits
+    // Build router
     let auth_rate_limit = RateLimitConfig {
         max_requests: config.rate_limit_auth_max,
         window_secs: config.rate_limit_auth_window_secs,
@@ -228,18 +256,28 @@ async fn main() -> Result<()> {
         max_requests: config.rate_limit_api_max,
         window_secs: config.rate_limit_api_window_secs,
     };
-    let app = create_router(
+    let trusted_proxies = config.trusted_proxies.clone();
+
+    let app = cntm_nucleus_server::router::create_router(
         state,
         auth_rate_limit,
         api_rate_limit,
-        config.trusted_proxies,
-    );
-    let listener = tokio::net::TcpListener::bind(&bind_addr).await?;
-    tracing::info!("Nucleus server listening on {}", bind_addr);
+        trusted_proxies,
+    )
+    .layer(TraceLayer::new_for_http())
+    .layer(axum::middleware::from_fn(log_request));
 
-    axum::serve(listener, app)
-        .with_graceful_shutdown(shutdown_signal())
-        .await?;
+    // Start server
+    let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
+    tracing::info!("Listening on {}", addr);
+
+    let listener = tokio::net::TcpListener::bind(addr).await?;
+    axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .with_graceful_shutdown(shutdown_signal())
+    .await?;
 
     tracing::info!("Nucleus server stopped");
     Ok(())
@@ -249,5 +287,25 @@ async fn shutdown_signal() {
     tokio::signal::ctrl_c()
         .await
         .expect("failed to listen for ctrl+c");
-    tracing::info!("Shutdown signal received");
+}
+
+async fn log_request(req: Request, next: Next) -> Response {
+    let method = req.method().clone();
+    let path = req.uri().path().to_string();
+    let start = std::time::Instant::now();
+
+    let response = next.run(req).await;
+
+    let latency = start.elapsed();
+    let status = response.status();
+
+    tracing::info!(
+        method = %method,
+        path = %path,
+        status = %status,
+        latency = ?latency,
+        "request processed"
+    );
+
+    response
 }
