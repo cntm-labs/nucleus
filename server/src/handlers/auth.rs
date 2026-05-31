@@ -198,18 +198,26 @@ pub async fn handle_verify_magic_link(
 
 pub async fn handle_send_otp(
     State(state): State<Arc<AppState>>,
+    Extension(project_id): Extension<ProjectId>,
     Json(req): Json<crate::auth::handlers::otp::SendOtpRequest>,
 ) -> Result<Json<crate::auth::handlers::otp::SendOtpResponse>, AppError> {
     let otp_state = state.otp_state();
-    crate::auth::handlers::otp::handle_send_otp(State(otp_state), Json(req)).await
+    crate::auth::handlers::otp::handle_send_otp(State(otp_state), Extension(project_id), Json(req))
+        .await
 }
 
 pub async fn handle_verify_otp(
     State(state): State<Arc<AppState>>,
+    Extension(project_id): Extension<ProjectId>,
     Json(req): Json<crate::auth::handlers::otp::VerifyOtpRequest>,
 ) -> Result<Json<crate::auth::handlers::otp::VerifyOtpResponse>, AppError> {
     let otp_state = state.otp_state();
-    crate::auth::handlers::otp::handle_verify_otp(State(otp_state), Json(req)).await
+    crate::auth::handlers::otp::handle_verify_otp(
+        State(otp_state),
+        Extension(project_id),
+        Json(req),
+    )
+    .await
 }
 
 // ---------------------------------------------------------------------------
