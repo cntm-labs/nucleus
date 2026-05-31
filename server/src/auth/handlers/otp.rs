@@ -5,13 +5,13 @@ use crate::core::notification::NotificationService;
 use crate::core::types::ProjectId;
 use crate::db::repos::user_repo::UserRepository;
 use crate::session::{DeviceInfo, SessionService};
-use axum::extract::State;
+use axum::extract::{Extension, State};
 use axum::Json;
+// ... (rest of imports omitted in new_string for replacement, but I will provide enough context)
 use chrono::{DateTime, Utc};
 use redis::aio::ConnectionManager;
 use redis::AsyncCommands;
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
 use crate::auth::otp::{OtpConfig, OtpService};
 use crate::auth::service::AuthService;
@@ -48,7 +48,6 @@ struct StoredOtp {
 #[derive(Debug, Deserialize)]
 pub struct SendOtpRequest {
     pub email_or_phone: String,
-    pub project_id: Uuid,
 }
 
 #[derive(Debug, Serialize)]
@@ -59,10 +58,9 @@ pub struct SendOtpResponse {
 /// POST /auth/sign-in/otp/send
 pub async fn handle_send_otp(
     State(state): State<OtpState>,
+    Extension(project_id): Extension<ProjectId>,
     Json(body): Json<SendOtpRequest>,
 ) -> Result<Json<SendOtpResponse>, AppError> {
-    let project_id = ProjectId::from_uuid(body.project_id);
-
     // Look up user — always return success (anti-enumeration)
     let user = state
         .user_repo
@@ -72,7 +70,7 @@ pub async fn handle_send_otp(
     if user.is_some() {
         let config = OtpConfig::default();
         let generated = OtpService::generate(&config);
-        let key = format!("otp:{}:{}:login", body.project_id, body.email_or_phone);
+        let key = format!("otp:{}:{}:login", project_id, body.email_or_phone);
 
         let stored = StoredOtp {
             code_hash: generated.code_hash,
@@ -129,7 +127,6 @@ pub async fn handle_send_otp(
 pub struct VerifyOtpRequest {
     pub email_or_phone: String,
     pub code: String,
-    pub project_id: Uuid,
 }
 
 #[derive(Debug, Serialize)]
@@ -142,9 +139,10 @@ pub struct VerifyOtpResponse {
 /// POST /auth/sign-in/otp/verify
 pub async fn handle_verify_otp(
     State(state): State<OtpState>,
+    Extension(project_id): Extension<ProjectId>,
     Json(body): Json<VerifyOtpRequest>,
 ) -> Result<Json<VerifyOtpResponse>, AppError> {
-    let key = format!("otp:{}:{}:login", body.project_id, body.email_or_phone);
+    let key = format!("otp:{}:{}:login", project_id, body.email_or_phone);
     let mut conn = state.redis.clone();
 
     // 1. Get stored OTP from Redis
@@ -189,7 +187,6 @@ pub async fn handle_verify_otp(
         .map_err(|e| AppError::Internal(e.into()))?;
 
     // 5. Find user and create session
-    let project_id = ProjectId::from_uuid(body.project_id);
     let user = state
         .user_repo
         .find_by_email(&project_id, &body.email_or_phone)
@@ -201,7 +198,9 @@ pub async fn handle_verify_otp(
         .create_session(&user.id, &project_id, DeviceInfo::default(), 3600)
         .await?;
 
-    let jwt = state.auth_service.issue_jwt_for_user(&user, &project_id)?;
+    let jwt = state
+        .auth_service
+        .issue_jwt_for_user(&user, &project_id, &session.id)?;
 
     Ok(Json(VerifyOtpResponse {
         user: serde_json::to_value(&user)

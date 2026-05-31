@@ -159,7 +159,9 @@ pub async fn handle_verify_magic_link(
         .await?;
 
     // 7. Issue JWT
-    let jwt = state.auth_service.issue_jwt_for_user(&user, &project_id)?;
+    let jwt = state
+        .auth_service
+        .issue_jwt_for_user(&user, &project_id, &session.id)?;
 
     Ok(Json(VerifyMagicLinkResponse {
         user: serde_json::to_value(&user)

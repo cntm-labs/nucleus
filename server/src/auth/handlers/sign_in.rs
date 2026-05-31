@@ -16,6 +16,7 @@ pub struct SignInRequest {
 pub struct SignInResponse {
     pub user: UserResponse,
     pub jwt: String,
+    pub session_token: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -47,7 +48,7 @@ pub async fn handle_sign_in(
         .and_then(|v| v.to_str().ok())
         .map(|s| s.to_string());
 
-    let (user, jwt) = auth_service
+    let (user, jwt, session_token) = auth_service
         .sign_in(&project_id, &req.identifier, &req.password, ip, user_agent)
         .await?;
 
@@ -60,6 +61,7 @@ pub async fn handle_sign_in(
             created_at: user.created_at.to_rfc3339(),
         },
         jwt,
+        session_token,
     };
 
     Ok((StatusCode::OK, Json(response)))

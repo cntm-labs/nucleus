@@ -17,10 +17,6 @@ use serde::Deserialize;
 use serde_json::json;
 use uuid::Uuid;
 
-// ---------------------------------------------------------------------------
-// State
-// ---------------------------------------------------------------------------
-
 #[derive(Clone)]
 pub struct DashboardState {
     pub project_repo: Arc<dyn ProjectRepository>,
@@ -28,6 +24,26 @@ pub struct DashboardState {
     pub audit_repo: Arc<dyn AuditRepository>,
     pub signing_key_repo: Arc<dyn SigningKeyRepository>,
     pub master_key: [u8; 32],
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+async fn resolve_project_id(
+    state: &DashboardState,
+    id_or_slug: &str,
+) -> Result<ProjectId, AppError> {
+    if let Ok(uuid) = Uuid::parse_str(id_or_slug) {
+        Ok(ProjectId::from_uuid(uuid))
+    } else {
+        let project = state
+            .project_repo
+            .find_by_slug(id_or_slug)
+            .await?
+            .ok_or(AppError::Api(ApiError::NotFound))?;
+        Ok(project.id)
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -93,9 +109,9 @@ pub async fn handle_create_project(
 
 pub async fn handle_get_project(
     State(state): State<DashboardState>,
-    Path(id): Path<Uuid>,
+    Path(id_or_slug): Path<String>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let project_id = ProjectId::from_uuid(id);
+    let project_id = resolve_project_id(&state, &id_or_slug).await?;
     let project = state
         .project_repo
         .find_by_id(&project_id)
@@ -114,10 +130,10 @@ pub struct UpdateProjectRequest {
 
 pub async fn handle_update_project(
     State(state): State<DashboardState>,
-    Path(id): Path<Uuid>,
+    Path(id_or_slug): Path<String>,
     Json(req): Json<UpdateProjectRequest>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let project_id = ProjectId::from_uuid(id);
+    let project_id = resolve_project_id(&state, &id_or_slug).await?;
     if let Some(settings) = req.settings {
         let project = state
             .project_repo
@@ -139,7 +155,7 @@ pub async fn handle_update_project(
 }
 
 // ---------------------------------------------------------------------------
-// OAuth providers (stub — no provider repo yet)
+// OAuth providers (stubs)
 // ---------------------------------------------------------------------------
 
 pub async fn handle_list_providers() -> Result<Json<serde_json::Value>, AppError> {
@@ -180,9 +196,9 @@ pub struct CreateApiKeyRequest {
 
 pub async fn handle_list_api_keys(
     State(state): State<DashboardState>,
-    Path(project_id): Path<Uuid>,
+    Path(id_or_slug): Path<String>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let pid = ProjectId::from_uuid(project_id);
+    let pid = resolve_project_id(&state, &id_or_slug).await?;
     let keys = state.api_key_repo.find_by_project(&pid).await?;
     // Filter out revoked keys from listing
     let active: Vec<_> = keys.iter().filter(|k| k.revoked_at.is_none()).collect();
@@ -195,10 +211,10 @@ pub async fn handle_list_api_keys(
 
 pub async fn handle_create_api_key(
     State(state): State<DashboardState>,
-    Path(project_id): Path<Uuid>,
+    Path(id_or_slug): Path<String>,
     Json(req): Json<CreateApiKeyRequest>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let pid = ProjectId::from_uuid(project_id);
+    let pid = resolve_project_id(&state, &id_or_slug).await?;
 
     // Generate a real API key
     let raw_key = format!("nk_live_{}", crypto::generate_token());
@@ -225,7 +241,7 @@ pub async fn handle_create_api_key(
         .create_audit_log(&crate::db::repos::audit_repo::NewAuditLog {
             project_id: pid,
             actor_type: "dashboard".to_string(),
-            actor_id: None, // v1.0: handler doesn't yet take AuthAccount
+            actor_id: None,
             action: "api_key.created".to_string(),
             target_type: Some("api_key".to_string()),
             target_id: Some(api_key.id.0),
@@ -238,7 +254,6 @@ pub async fn handle_create_api_key(
         })
         .await;
 
-    // Return the full key ONCE (it's hashed in DB, can never be retrieved again)
     Ok(Json(json!({
         "id": api_key.id.to_string(),
         "key": raw_key,
@@ -252,16 +267,16 @@ pub async fn handle_create_api_key(
 
 pub async fn handle_revoke_api_key(
     State(state): State<DashboardState>,
-    Path((project_id, key_id)): Path<(Uuid, Uuid)>,
+    Path((id_or_slug, key_id)): Path<(String, Uuid)>,
 ) -> Result<StatusCode, AppError> {
+    let _pid = resolve_project_id(&state, &id_or_slug).await?;
     let kid = ApiKeyId::from_uuid(key_id);
     state.api_key_repo.revoke(&kid).await?;
 
-    // Best-effort audit
     let _ = state
         .audit_repo
         .create_audit_log(&crate::db::repos::audit_repo::NewAuditLog {
-            project_id: ProjectId::from_uuid(project_id),
+            project_id: _pid,
             actor_type: "dashboard".to_string(),
             actor_id: None,
             action: "api_key.revoked".to_string(),
@@ -282,10 +297,10 @@ pub async fn handle_revoke_api_key(
 
 pub async fn handle_list_signing_keys(
     State(state): State<DashboardState>,
-    Path(project_id): Path<Uuid>,
+    Path(id_or_slug): Path<String>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    // Only find_current is available — return as single-element list
-    let current = state.signing_key_repo.find_current(&project_id).await?;
+    let pid = resolve_project_id(&state, &id_or_slug).await?;
+    let current = state.signing_key_repo.find_current(&pid.0).await?;
     let data: Vec<serde_json::Value> = match current {
         Some(key) => vec![json!({
             "id": key.id.to_string(),
@@ -304,18 +319,15 @@ pub async fn handle_list_signing_keys(
 
 pub async fn handle_rotate_signing_key(
     State(_state): State<DashboardState>,
-    Path(_project_id): Path<Uuid>,
+    Path(_id_or_slug): Path<String>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    // Key rotation requires JwtService::generate_key_pair (in nucleus-auth)
-    // which cannot be called from nucleus-admin-api due to dependency rules.
-    // This will be wired through the server composition layer.
     Err(AppError::Internal(anyhow::anyhow!(
         "Signing key rotation requires server-level key generation (not yet wired)"
     )))
 }
 
 // ---------------------------------------------------------------------------
-// Templates (stub — no template repo yet)
+// Templates (stubs)
 // ---------------------------------------------------------------------------
 
 pub async fn handle_list_templates() -> Result<Json<serde_json::Value>, AppError> {
@@ -346,7 +358,7 @@ pub async fn handle_reset_template() -> Result<Json<serde_json::Value>, AppError
 }
 
 // ---------------------------------------------------------------------------
-// JWT templates (stub — no JWT template repo yet)
+// JWT templates (stubs)
 // ---------------------------------------------------------------------------
 
 pub async fn handle_list_jwt_templates() -> Result<Json<serde_json::Value>, AppError> {
@@ -380,7 +392,7 @@ pub async fn handle_update_jwt_template(
 }
 
 // ---------------------------------------------------------------------------
-// Analytics (stub — needs analytics queries)
+// Analytics (stubs)
 // ---------------------------------------------------------------------------
 
 pub async fn handle_get_analytics() -> Result<Json<serde_json::Value>, AppError> {
@@ -396,7 +408,7 @@ pub async fn handle_get_analytics() -> Result<Json<serde_json::Value>, AppError>
 }
 
 // ---------------------------------------------------------------------------
-// Billing (stub — needs billing integration)
+// Billing (stubs)
 // ---------------------------------------------------------------------------
 
 pub async fn handle_get_usage() -> Result<Json<serde_json::Value>, AppError> {
@@ -427,10 +439,10 @@ pub async fn handle_get_subscription() -> Result<Json<serde_json::Value>, AppErr
 
 pub async fn handle_list_audit_logs(
     State(state): State<DashboardState>,
-    Path(project_id): Path<Uuid>,
+    Path(id_or_slug): Path<String>,
     Query(params): Query<PaginationParams>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let pid = ProjectId::from_uuid(project_id);
+    let pid = resolve_project_id(&state, &id_or_slug).await?;
     let result = state.audit_repo.list_audit_logs(&pid, &params).await?;
     Ok(Json(
         serde_json::to_value(&result).map_err(|e| AppError::Internal(e.into()))?,
@@ -443,9 +455,9 @@ pub async fn handle_list_audit_logs(
 
 pub async fn handle_get_settings(
     State(state): State<DashboardState>,
-    Path(project_id): Path<Uuid>,
+    Path(id_or_slug): Path<String>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let pid = ProjectId::from_uuid(project_id);
+    let pid = resolve_project_id(&state, &id_or_slug).await?;
     let project = state
         .project_repo
         .find_by_id(&pid)
@@ -463,12 +475,10 @@ pub async fn handle_get_settings(
 
 pub async fn handle_update_settings(
     State(state): State<DashboardState>,
-    Path(project_id): Path<Uuid>,
+    Path(id_or_slug): Path<String>,
     Json(req): Json<serde_json::Value>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let pid = ProjectId::from_uuid(project_id);
-
-    // Merge submitted settings into existing project settings
+    let pid = resolve_project_id(&state, &id_or_slug).await?;
     let project = state.project_repo.update_settings(&pid, req).await?;
 
     Ok(Json(json!({

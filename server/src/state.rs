@@ -1,7 +1,10 @@
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use crate::account::service::AccountService;
+use crate::auth::handlers::oauth::{OAuthHandlerState, OAuthStateStore};
 use crate::auth::jwt::SigningKeyPair;
+use crate::auth::oauth::provider::OAuthProvider;
 use crate::auth::service::AuthService;
 use crate::core::clock::Clock;
 use crate::core::notification::NotificationService;
@@ -39,6 +42,8 @@ pub struct AppState {
     pub signing_key_repo: Arc<dyn SigningKeyRepository>,
     pub org_service: Arc<OrgService>,
     pub notification_service: Arc<dyn NotificationService>,
+    pub oauth_providers: HashMap<String, Arc<dyn OAuthProvider>>,
+    pub oauth_state_store: Arc<dyn OAuthStateStore>,
     pub allowed_origins: Vec<String>,
     pub issuer_url: String,
     pub rp_name: String,
@@ -100,5 +105,13 @@ impl AppState {
             auth_service: self.auth_service.clone(),
             master_key: self.master_key,
         }
+    }
+
+    pub fn oauth_handler_state(&self) -> Arc<OAuthHandlerState> {
+        Arc::new(OAuthHandlerState {
+            providers: self.oauth_providers.clone(),
+            state_store: self.oauth_state_store.clone(),
+            auth_service: self.auth_service.clone(),
+        })
     }
 }

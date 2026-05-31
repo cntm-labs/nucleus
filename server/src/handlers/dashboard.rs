@@ -33,7 +33,7 @@ pub async fn handle_create_project(
 
 pub async fn handle_get_project(
     State(state): State<Arc<AppState>>,
-    path: Path<Uuid>,
+    path: Path<String>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     let ds = state.dashboard_state();
     crate::api::handlers::dashboard::handle_get_project(State(ds), path).await
@@ -41,7 +41,7 @@ pub async fn handle_get_project(
 
 pub async fn handle_update_project(
     State(state): State<Arc<AppState>>,
-    path: Path<Uuid>,
+    path: Path<String>,
     Json(req): Json<crate::api::handlers::dashboard::UpdateProjectRequest>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     let ds = state.dashboard_state();
@@ -72,7 +72,7 @@ pub async fn handle_delete_provider() -> Result<axum::http::StatusCode, AppError
 
 pub async fn handle_list_api_keys(
     State(state): State<Arc<AppState>>,
-    path: Path<Uuid>,
+    path: Path<String>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     let ds = state.dashboard_state();
     crate::api::handlers::dashboard::handle_list_api_keys(State(ds), path).await
@@ -80,7 +80,7 @@ pub async fn handle_list_api_keys(
 
 pub async fn handle_create_api_key(
     State(state): State<Arc<AppState>>,
-    path: Path<Uuid>,
+    path: Path<String>,
     Json(req): Json<crate::api::handlers::dashboard::CreateApiKeyRequest>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     let ds = state.dashboard_state();
@@ -89,7 +89,7 @@ pub async fn handle_create_api_key(
 
 pub async fn handle_revoke_api_key(
     State(state): State<Arc<AppState>>,
-    path: Path<(Uuid, Uuid)>,
+    path: Path<(String, Uuid)>,
 ) -> Result<axum::http::StatusCode, AppError> {
     let ds = state.dashboard_state();
     crate::api::handlers::dashboard::handle_revoke_api_key(State(ds), path).await
@@ -101,7 +101,7 @@ pub async fn handle_revoke_api_key(
 
 pub async fn handle_list_signing_keys(
     State(state): State<Arc<AppState>>,
-    path: Path<Uuid>,
+    path: Path<String>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     let ds = state.dashboard_state();
     crate::api::handlers::dashboard::handle_list_signing_keys(State(ds), path).await
@@ -109,7 +109,7 @@ pub async fn handle_list_signing_keys(
 
 pub async fn handle_rotate_signing_key(
     State(state): State<Arc<AppState>>,
-    path: Path<Uuid>,
+    path: Path<String>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     let ds = state.dashboard_state();
     crate::api::handlers::dashboard::handle_rotate_signing_key(State(ds), path).await
@@ -179,7 +179,7 @@ pub async fn handle_get_subscription() -> Result<Json<serde_json::Value>, AppErr
 
 pub async fn handle_list_audit_logs(
     State(state): State<Arc<AppState>>,
-    path: Path<Uuid>,
+    path: Path<String>,
     query: Query<PaginationParams>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     let ds = state.dashboard_state();
@@ -192,7 +192,7 @@ pub async fn handle_list_audit_logs(
 
 pub async fn handle_get_settings(
     State(state): State<Arc<AppState>>,
-    path: Path<Uuid>,
+    path: Path<String>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     let ds = state.dashboard_state();
     crate::api::handlers::dashboard::handle_get_settings(State(ds), path).await
@@ -200,7 +200,7 @@ pub async fn handle_get_settings(
 
 pub async fn handle_update_settings(
     State(state): State<Arc<AppState>>,
-    path: Path<Uuid>,
+    path: Path<String>,
     Json(req): Json<serde_json::Value>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     let ds = state.dashboard_state();

@@ -4,14 +4,14 @@ export function WebhooksPage() {
       <h1 className="text-2xl font-bold mb-6">Webhooks</h1>
       <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
         <div>
-          <label className="block text-sm font-medium mb-1">Webhook URL</label>
-          <input type="url" placeholder="https://your-app.com/api/webhooks/nucleus"
+          <label htmlFor="webhook-url" className="block text-sm font-medium mb-1">Webhook URL</label>
+          <input id="webhook-url" type="url" placeholder="https://your-app.com/api/webhooks/nucleus"
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-nucleus-500 outline-none" />
         </div>
         <div>
-          <label className="block text-sm font-medium mb-1">Signing Secret</label>
+          <label htmlFor="webhook-signing-secret" className="block text-sm font-medium mb-1">Signing Secret</label>
           <div className="flex gap-2">
-            <input type="text" value="whsec_••••••••••••" readOnly
+            <input id="webhook-signing-secret" type="text" value="whsec_••••••••••••" readOnly
               className="flex-1 px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 font-mono text-sm" />
             <button className="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">Rotate</button>
           </div>

@@ -73,7 +73,7 @@ where
 mod tests {
     use super::*;
     use crate::auth::jwt::{JwtService, NucleusClaims};
-    use crate::core::types::{ProjectId, UserId};
+    use crate::core::types::{ProjectId, SessionId, UserId};
     use axum::http::Request;
 
     fn signing_key() -> Arc<SigningKeyPair> {
@@ -83,6 +83,7 @@ mod tests {
     fn build_account_jwt(key: &SigningKeyPair, account_id: AccountId) -> String {
         let claims = JwtService::build_account_claims(
             &account_id,
+            &SessionId::new(),
             "https://nucleus.test",
             300,
             Some("test@example.com".to_string()),
@@ -94,6 +95,7 @@ mod tests {
         let claims = JwtService::build_claims(
             &UserId::new(),
             &ProjectId::new(),
+            &SessionId::new(),
             "https://nucleus.test",
             300,
             Some("user@example.com".to_string()),
@@ -183,6 +185,7 @@ mod tests {
             exp: (chrono::Utc::now() + chrono::Duration::seconds(300)).timestamp(),
             iat: chrono::Utc::now().timestamp(),
             jti: format!("jti_{}", uuid::Uuid::new_v4()),
+            sid: SessionId::new().to_string(),
             kind: Some("user".to_string()),
             email: None,
             first_name: None,

@@ -1,4 +1,4 @@
-use crate::core::error::AppError;
+use crate::core::error::{AppError, AuthError};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
@@ -42,6 +42,69 @@ pub trait HttpClient: Send + Sync {
     async fn get_with_bearer(&self, url: &str, token: &str) -> Result<String, AppError>;
 }
 
+pub struct ReqwestHttpClient {
+    client: reqwest::Client,
+}
+
+impl ReqwestHttpClient {
+    pub fn new() -> Self {
+        Self {
+            client: reqwest::Client::new(),
+        }
+    }
+}
+
+impl Default for ReqwestHttpClient {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[async_trait]
+impl HttpClient for ReqwestHttpClient {
+    async fn post_form(&self, url: &str, params: &[(&str, &str)]) -> Result<String, AppError> {
+        let resp = self
+            .client
+            .post(url)
+            .form(params)
+            .send()
+            .await
+            .map_err(|e| AppError::Internal(e.into()))?;
+
+        if !resp.status().is_success() {
+            let status = resp.status();
+            let body = resp.text().await.unwrap_or_else(|_| "no body".to_string());
+            return Err(AppError::Auth(AuthError::OAuthProviderError(format!(
+                "HTTP {}: {}",
+                status, body
+            ))));
+        }
+
+        resp.text().await.map_err(|e| AppError::Internal(e.into()))
+    }
+
+    async fn get_with_bearer(&self, url: &str, token: &str) -> Result<String, AppError> {
+        let resp = self
+            .client
+            .get(url)
+            .bearer_auth(token)
+            .send()
+            .await
+            .map_err(|e| AppError::Internal(e.into()))?;
+
+        if !resp.status().is_success() {
+            let status = resp.status();
+            let body = resp.text().await.unwrap_or_else(|_| "no body".to_string());
+            return Err(AppError::Auth(AuthError::OAuthProviderError(format!(
+                "HTTP {}: {}",
+                status, body
+            ))));
+        }
+
+        resp.text().await.map_err(|e| AppError::Internal(e.into()))
+    }
+}
+
 /// The core trait that every OAuth provider must implement.
 #[async_trait]
 pub trait OAuthProvider: Send + Sync {
@@ -66,7 +129,6 @@ pub trait OAuthProvider: Send + Sync {
 #[cfg(test)]
 pub mod tests {
     use super::*;
-    use crate::core::error::AuthError;
     use std::collections::HashMap;
     use std::sync::Mutex;
 

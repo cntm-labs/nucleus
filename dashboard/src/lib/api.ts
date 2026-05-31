@@ -121,9 +121,20 @@ export interface ProjectListResponse {
   next_cursor: string | null
 }
 
+export interface ProjectSettings {
+  session_ttl: number
+  jwt_lifetime: number
+  jwt_algorithm: string
+  allowed_origins: string[]
+  settings: Record<string, any>
+}
+
 export const projectsApi = {
   list: () => api.get<ProjectListResponse>('/projects'),
   create: (data: { name: string; slug: string; data_mode?: string }) =>
     api.post<Project>('/projects', data),
   get: (id: string) => api.get<Project>(`/projects/${id}`),
+  getSettings: (id: string) => api.get<ProjectSettings>(`/projects/${id}/settings`),
+  updateSettings: (id: string, settings: Partial<ProjectSettings>) =>
+    api.patch<ProjectSettings>(`/projects/${id}/settings`, settings),
 }
