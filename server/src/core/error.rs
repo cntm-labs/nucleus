@@ -136,6 +136,8 @@ pub struct ErrorBody {
     pub status: u16,
     pub request_id: String,
     pub details: Vec<ValidationDetail>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub metadata: Option<serde_json::Value>,
     pub docs_url: String,
 }
 
@@ -301,6 +303,19 @@ impl AppError {
             _ => vec![],
         };
 
+        let metadata = match self {
+            Self::Auth(AuthError::MfaRequired { mfa_id }) => {
+                Some(serde_json::json!({ "mfa_id": mfa_id }))
+            }
+            Self::Api(ApiError::RateLimited { retry_after_secs }) => {
+                Some(serde_json::json!({ "retry_after_secs": retry_after_secs }))
+            }
+            Self::Api(ApiError::PlanLimitExceeded { limit_type }) => {
+                Some(serde_json::json!({ "limit_type": limit_type }))
+            }
+            _ => None,
+        };
+
         ErrorResponse {
             error: ErrorBody {
                 code: code_str.to_string(),
@@ -308,6 +323,7 @@ impl AppError {
                 status: self.status().as_u16(),
                 request_id: request_id.to_string(),
                 details,
+                metadata,
                 docs_url: format!("https://docs.nucleus.dev/errors/{}", docs_slug),
             },
         }
@@ -457,6 +473,34 @@ mod tests {
         assert_eq!(response.error.details.len(), 1);
         assert_eq!(response.error.details[0].field, "email");
         assert_eq!(response.error.details[0].message, "Invalid email format");
+    }
+
+    #[test]
+    fn mfa_required_includes_metadata() {
+        let err = AppError::Auth(AuthError::MfaRequired {
+            mfa_id: "mfa_123".to_string(),
+        });
+        let response = err.to_response("req_test");
+        let json = serde_json::to_value(&response).unwrap();
+        assert_eq!(json["error"]["metadata"]["mfa_id"], "mfa_123");
+    }
+
+    #[test]
+    fn rate_limited_includes_metadata() {
+        let err = AppError::Api(ApiError::RateLimited {
+            retry_after_secs: 42,
+        });
+        let response = err.to_response("req_test");
+        let json = serde_json::to_value(&response).unwrap();
+        assert_eq!(json["error"]["metadata"]["retry_after_secs"], 42);
+    }
+
+    #[test]
+    fn error_without_metadata_omits_field() {
+        let err = AppError::Auth(AuthError::InvalidCredentials);
+        let response = err.to_response("req_test");
+        let json = serde_json::to_value(&response).unwrap();
+        assert!(json["error"]["metadata"].is_null());
     }
 
     #[test]
