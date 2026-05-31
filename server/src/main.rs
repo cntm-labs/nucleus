@@ -120,6 +120,7 @@ async fn main() -> Result<()> {
     let auth_service = Arc::new(AuthService::new(
         user_repo.clone(),
         credential_repo.clone(),
+        mfa_repo.clone(),
         audit_repo,
         signing_key.clone(),
         config.issuer_url.clone(),

@@ -625,9 +625,11 @@ mod tests {
         cred_repo: Arc<dyn CredentialRepository>,
     ) -> Arc<OAuthHandlerState> {
         let audit_repo: Arc<dyn AuditRepository> = Arc::new(MockAuditRepo);
+        let mfa_repo = Arc::new(crate::auth::service::tests::MockMfaRepo::new());
         let auth_service = Arc::new(crate::auth::service::AuthService::new(
             user_repo,
             cred_repo,
+            mfa_repo,
             audit_repo,
             test_signing_key(),
             "https://nucleus.test".to_string(),

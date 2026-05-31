@@ -4,6 +4,7 @@ use crate::core::error::{AppError, AuthError, UserError};
 use crate::core::types::*;
 use crate::db::repos::audit_repo::{AuditRepository, NewSignInAttempt};
 use crate::db::repos::credential_repo::{CredentialRepository, NewCredential};
+use crate::db::repos::mfa_enrollment_repo::MfaEnrollmentRepository;
 use crate::db::repos::user_repo::{NewUser, User, UserRepository};
 
 use crate::session::SessionService;
@@ -14,6 +15,7 @@ use crate::auth::password::PasswordService;
 pub struct AuthService {
     user_repo: Arc<dyn UserRepository>,
     credential_repo: Arc<dyn CredentialRepository>,
+    mfa_repo: Arc<dyn MfaEnrollmentRepository>,
     audit_repo: Arc<dyn AuditRepository>,
     signing_key: Arc<SigningKeyPair>,
     issuer: String,
@@ -24,6 +26,7 @@ impl AuthService {
     pub fn new(
         user_repo: Arc<dyn UserRepository>,
         credential_repo: Arc<dyn CredentialRepository>,
+        mfa_repo: Arc<dyn MfaEnrollmentRepository>,
         audit_repo: Arc<dyn AuditRepository>,
         signing_key: Arc<SigningKeyPair>,
         issuer: String,
@@ -32,6 +35,7 @@ impl AuthService {
         Self {
             user_repo,
             credential_repo,
+            mfa_repo,
             audit_repo,
             signing_key,
             issuer,
@@ -161,7 +165,28 @@ impl AuthService {
             return Err(AppError::Auth(AuthError::InvalidCredentials));
         }
 
-        // 6. Log successful attempt
+        // 6. Check for active MFA enrollments
+        let mfa_methods = self.mfa_repo.list_active_by_user(user.id.0).await?;
+        if !mfa_methods.is_empty() {
+            self.log_sign_in_attempt(
+                project_id,
+                Some(&user.id),
+                "password",
+                "mfa_required",
+                None,
+                ip.as_deref(),
+                user_agent.as_deref(),
+            )
+            .await;
+
+            // For now, we just indicate MFA is required.
+            // In a more advanced flow, we might return which methods are available.
+            return Err(AppError::Auth(AuthError::MfaRequired {
+                mfa_id: mfa_methods[0].id.to_string(),
+            }));
+        }
+
+        // 7. Log successful attempt
         self.log_sign_in_attempt(
             project_id,
             Some(&user.id),
@@ -173,7 +198,7 @@ impl AuthService {
         )
         .await;
 
-        // 7. Build JWT
+        // 8. Build JWT
         let jwt = self.issue_jwt(&user, project_id)?;
 
         Ok((user, jwt))
@@ -577,6 +602,105 @@ pub(crate) mod tests {
         }
     }
 
+    // ── Mock MfaEnrollmentRepository ─────────────────────────────────
+
+    pub(crate) struct MockMfaRepo {
+        enrollments: Mutex<Vec<crate::db::repos::mfa_enrollment_repo::MfaEnrollment>>,
+    }
+
+    impl MockMfaRepo {
+        pub(crate) fn new() -> Self {
+            Self {
+                enrollments: Mutex::new(Vec::new()),
+            }
+        }
+    }
+
+    #[async_trait]
+    impl crate::db::repos::mfa_enrollment_repo::MfaEnrollmentRepository for MockMfaRepo {
+        async fn create(
+            &self,
+            user_id: uuid::Uuid,
+            mfa_type: &str,
+            secret_enc: Option<&str>,
+            backup_codes_enc: Option<&str>,
+        ) -> Result<crate::db::repos::mfa_enrollment_repo::MfaEnrollment, AppError> {
+            let enrollment = crate::db::repos::mfa_enrollment_repo::MfaEnrollment {
+                id: uuid::Uuid::new_v4(),
+                user_id,
+                mfa_type: mfa_type.to_string(),
+                secret_enc: secret_enc.map(|s| s.to_string()),
+                phone: None,
+                backup_codes_enc: backup_codes_enc.map(|s| s.to_string()),
+                verified: false,
+                last_used_at: None,
+                created_at: Utc::now(),
+                updated_at: Utc::now(),
+            };
+            self.enrollments.lock().unwrap().push(enrollment.clone());
+            Ok(enrollment)
+        }
+
+        async fn find_active_by_user(
+            &self,
+            user_id: uuid::Uuid,
+            mfa_type: &str,
+        ) -> Result<Option<crate::db::repos::mfa_enrollment_repo::MfaEnrollment>, AppError>
+        {
+            let enrollments = self.enrollments.lock().unwrap();
+            Ok(enrollments
+                .iter()
+                .find(|e| e.user_id == user_id && e.mfa_type == mfa_type && e.verified)
+                .cloned())
+        }
+
+        async fn list_active_by_user(
+            &self,
+            user_id: uuid::Uuid,
+        ) -> Result<Vec<crate::db::repos::mfa_enrollment_repo::MfaEnrollment>, AppError> {
+            let enrollments = self.enrollments.lock().unwrap();
+            Ok(enrollments
+                .iter()
+                .filter(|e| e.user_id == user_id && e.verified)
+                .cloned()
+                .collect())
+        }
+
+        async fn mark_verified(&self, id: uuid::Uuid) -> Result<(), AppError> {
+            let mut enrollments = self.enrollments.lock().unwrap();
+            if let Some(e) = enrollments.iter_mut().find(|e| e.id == id) {
+                e.verified = true;
+            }
+            Ok(())
+        }
+
+        async fn update_backup_codes(
+            &self,
+            id: uuid::Uuid,
+            backup_codes_enc: &str,
+        ) -> Result<(), AppError> {
+            let mut enrollments = self.enrollments.lock().unwrap();
+            if let Some(e) = enrollments.iter_mut().find(|e| e.id == id) {
+                e.backup_codes_enc = Some(backup_codes_enc.to_string());
+            }
+            Ok(())
+        }
+
+        async fn update_last_used(&self, id: uuid::Uuid) -> Result<(), AppError> {
+            let mut enrollments = self.enrollments.lock().unwrap();
+            if let Some(e) = enrollments.iter_mut().find(|e| e.id == id) {
+                e.last_used_at = Some(Utc::now());
+            }
+            Ok(())
+        }
+
+        async fn delete(&self, id: uuid::Uuid) -> Result<(), AppError> {
+            let mut enrollments = self.enrollments.lock().unwrap();
+            enrollments.retain(|e| e.id != id);
+            Ok(())
+        }
+    }
+
     // ── Helpers ──────────────────────────────────────────────────────
 
     use crate::auth::jwt::JwtService;
@@ -590,9 +714,11 @@ pub(crate) mod tests {
         cred_repo: Arc<dyn CredentialRepository>,
         audit_repo: Arc<dyn AuditRepository>,
     ) -> AuthService {
+        let mfa_repo = Arc::new(MockMfaRepo::new());
         AuthService::new(
             user_repo,
             cred_repo,
+            mfa_repo,
             audit_repo,
             test_signing_key(),
             "https://nucleus.test".to_string(),
@@ -1024,6 +1150,57 @@ pub(crate) mod tests {
     }
 
     // ── Refresh / sign-out tests ────────────────────────────────────
+
+    #[tokio::test]
+    async fn sign_in_with_mfa_enabled_returns_mfa_required() {
+        let project_id = ProjectId::new();
+        let user = make_test_user(&project_id);
+        let user_repo = Arc::new(MockUserRepo::with_user(user.clone()));
+        let cred_repo = Arc::new(MockCredentialRepo::new());
+        let mfa_repo = Arc::new(MockMfaRepo::new());
+        let audit_repo = Arc::new(MockAuditRepo::new());
+
+        let service = AuthService::new(
+            user_repo.clone(),
+            cred_repo.clone(),
+            mfa_repo.clone(),
+            audit_repo.clone(),
+            test_signing_key(),
+            "https://nucleus.test".to_string(),
+            3600,
+        );
+
+        let password = "CorrectPassword123!";
+        cred_repo
+            .credentials
+            .lock()
+            .unwrap()
+            .push(make_password_credential(&user.id, password));
+
+        // Enable MFA for this user
+        mfa_repo
+            .create(user.id.0, "totp", Some("encrypted-secret"), None)
+            .await
+            .unwrap();
+        let enrollment = mfa_repo.enrollments.lock().unwrap()[0].clone();
+        mfa_repo.mark_verified(enrollment.id).await.unwrap();
+
+        let result = service
+            .sign_in(&project_id, &user.email, password, None, None)
+            .await;
+
+        match result {
+            Err(AppError::Auth(AuthError::MfaRequired { mfa_id })) => {
+                assert_eq!(mfa_id, enrollment.id.to_string());
+            }
+            _ => panic!("Expected MfaRequired error, got {:?}", result),
+        }
+
+        // Verify it was logged as mfa_required
+        let attempts = audit_repo.attempts();
+        assert_eq!(attempts.len(), 1);
+        assert_eq!(attempts[0].status, "mfa_required");
+    }
 
     #[tokio::test]
     async fn refresh_token_with_valid_session() {

@@ -50,6 +50,8 @@ pub trait MfaEnrollmentRepository: Send + Sync {
         mfa_type: &str,
     ) -> Result<Option<MfaEnrollment>, AppError>;
 
+    async fn list_active_by_user(&self, user_id: Uuid) -> Result<Vec<MfaEnrollment>, AppError>;
+
     async fn mark_verified(&self, id: Uuid) -> Result<(), AppError>;
 
     async fn update_backup_codes(&self, id: Uuid, backup_codes_enc: &str) -> Result<(), AppError>;
@@ -120,6 +122,25 @@ impl MfaEnrollmentRepository for PgMfaEnrollmentRepository {
             )),
             None => Ok(None),
         }
+    }
+
+    async fn list_active_by_user(&self, user_id: Uuid) -> Result<Vec<MfaEnrollment>, AppError> {
+        let rows = sqlx::query(
+            r#"
+            SELECT id, user_id, mfa_type::text, secret_enc, phone, backup_codes_enc, verified, last_used_at, created_at, updated_at
+            FROM mfa_enrollments
+            WHERE user_id = $1 AND verified = true
+            ORDER BY created_at ASC
+            "#,
+        )
+        .bind(user_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| AppError::Internal(e.into()))?;
+
+        rows.iter()
+            .map(|r| enrollment_from_row(r).map_err(|e| AppError::Internal(e.into())))
+            .collect()
     }
 
     async fn mark_verified(&self, id: Uuid) -> Result<(), AppError> {
